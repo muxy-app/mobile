@@ -57,6 +57,7 @@ fun SettingsScreen(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
+                modifier = Modifier.padding(horizontal = 4.dp),
                 title = { Text("Settings") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {

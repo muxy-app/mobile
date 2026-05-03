@@ -1,6 +1,7 @@
 package com.muxy.app.ui.connect
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -55,6 +56,7 @@ fun ConnectScreen(viewModel: ConnectionViewModel, onOpenSettings: () -> Unit = {
     Scaffold(
         topBar = {
             TopAppBar(
+                modifier = Modifier.padding(start = 4.dp, end = 8.dp),
                 title = { Text("Devices") },
                 navigationIcon = {
                     IconButton(onClick = onOpenSettings) {
@@ -121,17 +123,14 @@ private fun DeviceRow(device: SavedDevice, onClick: () -> Unit, onDelete: () -> 
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier
             .weight(1f)
+            .clickable(onClick = onClick)
             .padding(end = 8.dp)) {
-            TextButton(onClick = onClick, contentPadding = PaddingValues(0.dp)) {
-                Column(horizontalAlignment = Alignment.Start) {
-                    Text(device.name, style = MaterialTheme.typography.bodyLarge)
-                    Text(
-                        "${device.host}:${device.port}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
+            Text(device.name, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                "${device.host}:${device.port}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
         IconButton(onClick = onDelete) {
             Icon(Icons.Filled.Delete, contentDescription = "Delete")

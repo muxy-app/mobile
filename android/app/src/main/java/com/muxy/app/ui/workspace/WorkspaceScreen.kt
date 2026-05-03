@@ -78,6 +78,7 @@ fun WorkspaceScreen(viewModel: ConnectionViewModel) {
         containerColor = palette.background,
         topBar = {
             TopAppBar(
+                modifier = Modifier.padding(start = 4.dp, end = 8.dp),
                 title = { Text(activeProject?.name.orEmpty(), color = palette.foreground) },
                 navigationIcon = {
                     IconButton(onClick = { viewModel.session.clearActiveProject() }) {

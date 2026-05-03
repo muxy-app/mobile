@@ -54,8 +54,8 @@ import kotlinx.coroutines.launch
 
 /** Sticky single-slot modifier state matching iOS TerminalAccessoryModel. */
 class AccessoryState {
-    var active: AccessoryModifier = AccessoryModifier.CTRL
-    var armed: Boolean = false
+    var active: AccessoryModifier by mutableStateOf(AccessoryModifier.CTRL)
+    var armed: Boolean by mutableStateOf(false)
 
     fun toggleArm() { armed = !armed }
     fun selectModifier(m: AccessoryModifier) { active = m; armed = false }
@@ -81,9 +81,7 @@ fun AccessoryBar(
     onToggleKeyboard: () -> Unit,
 ) {
     val scroll = rememberScrollState()
-    var armedTrigger by remember { mutableStateOf(0) }
     val active = state.active
-    @Suppress("UNUSED_VARIABLE") val armed = state.armed.also { armedTrigger }
 
     Row(
         Modifier
@@ -107,8 +105,8 @@ fun AccessoryBar(
         ) {
             Key("esc", foreground) { onSendBytes(byteArrayOf(0x1B)) }
             ModifierKey(active = active, armed = state.armed, foreground = foreground, background = background,
-                onTap = { state.toggleArm(); armedTrigger++ },
-                onSelect = { state.selectModifier(it); armedTrigger++ })
+                onTap = { state.toggleArm() },
+                onSelect = { state.selectModifier(it) })
             Key("tab", foreground) { onSendBytes(byteArrayOf(0x09)) }
             IconKey(Icons.Filled.ContentPaste, foreground, "Paste") { onPaste() }
             IconKey(Icons.Filled.ContentCopy, if (canCopy) foreground else foreground.copy(alpha = 0.4f), "Copy") {

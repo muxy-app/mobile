@@ -63,6 +63,7 @@ fun ProjectsScreen(viewModel: ConnectionViewModel) {
         containerColor = palette.background,
         topBar = {
             TopAppBar(
+                modifier = Modifier.padding(start = 4.dp, end = 8.dp),
                 title = { Text("Projects", color = palette.foreground) },
                 actions = {
                     IconButton(onClick = { viewModel.disconnect() }) {
