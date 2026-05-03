@@ -15,7 +15,7 @@ on:
 jobs:
   checks:
     name: iOS Checks
-    runs-on: macos-26
+    runs-on: macos-latest
     defaults:
       run:
         working-directory: ios
@@ -49,6 +49,9 @@ jobs:
 
       - name: Linting
         run: swiftlint lint --strict --quiet
+
+      - name: Select Xcode 26
+        run: sudo xcode-select -s /Applications/Xcode_26.0.1.app
 
       - name: Build (iOS Simulator)
         run: xcodebuild -project MuxyMobile.xcodeproj -scheme MuxyMobile -destination "generic/platform=iOS Simulator" -quiet build
