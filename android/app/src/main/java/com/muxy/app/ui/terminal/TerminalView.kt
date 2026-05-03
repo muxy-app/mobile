@@ -29,6 +29,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -78,12 +79,19 @@ fun TerminalView(
 
     val typeface = remember { resolveTypeface(context) }
 
-    var pane by remember { mutableStateOf<PaneSession?>(null) }
+    var pane by remember(paneID) { mutableStateOf<PaneSession?>(null) }
     val sessionClient = remember { MuxyTerminalSessionClient(context) }
     val viewClient = remember { MuxyTerminalViewClient() }
     val accessory = remember { AccessoryState() }
     val termSession = remember(paneID) { mutableStateOf<MuxyTerminalSession?>(null) }
-    val termViewRef = remember { mutableStateOf<TermuxTerminalView?>(null) }
+    val termViewRef = remember(paneID) { mutableStateOf<TermuxTerminalView?>(null) }
+    sessionClient.onTextChanged = {
+        // Termux's notifyScreenUpdate only forwards a callback; it does not
+        // schedule a draw. Without this, bytes appended after takeover are
+        // visible only after the next user gesture forces invalidate().
+        termViewRef.value?.let { v -> v.post { v.invalidate() } }
+    }
+    val sizeReporter = remember(paneID) { SizeReporter() }
 
     @OptIn(ExperimentalLayoutApi::class)
     val keyboardVisible = WindowInsets.isImeVisible
@@ -145,30 +153,42 @@ fun TerminalView(
             .imePadding(),
     ) {
         Box(Modifier.weight(1f).fillMaxWidth()) {
-            AndroidView(
-                modifier = Modifier.fillMaxSize(),
-                factory = { ctx ->
-                    TermuxTerminalView(ctx, null).apply {
-                        setTerminalViewClient(viewClient)
-                        setTextSize(spToPx(ctx, FONT_SIZE_SP).toInt())
-                        setTypeface(typeface)
-                        termSession.value?.let { attachSession(it) }
-                        applyTheme(this, theme?.fg, theme?.bg, theme?.palette)
-                        addOnLayoutChangeListener(SizeReporter(pane) { c, r ->
+            // key(paneID): force a fresh AndroidView per tab so the termux
+            // TerminalView is bound to exactly one MuxyTerminalSession for its
+            // lifetime. Reusing the same View across tab switches leaves the
+            // old session's emulator visible and breaks size reporting.
+            key(paneID) {
+                AndroidView(
+                    modifier = Modifier.fillMaxSize(),
+                    factory = { ctx ->
+                        TermuxTerminalView(ctx, null).apply {
+                            setTerminalViewClient(viewClient)
+                            setTextSize(spToPx(ctx, FONT_SIZE_SP).toInt())
+                            setTypeface(typeface)
+                            termSession.value?.let { attachSession(it) }
+                            applyTheme(this, theme?.fg, theme?.bg, theme?.palette)
+                            sizeReporter.attach(this) { c, r ->
+                                measuredCols = c
+                                measuredRows = r
+                                pane?.resize(c, r)
+                            }
+                            termViewRef.value = this
+                        }
+                    },
+                    update = { view ->
+                        termSession.value?.let { view.attachSession(it) }
+                        applyTheme(view, theme?.fg, theme?.bg, theme?.palette)
+                        sizeReporter.attach(view) { c, r ->
                             measuredCols = c
                             measuredRows = r
-                        })
-                        termViewRef.value = this
-                    }
-                },
-                update = { view ->
-                    termSession.value?.let { view.attachSession(it) }
-                    applyTheme(view, theme?.fg, theme?.bg, theme?.palette)
-                    view.alpha = if (isOwnedBySelf) 1f else 0f
-                    view.isFocusable = isOwnedBySelf
-                    view.isFocusableInTouchMode = isOwnedBySelf
-                },
-            )
+                            pane?.resize(c, r)
+                        }
+                        view.alpha = if (isOwnedBySelf) 1f else 0f
+                        view.isFocusable = isOwnedBySelf
+                        view.isFocusableInTouchMode = isOwnedBySelf
+                    },
+                )
+            }
 
             if (!isOwnedBySelf && owner != null) {
                 TakeOverOverlay(
@@ -177,8 +197,13 @@ fun TerminalView(
                     background = palette.background,
                     onTakeOver = {
                         val p = pane ?: return@TakeOverOverlay
-                        val c = measuredCols ?: return@TakeOverOverlay
-                        val r = measuredRows ?: return@TakeOverOverlay
+                        // Prefer the termux view's actual size; fall back to the
+                        // last reported value, then to a sane default. Without a
+                        // fallback the button is dead until layout reports.
+                        val view = termViewRef.value
+                        val emulator = view?.mEmulator
+                        val c = emulator?.mColumns?.takeIf { it > 0 } ?: measuredCols ?: 80
+                        val r = emulator?.mRows?.takeIf { it > 0 } ?: measuredRows ?: 24
                         scope.launch {
                             termSession.value?.resetEmulatorScreen()
                             p.takeOver(c, r)
@@ -221,18 +246,36 @@ fun TerminalView(
     }
 }
 
-private class SizeReporter(
-    private val pane: PaneSession?,
-    private val onSize: (Int, Int) -> Unit,
-) : View.OnLayoutChangeListener {
+/**
+ * Forwards the termux view's actual cols/rows back to Compose state and to
+ * [PaneSession.resize]. Re-attached from `update {}` on every recomposition so
+ * the first valid size is reported immediately (the OnLayoutChangeListener
+ * alone only fires on geometry changes — not when the emulator finally
+ * initializes after `attachSession`).
+ */
+private class SizeReporter {
     private var lastCols = 0
     private var lastRows = 0
+    private var attached: View? = null
+    private var callback: ((Int, Int) -> Unit)? = null
+    private val listener = View.OnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
+        report(v as TermuxTerminalView)
+    }
 
-    override fun onLayoutChange(
-        v: View, left: Int, top: Int, right: Int, bottom: Int,
-        oldLeft: Int, oldTop: Int, oldRight: Int, oldBottom: Int,
-    ) {
-        val view = v as? TermuxTerminalView ?: return
+    fun attach(view: TermuxTerminalView, onSize: (Int, Int) -> Unit) {
+        callback = onSize
+        if (attached === view) {
+            report(view)
+            return
+        }
+        attached?.removeOnLayoutChangeListener(listener)
+        view.removeOnLayoutChangeListener(listener)
+        view.addOnLayoutChangeListener(listener)
+        attached = view
+        report(view)
+    }
+
+    private fun report(view: TermuxTerminalView) {
         val emulator = view.mEmulator ?: return
         val cols = emulator.mColumns
         val rows = emulator.mRows
@@ -240,8 +283,7 @@ private class SizeReporter(
         if (cols == lastCols && rows == lastRows) return
         lastCols = cols
         lastRows = rows
-        onSize(cols, rows)
-        pane?.resize(cols, rows)
+        callback?.invoke(cols, rows)
     }
 }
 
