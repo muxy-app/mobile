@@ -20,5 +20,9 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "MuxyMobile"
+rootProject.name = "Muxy"
+
 include(":app")
+include(":protocol")
+include(":net")
+include(":terminal")
