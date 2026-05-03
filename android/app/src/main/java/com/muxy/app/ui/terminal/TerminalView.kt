@@ -152,7 +152,18 @@ fun TerminalView(
         if (isOwnedBySelf) ownershipConfirmedOnce = true
     }
 
-    LaunchedEffect(paneID, pane, measuredCols, measuredRows) {
+    // Reset the takeover guard whenever the pane has no known owner (e.g.
+    // right after a reconnect cleared paneOwners). Without this, the
+    // already-mounted TerminalView keeps `autoTakenPaneID == paneID` from its
+    // initial mount and never re-takes — the surface stays at alpha=0 with no
+    // overlay (overlay requires owner != null), producing a blank screen.
+    LaunchedEffect(owner) {
+        if (owner == null && autoTakenPaneID == paneID && !isOwnedBySelf) {
+            autoTakenPaneID = null
+        }
+    }
+
+    LaunchedEffect(paneID, pane, measuredCols, measuredRows, owner) {
         val p = pane ?: return@LaunchedEffect
         val c = measuredCols ?: return@LaunchedEffect
         val r = measuredRows ?: return@LaunchedEffect
@@ -160,8 +171,12 @@ fun TerminalView(
         // Auto-takeover policy:
         //  - If the user just opened a project or switched tabs, takeover
         //    silently regardless of current owner (userInitiatedMount).
-        //  - Otherwise, never auto-takeover from the Mac — the user must tap
-        //    "Take Over" in the overlay.
+        //  - If we don't know the owner yet (post-reconnect, before the
+        //    server has re-broadcast paneOwnershipChanged), silently re-take.
+        //    Otherwise the user is stuck on a blank screen until they switch
+        //    tabs.
+        //  - If the Mac currently owns it on a non-user-initiated mount,
+        //    require explicit "Take Over" via the overlay.
         if (!userInitiatedMount && owner is PaneOwner.Mac) {
             autoTakenPaneID = paneID // suppress further attempts for this mount
             return@LaunchedEffect
@@ -218,12 +233,21 @@ fun TerminalView(
             // Suppress overlay only during the brief silent-takeover handshake:
             // user-initiated mount, takeover RPC sent, but server hasn't yet
             // confirmed us as owner. Once confirmed once, normal overlay rules
-            // apply — including showing it when the Mac steals back.
+            // apply. If the owner is already known to be the Mac, never
+            // suppress — otherwise a Mac steal-back that races our pending
+            // takeover leaves the screen blank with no way to recover.
             val suppressOverlay =
-                userInitiatedMount && autoTakenPaneID == paneID && !ownershipConfirmedOnce
-            if (!isOwnedBySelf && owner != null && !suppressOverlay) {
+                userInitiatedMount && autoTakenPaneID == paneID &&
+                    !ownershipConfirmedOnce && owner !is PaneOwner.Mac
+            // Show the overlay whenever we're not the owner and aren't in the
+            // brief silent-takeover handshake. owner == null is treated like
+            // an unknown remote owner (post-reconnect race) so the user always
+            // has a recovery path instead of a blank screen.
+            if (!isOwnedBySelf && !suppressOverlay && ownershipConfirmedOnce.let { confirmed ->
+                    owner != null || confirmed
+                }) {
                 TakeOverOverlay(
-                    ownerName = owner.displayName,
+                    ownerName = owner?.displayName ?: "Mac",
                     foreground = palette.foreground,
                     background = palette.background,
                     onTakeOver = {
