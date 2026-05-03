@@ -79,6 +79,15 @@ class PaneSession(
     private var eventJob: Job? = null
 
     /**
+     * When set, incoming PTY bytes are forwarded here instead of being appended
+     * to this PaneSession's own [emulator]. The new termux-backed TerminalView
+     * owns its own [com.termux.terminal.TerminalSession] and emulator, so we
+     * avoid double-rendering by routing bytes there.
+     */
+    @Volatile
+    var byteSink: ((ByteArray) -> Unit)? = null
+
+    /**
      * Send `takeOverPane` with the given size. Mirrors iOS's
      * `attemptAutoTakeOver` and `takeOverCurrentPane` — both call sites pass
      * the surface's measured cols/rows so the Mac sizes the PTY correctly on
@@ -186,6 +195,11 @@ class PaneSession(
         }
         if (out.paneID != paneID) return
         val bytes = runCatching { Base64.decode(out.bytes, Base64.DEFAULT) }.getOrNull() ?: return
+        val sink = byteSink
+        if (sink != null) {
+            sink(bytes)
+            return
+        }
         synchronized(emulator) {
             emulator.append(bytes, bytes.size)
         }

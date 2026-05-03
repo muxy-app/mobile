@@ -12,9 +12,11 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Tab
 import androidx.compose.material.icons.filled.Terminal
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -23,6 +25,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -67,6 +70,9 @@ fun WorkspaceScreen(viewModel: ConnectionViewModel) {
     var showBranches by remember { mutableStateOf(false) }
     var showWorktrees by remember { mutableStateOf(false) }
     var showTabs by remember { mutableStateOf(false) }
+    var pendingClose by remember { mutableStateOf<AreaTab?>(null) }
+
+    val tabsList = remember(workspace) { areas.flatMap { area -> area.tabs.map { AreaTab(area, it) } } }
 
     Scaffold(
         containerColor = palette.background,
@@ -93,37 +99,26 @@ fun WorkspaceScreen(viewModel: ConnectionViewModel) {
                         IconButton(onClick = { showTabs = true }) {
                             Icon(Icons.Filled.Tab, contentDescription = "Tabs", tint = palette.foreground)
                         }
-                        DropdownMenu(expanded = showTabs, onDismissRequest = { showTabs = false }) {
-                            areas.forEach { area ->
-                                area.tabs.forEach { tab ->
-                                    DropdownMenuItem(
-                                        text = { Text(shortTitle(tab.title)) },
-                                        leadingIcon = {
-                                            if (tab.id == activeTab?.id) {
-                                                Icon(Icons.Filled.Check, contentDescription = null)
-                                            } else {
-                                                Icon(iconForKind(tab.kind), contentDescription = null)
-                                            }
-                                        },
-                                        onClick = {
-                                            showTabs = false
-                                            scope.launch {
-                                                viewModel.session.selectTab(activeID!!, area.id, tab.id)
-                                            }
-                                        },
-                                    )
+                        TabPickerMenu(
+                            expanded = showTabs,
+                            onDismiss = { showTabs = false },
+                            entries = tabsList,
+                            activeTabID = activeTab?.id,
+                            onTabSelected = { entry ->
+                                showTabs = false
+                                scope.launch {
+                                    viewModel.session.selectTab(activeID!!, entry.area.id, entry.tab.id)
                                 }
-                            }
-                            HorizontalDivider()
-                            DropdownMenuItem(
-                                text = { Text("New Terminal") },
-                                leadingIcon = { Icon(Icons.Filled.Add, contentDescription = null) },
-                                onClick = {
-                                    showTabs = false
-                                    scope.launch { viewModel.session.createTab(activeID!!) }
-                                },
-                            )
-                        }
+                            },
+                            onTabClose = { entry ->
+                                showTabs = false
+                                pendingClose = entry
+                            },
+                            onNewTerminal = {
+                                showTabs = false
+                                scope.launch { viewModel.session.createTab(activeID!!) }
+                            },
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -156,10 +151,89 @@ fun WorkspaceScreen(viewModel: ConnectionViewModel) {
     if (showWorktrees && activeID != null) {
         WorktreesSheet(viewModel, activeID!!) { showWorktrees = false }
     }
+
+    pendingClose?.let { entry ->
+        val labels = remember(tabsList) { disambiguateLabels(tabsList) }
+        val label = remember(tabsList, entry) {
+            tabsList.indexOf(entry).takeIf { it >= 0 }?.let { labels[it] } ?: shortTitle(entry.tab.title)
+        }
+        AlertDialog(
+            onDismissRequest = { pendingClose = null },
+            title = { Text("Close \"$label\"?") },
+            text = { Text("This ends any running process in the tab.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    pendingClose = null
+                    scope.launch {
+                        viewModel.session.closeTab(activeID!!, entry.area.id, entry.tab.id)
+                    }
+                }) { Text("Close") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingClose = null }) { Text("Cancel") }
+            },
+        )
+    }
+}
+
+private data class AreaTab(val area: TabAreaDTO, val tab: TabDTO)
+
+@Composable
+private fun TabPickerMenu(
+    expanded: Boolean,
+    onDismiss: () -> Unit,
+    entries: List<AreaTab>,
+    activeTabID: String?,
+    onTabSelected: (AreaTab) -> Unit,
+    onTabClose: (AreaTab) -> Unit,
+    onNewTerminal: () -> Unit,
+) {
+    val labels = remember(entries) { disambiguateLabels(entries) }
+    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
+        entries.forEachIndexed { index, entry ->
+            DropdownMenuItem(
+                text = { Text(labels[index]) },
+                leadingIcon = {
+                    if (entry.tab.id == activeTabID) {
+                        Icon(Icons.Filled.Check, contentDescription = null)
+                    } else {
+                        Icon(iconForKind(entry.tab.kind), contentDescription = null)
+                    }
+                },
+                trailingIcon = {
+                    IconButton(onClick = { onTabClose(entry) }) {
+                        Icon(
+                            imageVector = Icons.Filled.Close,
+                            contentDescription = "Close ${labels[index]}",
+                        )
+                    }
+                },
+                onClick = { onTabSelected(entry) },
+            )
+        }
+        if (entries.isNotEmpty()) HorizontalDivider()
+        DropdownMenuItem(
+            text = { Text("New Terminal") },
+            leadingIcon = { Icon(Icons.Filled.Add, contentDescription = null) },
+            onClick = onNewTerminal,
+        )
+    }
 }
 
 private fun shortTitle(title: String): String =
     title.split('/').lastOrNull { it.isNotEmpty() } ?: title
+
+private fun disambiguateLabels(entries: List<AreaTab>): List<String> {
+    val shorts = entries.map { shortTitle(it.tab.title) }
+    val counts = shorts.groupingBy { it }.eachCount()
+    val seen = mutableMapOf<String, Int>()
+    return shorts.map { short ->
+        if ((counts[short] ?: 0) <= 1) return@map short
+        val n = (seen[short] ?: 0) + 1
+        seen[short] = n
+        "$short ($n)"
+    }
+}
 
 @Composable
 private fun iconForKind(kind: TabKindDTO) = when (kind) {
