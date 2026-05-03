@@ -1,5 +1,5 @@
 included:
-  - Muxy
+  - MuxyMobile
 
 excluded:
   - .build

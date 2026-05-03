@@ -331,6 +331,7 @@ final class ModifierKeyHostView: UIView {
         addGestureRecognizer(tap)
     }
 
+    // swiftlint:disable:next function_parameter_count
     func configure(
         active: TerminalModifier,
         armed: Bool,

@@ -20,6 +20,7 @@ struct ConnectionDiagnostics {
         log.removeAll()
     }
 
+    // swiftlint:disable:next function_parameter_count
     func makeIssue(
         message: String,
         operation: String,

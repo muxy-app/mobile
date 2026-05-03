@@ -44,6 +44,7 @@ enum ProjectIconColor {
         return palette.first { $0.hex.caseInsensitiveCompare(identifier) == .orderedSame }
     }
 
+    // swiftlint:disable:next large_tuple
     static func rgb(fromHex hex: String) -> (Double, Double, Double)? {
         var normalized = hex.trimmingCharacters(in: .whitespacesAndNewlines)
         if normalized.hasPrefix("#") { normalized.removeFirst() }

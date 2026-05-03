@@ -355,8 +355,10 @@ final class MuxySwiftTermView: SwiftTerm.TerminalView {
         let value = scalar.value
         switch value {
         case 0x40 ... 0x5F:
+            // swiftlint:disable:next force_unwrapping
             return String(UnicodeScalar(value - 0x40)!)
         case 0x61 ... 0x7A:
+            // swiftlint:disable:next force_unwrapping
             return String(UnicodeScalar(value - 0x60)!)
         case 0x20:
             return "\u{00}"

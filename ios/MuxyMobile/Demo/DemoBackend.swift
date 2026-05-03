@@ -17,6 +17,7 @@ final class DemoBackend {
         ]
     )
 
+    // swiftlint:disable:next force_unwrapping
     static let myClientID = UUID(uuidString: "00000000-0000-0000-0000-00000000C11D")!
 
     weak var owner: ConnectionManager?
@@ -36,6 +37,7 @@ final class DemoBackend {
         )
         savedDevices = [seedDevice]
 
+        // swiftlint:disable force_unwrapping
         let muxyID = UUID(uuidString: "11111111-1111-1111-1111-111111111111")!
         let webID = UUID(uuidString: "22222222-2222-2222-2222-222222222222")!
         let now = Date()
@@ -87,6 +89,7 @@ final class DemoBackend {
             isPrimary: true,
             createdAt: now
         )
+        // swiftlint:enable force_unwrapping
 
         worktreesByProject = [
             muxyID: [muxyMainWT, muxyFeatureWT],
@@ -348,7 +351,7 @@ final class DemoBackend {
             }
             let stagedAll = p.stageAll ? status.stagedFiles + status.changedFiles : status.stagedFiles
             let changed = p.stageAll ? [] : status.changedFiles
-            let _ = stagedAll
+            _ = stagedAll
             status = VCSStatusDTO(
                 branch: status.branch, aheadCount: status.aheadCount + 1, behindCount: status.behindCount,
                 hasUpstream: status.hasUpstream, stagedFiles: [], changedFiles: changed,
