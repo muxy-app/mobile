@@ -1,16 +1,16 @@
 import Foundation
 
-public struct ProjectDTO: Identifiable, Codable, Hashable, Sendable {
-    public let id: UUID
-    public var name: String
-    public var path: String
-    public var sortOrder: Int
-    public var createdAt: Date
-    public var icon: String?
-    public var logo: String?
-    public var iconColor: String?
+struct ProjectDTO: Identifiable, Codable, Hashable {
+    let id: UUID
+    var name: String
+    var path: String
+    var sortOrder: Int
+    var createdAt: Date
+    var icon: String?
+    var logo: String?
+    var iconColor: String?
 
-    public init(
+    init(
         id: UUID,
         name: String,
         path: String,

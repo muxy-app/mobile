@@ -22,7 +22,21 @@
 		A100000D /* WorktreesSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000012 /* WorktreesSheet.swift */; };
 		A100000E /* CreatePRSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000013 /* CreatePRSheet.swift */; };
 		A100000F /* DemoBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000014 /* DemoBackend.swift */; };
-		A1000010 /* MuxyShared in Frameworks */ = {isa = PBXBuildFile; productRef = A4000001 /* MuxyShared */; };
+		A1000030 /* DeviceTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000030 /* DeviceTheme.swift */; };
+		A1000031 /* SavedDevicesStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000031 /* SavedDevicesStore.swift */; };
+		A1000032 /* ConnectionDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000032 /* ConnectionDiagnostics.swift */; };
+		A1000033 /* TerminalSurfaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000033 /* TerminalSurfaceView.swift */; };
+		A1000034 /* TerminalAccessoryBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000034 /* TerminalAccessoryBar.swift */; };
+		A1000035 /* TerminalAccessoryModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000035 /* TerminalAccessoryModifier.swift */; };
+		A1000040 /* MuxyMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000040 /* MuxyMessage.swift */; };
+		A1000041 /* MuxyProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000041 /* MuxyProtocol.swift */; };
+		A1000042 /* ProtocolParams.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000042 /* ProtocolParams.swift */; };
+		A1000043 /* ProjectDTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000043 /* ProjectDTO.swift */; };
+		A1000044 /* ProjectIconColor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000044 /* ProjectIconColor.swift */; };
+		A1000045 /* WorkspaceDTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000045 /* WorkspaceDTO.swift */; };
+		A1000046 /* WorktreeDTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000046 /* WorktreeDTO.swift */; };
+		A1000047 /* VCSStatusDTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000047 /* VCSStatusDTO.swift */; };
+		A1000048 /* NotificationDTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000048 /* NotificationDTO.swift */; };
 		A1000011 /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = A4000002 /* SwiftTerm */; };
 		A1000020 /* JetBrainsMonoNerdFontMono-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A200000A /* JetBrainsMonoNerdFontMono-Regular.ttf */; };
 		A1000021 /* JetBrainsMonoNerdFontMono-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A200000B /* JetBrainsMonoNerdFontMono-Bold.ttf */; };
@@ -47,6 +61,21 @@
 		A2000012 /* WorktreesSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorktreesSheet.swift; sourceTree = "<group>"; };
 		A2000013 /* CreatePRSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreatePRSheet.swift; sourceTree = "<group>"; };
 		A2000014 /* DemoBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoBackend.swift; sourceTree = "<group>"; };
+		A2000030 /* DeviceTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceTheme.swift; sourceTree = "<group>"; };
+		A2000031 /* SavedDevicesStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedDevicesStore.swift; sourceTree = "<group>"; };
+		A2000032 /* ConnectionDiagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionDiagnostics.swift; sourceTree = "<group>"; };
+		A2000033 /* TerminalSurfaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSurfaceView.swift; sourceTree = "<group>"; };
+		A2000034 /* TerminalAccessoryBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalAccessoryBar.swift; sourceTree = "<group>"; };
+		A2000035 /* TerminalAccessoryModifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalAccessoryModifier.swift; sourceTree = "<group>"; };
+		A2000040 /* MuxyMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MuxyMessage.swift; sourceTree = "<group>"; };
+		A2000041 /* MuxyProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MuxyProtocol.swift; sourceTree = "<group>"; };
+		A2000042 /* ProtocolParams.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProtocolParams.swift; sourceTree = "<group>"; };
+		A2000043 /* ProjectDTO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectDTO.swift; sourceTree = "<group>"; };
+		A2000044 /* ProjectIconColor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectIconColor.swift; sourceTree = "<group>"; };
+		A2000045 /* WorkspaceDTO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceDTO.swift; sourceTree = "<group>"; };
+		A2000046 /* WorktreeDTO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorktreeDTO.swift; sourceTree = "<group>"; };
+		A2000047 /* VCSStatusDTO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VCSStatusDTO.swift; sourceTree = "<group>"; };
+		A2000048 /* NotificationDTO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationDTO.swift; sourceTree = "<group>"; };
 		A200000A /* JetBrainsMonoNerdFontMono-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "JetBrainsMonoNerdFontMono-Regular.ttf"; sourceTree = "<group>"; };
 		A200000B /* JetBrainsMonoNerdFontMono-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "JetBrainsMonoNerdFontMono-Bold.ttf"; sourceTree = "<group>"; };
 		A200000C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -59,7 +88,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A1000010 /* MuxyShared in Frameworks */,
 				A1000011 /* SwiftTerm in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -78,26 +106,129 @@
 		A3000002 /* MuxyMobile */ = {
 			isa = PBXGroup;
 			children = (
+				A3000100 /* App */,
+				A3000101 /* Data */,
+				A3000102 /* Model */,
+				A3000103 /* UI */,
+				A300010A /* Demo */,
+				A3000004 /* Resources */,
+				A2000006 /* Info.plist */,
+				A200000D /* PrivacyInfo.xcprivacy */,
+			);
+			path = MuxyMobile;
+			sourceTree = "<group>";
+		};
+		A3000100 /* App */ = {
+			isa = PBXGroup;
+			children = (
 				A2000001 /* MuxyMobileApp.swift */,
 				A2000002 /* ContentView.swift */,
-				A2000003 /* ConnectView.swift */,
-				A2000004 /* RemoteWorkspaceView.swift */,
-				A2000007 /* ProjectPickerView.swift */,
-				A2000008 /* SettingsSheet.swift */,
-				A2000009 /* TerminalView.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		A3000101 /* Data */ = {
+			isa = PBXGroup;
+			children = (
 				A2000005 /* ConnectionManager.swift */,
 				A2000010 /* ConnectionManager+VCS.swift */,
+				A2000032 /* ConnectionDiagnostics.swift */,
+				A200000E /* DeviceCredentialsStore.swift */,
+				A2000031 /* SavedDevicesStore.swift */,
+			);
+			path = Data;
+			sourceTree = "<group>";
+		};
+		A3000102 /* Model */ = {
+			isa = PBXGroup;
+			children = (
+				A2000040 /* MuxyMessage.swift */,
+				A2000041 /* MuxyProtocol.swift */,
+				A2000042 /* ProtocolParams.swift */,
+				A2000043 /* ProjectDTO.swift */,
+				A2000044 /* ProjectIconColor.swift */,
+				A2000045 /* WorkspaceDTO.swift */,
+				A2000046 /* WorktreeDTO.swift */,
+				A2000047 /* VCSStatusDTO.swift */,
+				A2000048 /* NotificationDTO.swift */,
+			);
+			path = Model;
+			sourceTree = "<group>";
+		};
+		A3000103 /* UI */ = {
+			isa = PBXGroup;
+			children = (
+				A3000104 /* Connect */,
+				A3000105 /* Projects */,
+				A3000106 /* Workspace */,
+				A3000107 /* Terminal */,
+				A3000108 /* Theme */,
+				A3000109 /* Settings */,
+			);
+			path = UI;
+			sourceTree = "<group>";
+		};
+		A3000104 /* Connect */ = {
+			isa = PBXGroup;
+			children = (
+				A2000003 /* ConnectView.swift */,
+			);
+			path = Connect;
+			sourceTree = "<group>";
+		};
+		A3000105 /* Projects */ = {
+			isa = PBXGroup;
+			children = (
+				A2000007 /* ProjectPickerView.swift */,
+			);
+			path = Projects;
+			sourceTree = "<group>";
+		};
+		A3000106 /* Workspace */ = {
+			isa = PBXGroup;
+			children = (
+				A2000004 /* RemoteWorkspaceView.swift */,
 				A200000F /* VCSView.swift */,
 				A2000011 /* BranchesSheet.swift */,
 				A2000012 /* WorktreesSheet.swift */,
 				A2000013 /* CreatePRSheet.swift */,
-				A2000014 /* DemoBackend.swift */,
-				A200000E /* DeviceCredentialsStore.swift */,
-				A2000006 /* Info.plist */,
-				A200000D /* PrivacyInfo.xcprivacy */,
-				A3000004 /* Resources */,
 			);
-			path = MuxyMobile;
+			path = Workspace;
+			sourceTree = "<group>";
+		};
+		A3000107 /* Terminal */ = {
+			isa = PBXGroup;
+			children = (
+				A2000009 /* TerminalView.swift */,
+				A2000033 /* TerminalSurfaceView.swift */,
+				A2000034 /* TerminalAccessoryBar.swift */,
+				A2000035 /* TerminalAccessoryModifier.swift */,
+			);
+			path = Terminal;
+			sourceTree = "<group>";
+		};
+		A3000108 /* Theme */ = {
+			isa = PBXGroup;
+			children = (
+				A2000030 /* DeviceTheme.swift */,
+			);
+			path = Theme;
+			sourceTree = "<group>";
+		};
+		A3000109 /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				A2000008 /* SettingsSheet.swift */,
+			);
+			path = Settings;
+			sourceTree = "<group>";
+		};
+		A300010A /* Demo */ = {
+			isa = PBXGroup;
+			children = (
+				A2000014 /* DemoBackend.swift */,
+			);
+			path = Demo;
 			sourceTree = "<group>";
 		};
 		A3000003 /* Products */ = {
@@ -143,7 +274,6 @@
 			);
 			name = MuxyMobile;
 			packageProductDependencies = (
-				A4000001 /* MuxyShared */,
 				A4000002 /* SwiftTerm */,
 			);
 			productName = MuxyMobile;
@@ -170,7 +300,6 @@
 			);
 			mainGroup = A3000001;
 			packageReferences = (
-				A5000001 /* XCLocalSwiftPackageReference "." */,
 				A5000002 /* XCRemoteSwiftPackageReference "SwiftTerm" */,
 			);
 			productRefGroup = A3000003 /* Products */;
@@ -216,6 +345,21 @@
 				A100000D /* WorktreesSheet.swift in Sources */,
 				A100000E /* CreatePRSheet.swift in Sources */,
 				A100000F /* DemoBackend.swift in Sources */,
+				A1000030 /* DeviceTheme.swift in Sources */,
+				A1000031 /* SavedDevicesStore.swift in Sources */,
+				A1000032 /* ConnectionDiagnostics.swift in Sources */,
+				A1000033 /* TerminalSurfaceView.swift in Sources */,
+				A1000034 /* TerminalAccessoryBar.swift in Sources */,
+				A1000035 /* TerminalAccessoryModifier.swift in Sources */,
+				A1000040 /* MuxyMessage.swift in Sources */,
+				A1000041 /* MuxyProtocol.swift in Sources */,
+				A1000042 /* ProtocolParams.swift in Sources */,
+				A1000043 /* ProjectDTO.swift in Sources */,
+				A1000044 /* ProjectIconColor.swift in Sources */,
+				A1000045 /* WorkspaceDTO.swift in Sources */,
+				A1000046 /* WorktreeDTO.swift in Sources */,
+				A1000047 /* VCSStatusDTO.swift in Sources */,
+				A1000048 /* NotificationDTO.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -397,13 +541,6 @@
 		};
 /* End XCConfigurationList section */
 
-/* Begin XCLocalSwiftPackageReference section */
-		A5000001 /* XCLocalSwiftPackageReference "." */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = .;
-		};
-/* End XCLocalSwiftPackageReference section */
-
 /* Begin XCRemoteSwiftPackageReference section */
 		A5000002 /* XCRemoteSwiftPackageReference "SwiftTerm" */ = {
 			isa = XCRemoteSwiftPackageReference;
@@ -416,10 +553,6 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		A4000001 /* MuxyShared */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = MuxyShared;
-		};
 		A4000002 /* SwiftTerm */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = A5000002 /* XCRemoteSwiftPackageReference "SwiftTerm" */;

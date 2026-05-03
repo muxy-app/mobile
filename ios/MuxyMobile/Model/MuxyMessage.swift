@@ -1,6 +1,6 @@
 import Foundation
 
-public enum MuxyMessage: Codable, Sendable {
+enum MuxyMessage: Codable {
     case request(MuxyRequest)
     case response(MuxyResponse)
     case event(MuxyEvent)
@@ -10,7 +10,7 @@ public enum MuxyMessage: Codable, Sendable {
         case payload
     }
 
-    public init(from decoder: Decoder) throws {
+    init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let type = try container.decode(MuxyMessageType.self, forKey: .type)
         switch type {
@@ -20,7 +20,7 @@ public enum MuxyMessage: Codable, Sendable {
         }
     }
 
-    public func encode(to encoder: Encoder) throws {
+    func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
         case let .request(r):
@@ -36,7 +36,7 @@ public enum MuxyMessage: Codable, Sendable {
     }
 }
 
-public enum MuxyCodec {
+enum MuxyCodec {
     private static let encoder: JSONEncoder = {
         let e = JSONEncoder()
         e.dateEncodingStrategy = .iso8601
@@ -49,11 +49,11 @@ public enum MuxyCodec {
         return d
     }()
 
-    public static func encode(_ message: MuxyMessage) throws -> Data {
+    static func encode(_ message: MuxyMessage) throws -> Data {
         try encoder.encode(message)
     }
 
-    public static func decode(_ data: Data) throws -> MuxyMessage {
+    static func decode(_ data: Data) throws -> MuxyMessage {
         try decoder.decode(MuxyMessage.self, from: data)
     }
 }

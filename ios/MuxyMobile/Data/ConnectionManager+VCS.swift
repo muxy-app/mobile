@@ -1,5 +1,4 @@
 import Foundation
-import MuxyShared
 
 extension ConnectionManager {
     func fetchVCSStatus(projectID: UUID) async -> VCSStatusDTO? {

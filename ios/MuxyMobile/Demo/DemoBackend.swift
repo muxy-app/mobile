@@ -1,5 +1,4 @@
 import Foundation
-import MuxyShared
 
 @MainActor
 final class DemoBackend {

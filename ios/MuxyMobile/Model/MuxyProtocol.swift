@@ -1,63 +1,53 @@
 import Foundation
 
-public enum MuxyMessageType: String, Codable, Sendable {
+enum MuxyMessageType: String, Codable {
     case request
     case response
     case event
 }
 
-public struct MuxyRequest: Codable, Sendable {
-    public let id: String
-    public let method: MuxyMethod
-    public let params: MuxyParams?
+struct MuxyRequest: Codable {
+    let id: String
+    let method: MuxyMethod
+    let params: MuxyParams?
 
-    public init(id: String, method: MuxyMethod, params: MuxyParams? = nil) {
+    init(id: String, method: MuxyMethod, params: MuxyParams? = nil) {
         self.id = id
         self.method = method
         self.params = params
     }
 }
 
-public struct MuxyResponse: Codable, Sendable {
-    public let id: String
-    public let result: MuxyResult?
-    public let error: MuxyError?
+struct MuxyResponse: Codable {
+    let id: String
+    let result: MuxyResult?
+    let error: MuxyError?
 
-    public init(id: String, result: MuxyResult? = nil, error: MuxyError? = nil) {
+    init(id: String, result: MuxyResult? = nil, error: MuxyError? = nil) {
         self.id = id
         self.result = result
         self.error = error
     }
 }
 
-public struct MuxyEvent: Codable, Sendable {
-    public let event: MuxyEventKind
-    public let data: MuxyEventData
-
-    public init(event: MuxyEventKind, data: MuxyEventData) {
-        self.event = event
-        self.data = data
-    }
+struct MuxyEvent: Codable {
+    let event: MuxyEventKind
+    let data: MuxyEventData
 }
 
-public struct MuxyError: Codable, Sendable {
-    public let code: Int
-    public let message: String
+struct MuxyError: Codable {
+    let code: Int
+    let message: String
 
-    public init(code: Int, message: String) {
-        self.code = code
-        self.message = message
-    }
-
-    public static let notFound = MuxyError(code: 404, message: "Not found")
-    public static let invalidParams = MuxyError(code: 400, message: "Invalid parameters")
-    public static let internalError = MuxyError(code: 500, message: "Internal error")
-    public static let unauthorized = MuxyError(code: 401, message: "Authentication required")
-    public static let pairingDenied = MuxyError(code: 403, message: "Pairing denied")
-    public static let pairingTimeout = MuxyError(code: 408, message: "Pairing request timed out")
+    static let notFound = MuxyError(code: 404, message: "Not found")
+    static let invalidParams = MuxyError(code: 400, message: "Invalid parameters")
+    static let internalError = MuxyError(code: 500, message: "Internal error")
+    static let unauthorized = MuxyError(code: 401, message: "Authentication required")
+    static let pairingDenied = MuxyError(code: 403, message: "Pairing denied")
+    static let pairingTimeout = MuxyError(code: 408, message: "Pairing request timed out")
 }
 
-public enum MuxyMethod: String, Codable, Sendable {
+enum MuxyMethod: String, Codable {
     case listProjects
     case selectProject
     case listWorktrees
@@ -98,7 +88,7 @@ public enum MuxyMethod: String, Codable, Sendable {
     case unsubscribe
 }
 
-public enum MuxyParams: Codable, Sendable {
+enum MuxyParams: Codable {
     case selectProject(SelectProjectParams)
     case listWorktrees(ListWorktreesParams)
     case selectWorktree(SelectWorktreeParams)
@@ -141,7 +131,7 @@ public enum MuxyParams: Codable, Sendable {
         case value
     }
 
-    public init(from decoder: Decoder) throws {
+    init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let type = try container.decode(String.self, forKey: .type)
         switch type {
@@ -185,7 +175,7 @@ public enum MuxyParams: Codable, Sendable {
         }
     }
 
-    public func encode(to encoder: Encoder) throws {
+    func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
         case let .selectProject(v): try container.encode("selectProject", forKey: .type)
@@ -264,7 +254,7 @@ public enum MuxyParams: Codable, Sendable {
     }
 }
 
-public enum MuxyResult: Codable, Sendable {
+enum MuxyResult: Codable {
     case projects([ProjectDTO])
     case worktrees([WorktreeDTO])
     case workspace(WorkspaceDTO)
@@ -286,7 +276,7 @@ public enum MuxyResult: Codable, Sendable {
         case value
     }
 
-    public init(from decoder: Decoder) throws {
+    init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let type = try container.decode(String.self, forKey: .type)
         switch type {
@@ -309,7 +299,7 @@ public enum MuxyResult: Codable, Sendable {
         }
     }
 
-    public func encode(to encoder: Encoder) throws {
+    func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
         case let .projects(v): try container.encode("projects", forKey: .type)
@@ -345,7 +335,7 @@ public enum MuxyResult: Codable, Sendable {
     }
 }
 
-public enum MuxyEventKind: String, Codable, Sendable {
+enum MuxyEventKind: String, Codable {
     case workspaceChanged
     case tabChanged
     case terminalOutput
@@ -356,7 +346,7 @@ public enum MuxyEventKind: String, Codable, Sendable {
     case themeChanged
 }
 
-public enum MuxyEventData: Codable, Sendable {
+enum MuxyEventData: Codable {
     case workspace(WorkspaceDTO)
     case tab(TabChangeEventDTO)
     case terminalOutput(TerminalOutputEventDTO)
@@ -371,7 +361,7 @@ public enum MuxyEventData: Codable, Sendable {
         case value
     }
 
-    public init(from decoder: Decoder) throws {
+    init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let type = try container.decode(String.self, forKey: .type)
         switch type {
@@ -387,7 +377,7 @@ public enum MuxyEventData: Codable, Sendable {
         }
     }
 
-    public func encode(to encoder: Encoder) throws {
+    func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
         case let .workspace(v): try container.encode("workspace", forKey: .type)

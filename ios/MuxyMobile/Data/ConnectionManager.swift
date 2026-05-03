@@ -1,5 +1,4 @@
 import Foundation
-import MuxyShared
 import os
 import SwiftUI
 import UIKit
@@ -9,17 +8,16 @@ private let logger = Logger(subsystem: "app.muxy", category: "Connection")
 @MainActor
 @Observable
 final class ConnectionManager {
+    typealias DeviceTheme = MuxyMobile.DeviceTheme
+    typealias SavedDevice = MuxyMobile.SavedDevice
+    typealias ConnectionIssue = MuxyMobile.ConnectionIssue
+
     enum State {
         case disconnected
         case connecting
         case awaitingApproval
         case connected
         case error(ConnectionIssue)
-    }
-
-    struct ConnectionIssue {
-        let message: String
-        let technicalDetails: String
     }
 
     private struct PendingRequest {
@@ -54,37 +52,14 @@ final class ConnectionManager {
         return false
     }
 
-    struct DeviceTheme: Equatable {
-        let fg: UInt32
-        let bg: UInt32
-        let palette: [UInt32]
-
-        var fgColor: Color { Self.color(rgb: fg) }
-        var bgColor: Color { Self.color(rgb: bg) }
-
-        var isDark: Bool {
-            let r = Double((bg >> 16) & 0xFF) / 255.0
-            let g = Double((bg >> 8) & 0xFF) / 255.0
-            let b = Double(bg & 0xFF) / 255.0
-            let luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b
-            return luminance < 0.5
-        }
-
-        private static func color(rgb: UInt32) -> Color {
-            Color(
-                red: Double((rgb >> 16) & 0xFF) / 255.0,
-                green: Double((rgb >> 8) & 0xFF) / 255.0,
-                blue: Double(rgb & 0xFF) / 255.0
-            )
-        }
-    }
-
     private var connection: URLSessionWebSocketTask?
     private var session: URLSession?
     private var pendingRequests: [String: PendingRequest] = [:]
     private var terminalByteHandlers: [UUID: (Data) -> Void] = [:]
     @ObservationIgnored private var demo: DemoBackend?
     @ObservationIgnored private var connectTask: Task<Void, Never>?
+    @ObservationIgnored private var diagnostics = ConnectionDiagnostics()
+
     var isDemoMode: Bool {
         get { UserDefaults.standard.bool(forKey: Self.demoModeKey) }
         set { setDemoMode(newValue) }
@@ -107,17 +82,9 @@ final class ConnectionManager {
     private var lastDeviceName: String?
     private var isBackgrounded = false
     private var isReconnecting = false
-    private var diagnosticLog: [String] = []
 
     var lastSavedHost: String? { savedDevices.first?.host }
     var lastSavedPort: UInt16? { savedDevices.first?.port }
-
-    struct SavedDevice: Codable, Identifiable {
-        var id: String { "\(host):\(port)" }
-        let name: String
-        let host: String
-        let port: UInt16
-    }
 
     init() {
         if UserDefaults.standard.bool(forKey: Self.demoModeKey) {
@@ -126,7 +93,7 @@ final class ConnectionManager {
             demo = backend
             savedDevices = backend.savedDevices
         } else {
-            loadDevices()
+            savedDevices = SavedDevicesStore.load()
         }
     }
 
@@ -141,7 +108,7 @@ final class ConnectionManager {
             savedDevices = backend.savedDevices
         } else {
             demo = nil
-            loadDevices()
+            savedDevices = SavedDevicesStore.load()
         }
         projects = []
         worktrees = []
@@ -157,8 +124,8 @@ final class ConnectionManager {
         lastHost = host
         lastPort = port
         lastDeviceName = name
-        diagnosticLog.removeAll()
-        recordDiagnostic("Connect requested for \(name) at \(host):\(port)")
+        diagnostics.clear()
+        diagnostics.record("Connect requested for \(name) at \(host):\(port)")
         addDevice(name: name, host: host, port: port)
         state = .connecting
         activeProjectID = nil
@@ -203,7 +170,7 @@ final class ConnectionManager {
         connection = nil
         session = nil
 
-        recordDiagnostic("Opening WebSocket to \(host):\(port)")
+        diagnostics.record("Opening WebSocket to \(host):\(port)")
 
         guard let url = URL(string: "ws://\(host):\(port)") else {
             fail(
@@ -322,12 +289,12 @@ final class ConnectionManager {
                 requestID: requestID,
                 notes: [
                     "Expected result: pairing",
-                    "Actual result: \(Self.resultSummary(result))",
+                    "Actual result: \(ConnectionDiagnostics.resultSummary(result))",
                 ]
             )
             return false
         }
-        recordDiagnostic("Authenticated as client \(info.clientID.uuidString)")
+        diagnostics.record("Authenticated as client \(info.clientID.uuidString)")
         myClientID = info.clientID
         if let fg = info.themeFg, let bg = info.themeBg {
             deviceTheme = DeviceTheme(fg: fg, bg: bg, palette: info.themePalette ?? [])
@@ -346,7 +313,7 @@ final class ConnectionManager {
     }
 
     func disconnect() {
-        recordDiagnostic("Disconnected")
+        diagnostics.record("Disconnected")
         state = .disconnected
         connectTask?.cancel()
         connectTask = nil
@@ -428,7 +395,7 @@ final class ConnectionManager {
     }
 
     func refreshProjects() async {
-        recordDiagnostic("Refreshing project list")
+        diagnostics.record("Refreshing project list")
 
         guard let response = await send(.listProjects) else {
             if case .error = state {
@@ -461,7 +428,7 @@ final class ConnectionManager {
                 requestID: response.id,
                 notes: [
                     "Expected result: projects",
-                    "Actual result: \(Self.resultSummary(response.result))",
+                    "Actual result: \(ConnectionDiagnostics.resultSummary(response.result))",
                 ]
             )
             return
@@ -487,7 +454,7 @@ final class ConnectionManager {
     }
 
     func selectProject(_ projectID: UUID) async {
-        recordDiagnostic("Selecting project \(projectID.uuidString)")
+        diagnostics.record("Selecting project \(projectID.uuidString)")
         activeProjectID = projectID
         workspace = nil
         paneOwners = [:]
@@ -525,7 +492,7 @@ final class ConnectionManager {
                 notes: [
                     "Project ID: \(projectID.uuidString)",
                     "Expected result: ok",
-                    "Actual result: \(Self.resultSummary(response.result))",
+                    "Actual result: \(ConnectionDiagnostics.resultSummary(response.result))",
                 ]
             )
             return
@@ -538,19 +505,21 @@ final class ConnectionManager {
         let params = ListWorktreesParams(projectID: projectID)
         guard let response = await send(.listWorktrees, params: .listWorktrees(params)) else { return }
         if let error = response.error {
-            recordDiagnostic("Worktree refresh for \(projectID.uuidString) failed with \(error.code) \(error.message)")
+            diagnostics.record("Worktree refresh for \(projectID.uuidString) failed with \(error.code) \(error.message)")
             return
         }
         if case let .worktrees(list) = response.result {
             worktrees = list
             projectWorktrees[projectID] = list
         } else {
-            recordDiagnostic("Worktree refresh for \(projectID.uuidString) returned \(Self.resultSummary(response.result))")
+            diagnostics.record(
+                "Worktree refresh for \(projectID.uuidString) returned \(ConnectionDiagnostics.resultSummary(response.result))"
+            )
         }
     }
 
     func refreshWorkspace(projectID: UUID) async {
-        recordDiagnostic("Refreshing workspace for project \(projectID.uuidString)")
+        diagnostics.record("Refreshing workspace for project \(projectID.uuidString)")
         let params = GetWorkspaceParams(projectID: projectID)
         guard let response = await send(.getWorkspace, params: .getWorkspace(params)) else {
             if case .error = state {
@@ -585,7 +554,7 @@ final class ConnectionManager {
                 notes: [
                     "Project ID: \(projectID.uuidString)",
                     "Expected result: workspace",
-                    "Actual result: \(Self.resultSummary(response.result))",
+                    "Actual result: \(ConnectionDiagnostics.resultSummary(response.result))",
                 ]
             )
             return
@@ -710,7 +679,7 @@ final class ConnectionManager {
             return nil
         }
 
-        recordDiagnostic("→ \(method.rawValue) [\(id)]")
+        diagnostics.record("→ \(method.rawValue) [\(id)]")
 
         do {
             try await connection.send(.string(text))
@@ -733,7 +702,7 @@ final class ConnectionManager {
             Task {
                 try? await Task.sleep(for: timeout)
                 if let pending = pendingRequests.removeValue(forKey: id) {
-                    recordDiagnostic("× \(pending.method.rawValue) [\(id)] timed out")
+                    diagnostics.record("× \(pending.method.rawValue) [\(id)] timed out")
                     pending.continuation.resume(returning: MuxyResponse(id: id, error: MuxyError(code: 408, message: "Timeout")))
                 }
             }
@@ -783,14 +752,14 @@ final class ConnectionManager {
         do {
             muxyMessage = try MuxyCodec.decode(data)
         } catch {
-            recordDiagnostic("Failed to decode incoming message: \(Self.inlineErrorDescription(error))")
+            diagnostics.record("Failed to decode incoming message: \(ConnectionDiagnostics.inlineErrorDescription(error))")
             return
         }
 
         switch muxyMessage {
         case let .response(response):
             if let pending = pendingRequests.removeValue(forKey: response.id) {
-                recordDiagnostic("← \(pending.method.rawValue) [\(response.id)] \(Self.responseSummary(response))")
+                diagnostics.record("← \(pending.method.rawValue) [\(response.id)] \(ConnectionDiagnostics.responseSummary(response))")
                 pending.continuation.resume(returning: response)
             }
         case let .event(event):
@@ -803,19 +772,19 @@ final class ConnectionManager {
     private func handleEvent(_ event: MuxyEvent) {
         switch event.data {
         case let .projects(list):
-            recordDiagnostic("Event \(event.event.rawValue): projects(\(list.count))")
+            diagnostics.record("Event \(event.event.rawValue): projects(\(list.count))")
             projects = list
         case let .workspace(ws):
-            recordDiagnostic("Event \(event.event.rawValue): workspace(project=\(ws.projectID.uuidString))")
+            diagnostics.record("Event \(event.event.rawValue): workspace(project=\(ws.projectID.uuidString))")
             workspace = ws
         case let .notification(notification):
-            recordDiagnostic("Event \(event.event.rawValue): notification(\(notification.id.uuidString))")
+            diagnostics.record("Event \(event.event.rawValue): notification(\(notification.id.uuidString))")
             notifications.insert(notification, at: 0)
         case let .paneOwnership(dto):
-            recordDiagnostic("Event \(event.event.rawValue): paneOwnership(\(dto.paneID.uuidString))")
+            diagnostics.record("Event \(event.event.rawValue): paneOwnership(\(dto.paneID.uuidString))")
             paneOwners[dto.paneID] = dto.owner
         case let .deviceTheme(dto):
-            recordDiagnostic("Event \(event.event.rawValue): deviceTheme(fg=\(dto.fg), bg=\(dto.bg))")
+            diagnostics.record("Event \(event.event.rawValue): deviceTheme(fg=\(dto.fg), bg=\(dto.bg))")
             deviceTheme = DeviceTheme(fg: dto.fg, bg: dto.bg, palette: dto.palette ?? [])
         case let .terminalOutput(dto):
             terminalByteHandlers[dto.paneID]?(dto.bytes)
@@ -835,12 +804,16 @@ final class ConnectionManager {
         underlyingError: Error? = nil,
         notes: [String] = []
     ) {
-        recordDiagnostic("Failure during \(operation): \(message)")
+        diagnostics.record("Failure during \(operation): \(message)")
         if case .disconnected = state { return }
         state = .error(
-            makeIssue(
+            diagnostics.makeIssue(
                 message: message,
                 operation: operation,
+                stateSummary: Self.stateSummary(state),
+                deviceName: lastDeviceName,
+                host: lastHost,
+                port: lastPort,
                 requestMethod: requestMethod,
                 requestID: requestID ?? response?.id,
                 response: response,
@@ -848,73 +821,6 @@ final class ConnectionManager {
                 notes: notes
             )
         )
-    }
-
-    private func makeIssue(
-        message: String,
-        operation: String,
-        requestMethod: MuxyMethod?,
-        requestID: String?,
-        response: MuxyResponse?,
-        underlyingError: Error?,
-        notes: [String]
-    ) -> ConnectionIssue {
-        var lines = [
-            "Summary: \(message)",
-            "Operation: \(operation)",
-            "Timestamp: \(Self.timestampString(Date()))",
-            "Connection state: \(Self.stateSummary(state))",
-        ]
-
-        if let lastDeviceName {
-            lines.append("Device: \(lastDeviceName)")
-        }
-
-        if let lastHost, let lastPort {
-            lines.append("Target: \(lastHost):\(lastPort)")
-        }
-
-        if let requestMethod {
-            lines.append("Request: \(requestMethod.rawValue)")
-        }
-
-        if let requestID {
-            lines.append("Request ID: \(requestID)")
-        }
-
-        if let responseError = response?.error {
-            lines.append("Response error: \(responseError.code) \(responseError.message)")
-        }
-
-        if let response, response.error == nil {
-            lines.append("Response result: \(Self.resultSummary(response.result))")
-        }
-
-        if let underlyingError {
-            lines.append("Underlying error: \(Self.inlineErrorDescription(underlyingError))")
-        }
-
-        if let appVersion = Self.appVersionString {
-            lines.append("App version: \(appVersion)")
-        }
-
-        lines.append("OS: \(UIDevice.current.systemName) \(UIDevice.current.systemVersion)")
-        lines.append(contentsOf: notes)
-
-        if !diagnosticLog.isEmpty {
-            lines.append("")
-            lines.append("Recent connection log:")
-            lines.append(contentsOf: diagnosticLog.suffix(25).map { "- \($0)" })
-        }
-
-        return ConnectionIssue(message: message, technicalDetails: lines.joined(separator: "\n"))
-    }
-
-    private func recordDiagnostic(_ message: String) {
-        diagnosticLog.append("\(Self.timestampString(Date())) \(message)")
-        if diagnosticLog.count > 120 {
-            diagnosticLog.removeFirst(diagnosticLog.count - 120)
-        }
     }
 
     private static func stateSummary(_ state: State) -> String {
@@ -932,92 +838,6 @@ final class ConnectionManager {
         }
     }
 
-    private static func responseSummary(_ response: MuxyResponse) -> String {
-        if let error = response.error {
-            return "error \(error.code) \(error.message)"
-        }
-        return "result \(resultSummary(response.result))"
-    }
-
-    private static func resultSummary(_ result: MuxyResult?) -> String {
-        guard let result else { return "nil" }
-
-        switch result {
-        case let .projects(list):
-            return "projects(\(list.count))"
-        case let .worktrees(list):
-            return "worktrees(\(list.count))"
-        case .workspace:
-            return "workspace"
-        case .tab:
-            return "tab"
-        case .terminalContent:
-            return "terminalContent"
-        case .terminalCells:
-            return "terminalCells"
-        case .deviceInfo:
-            return "deviceInfo"
-        case .pairing:
-            return "pairing"
-        case .paneOwner:
-            return "paneOwner"
-        case .vcsStatus:
-            return "vcsStatus"
-        case .vcsBranches:
-            return "vcsBranches"
-        case .vcsPRCreated:
-            return "vcsPRCreated"
-        case .projectLogo:
-            return "projectLogo"
-        case let .notifications(list):
-            return "notifications(\(list.count))"
-        case .ok:
-            return "ok"
-        }
-    }
-
-    private static func inlineErrorDescription(_ error: Error) -> String {
-        let nsError = error as NSError
-        var parts = ["\(nsError.domain) \(nsError.code): \(error.localizedDescription)"]
-
-        if let reason = nsError.localizedFailureReason {
-            parts.append(reason)
-        }
-
-        if let suggestion = nsError.localizedRecoverySuggestion {
-            parts.append(suggestion)
-        }
-
-        return parts.joined(separator: " | ")
-    }
-
-    private static func timestampString(_ date: Date) -> String {
-        diagnosticsFormatter.string(from: date)
-    }
-
-    private static let diagnosticsFormatter: ISO8601DateFormatter = {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return formatter
-    }()
-
-    private static var appVersionString: String? {
-        let shortVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
-        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String
-
-        switch (shortVersion, build) {
-        case let (shortVersion?, build?) where shortVersion != build:
-            return "\(shortVersion) (\(build))"
-        case let (shortVersion?, _):
-            return shortVersion
-        case let (_, build?):
-            return build
-        default:
-            return nil
-        }
-    }
-
-    private static let devicesKey = "savedDevices"
     fileprivate static let demoModeKey = "demoMode"
 
     func addDevice(name: String, host: String, port: UInt16) {
@@ -1027,7 +847,7 @@ final class ConnectionManager {
         if let demo {
             demo.addDevice(name: name, host: host, port: port)
         } else {
-            saveDevices()
+            SavedDevicesStore.save(savedDevices)
         }
     }
 
@@ -1036,19 +856,7 @@ final class ConnectionManager {
         if let demo {
             demo.removeDevice(device)
         } else {
-            saveDevices()
+            SavedDevicesStore.save(savedDevices)
         }
-    }
-
-    private func saveDevices() {
-        guard let data = try? JSONEncoder().encode(savedDevices) else { return }
-        UserDefaults.standard.set(data, forKey: Self.devicesKey)
-    }
-
-    private func loadDevices() {
-        guard let data = UserDefaults.standard.data(forKey: Self.devicesKey),
-              let devices = try? JSONDecoder().decode([SavedDevice].self, from: data)
-        else { return }
-        savedDevices = devices
     }
 }

@@ -1,4 +1,3 @@
-import MuxyShared
 import SwiftUI
 
 @main

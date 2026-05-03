@@ -1,13 +1,13 @@
 import Foundation
 
-public struct WorktreeDTO: Identifiable, Codable, Hashable, Sendable {
-    public let id: UUID
-    public var name: String
-    public var path: String
-    public var branch: String?
-    public var isPrimary: Bool
-    public var canBeRemoved: Bool
-    public var createdAt: Date
+struct WorktreeDTO: Identifiable, Codable, Hashable {
+    let id: UUID
+    var name: String
+    var path: String
+    var branch: String?
+    var isPrimary: Bool
+    var canBeRemoved: Bool
+    var createdAt: Date
 
     private enum CodingKeys: String, CodingKey {
         case id
@@ -19,7 +19,7 @@ public struct WorktreeDTO: Identifiable, Codable, Hashable, Sendable {
         case createdAt
     }
 
-    public init(
+    init(
         id: UUID,
         name: String,
         path: String,
@@ -37,7 +37,7 @@ public struct WorktreeDTO: Identifiable, Codable, Hashable, Sendable {
         self.createdAt = createdAt
     }
 
-    public init(from decoder: Decoder) throws {
+    init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(UUID.self, forKey: .id)
         name = try container.decode(String.self, forKey: .name)
