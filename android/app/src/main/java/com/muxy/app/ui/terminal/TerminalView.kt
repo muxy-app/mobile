@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.muxy.app.data.PaneSession
 import com.muxy.app.data.SessionRepository
+import com.muxy.app.data.TerminalPreferencesStore
 import com.muxy.app.model.PaneOwner
 import com.muxy.app.ui.theme.MuxyTheme
 import com.termux.terminal.TerminalEmulator
@@ -52,8 +53,7 @@ import com.termux.terminal.TextStyle
 import com.termux.view.TerminalView as TermuxTerminalView
 import kotlinx.coroutines.launch
 
-private const val FONT_PATH = "fonts/JetBrainsMonoNerdFontMono-Regular.ttf"
-private const val FONT_SIZE_SP = 13
+private const val NERD_FONT_PATH = "fonts/JetBrainsMonoNerdFontMono-Regular.ttf"
 
 /**
  * Top-level terminal pane. Hosts the vendored termux [TermuxTerminalView] which
@@ -68,6 +68,7 @@ private const val FONT_SIZE_SP = 13
 fun TerminalView(
     paneID: String,
     session: SessionRepository,
+    preferences: TerminalPreferencesStore,
     modifier: Modifier = Modifier,
 ) {
     val theme by session.deviceTheme.collectAsState()
@@ -77,7 +78,9 @@ fun TerminalView(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    val typeface = remember { resolveTypeface(context) }
+    val prefs by preferences.flow.collectAsState()
+    val nerdTypeface = remember { resolveNerdTypeface(context) }
+    val typeface = if (prefs.useNerdFont && nerdTypeface != null) nerdTypeface else Typeface.MONOSPACE
 
     var pane by remember(paneID) { mutableStateOf<PaneSession?>(null) }
     val sessionClient = remember { MuxyTerminalSessionClient(context) }
@@ -183,7 +186,7 @@ fun TerminalView(
                     factory = { ctx ->
                         TermuxTerminalView(ctx, null).apply {
                             setTerminalViewClient(viewClient)
-                            setTextSize(spToPx(ctx, FONT_SIZE_SP).toInt())
+                            setTextSize(spToPx(ctx, prefs.fontSize).toInt())
                             setTypeface(typeface)
                             termSession.value?.let { attachSession(it) }
                             applyTheme(this, theme?.fg, theme?.bg, theme?.palette)
@@ -197,6 +200,8 @@ fun TerminalView(
                     },
                     update = { view ->
                         termSession.value?.let { view.attachSession(it) }
+                        view.setTextSize(spToPx(context, prefs.fontSize).toInt())
+                        view.setTypeface(typeface)
                         applyTheme(view, theme?.fg, theme?.bg, theme?.palette)
                         sizeReporter.attach(view) { c, r ->
                             measuredCols = c
@@ -337,9 +342,8 @@ private fun applyTheme(
 private fun spToPx(context: Context, sp: Int): Float =
     sp * context.resources.displayMetrics.scaledDensity
 
-private fun resolveTypeface(context: Context): Typeface =
-    runCatching { Typeface.createFromAsset(context.assets, FONT_PATH) }
-        .getOrDefault(Typeface.MONOSPACE)
+private fun resolveNerdTypeface(context: Context): Typeface? =
+    runCatching { Typeface.createFromAsset(context.assets, NERD_FONT_PATH) }.getOrNull()
 
 @Composable
 private fun TakeOverOverlay(

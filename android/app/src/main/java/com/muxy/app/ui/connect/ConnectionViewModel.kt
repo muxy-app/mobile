@@ -9,6 +9,7 @@ import com.muxy.app.data.DeviceCredentialsStore
 import com.muxy.app.data.SavedDevice
 import com.muxy.app.data.SavedDevicesStore
 import com.muxy.app.data.SessionRepository
+import com.muxy.app.data.TerminalPreferencesStore
 import com.muxy.app.model.AuthenticateDeviceParams
 import com.muxy.app.model.PairDeviceParams
 import com.muxy.app.model.TaggedValue
@@ -42,6 +43,7 @@ sealed class ConnectionState {
 class ConnectionViewModel(app: Application) : AndroidViewModel(app) {
     private val credentialsStore = DeviceCredentialsStore(app)
     private val devicesStore = SavedDevicesStore(app)
+    val terminalPreferences = TerminalPreferencesStore(app)
     private val client = MuxyClient()
     val session = SessionRepository(client, viewModelScope)
 

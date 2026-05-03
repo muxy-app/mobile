@@ -20,6 +20,9 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -35,8 +38,10 @@ import com.muxy.app.ui.connect.ConnectScreen
 import com.muxy.app.ui.connect.ConnectionState
 import com.muxy.app.ui.connect.ConnectionViewModel
 import com.muxy.app.ui.projects.ProjectsScreen
+import com.muxy.app.ui.settings.SettingsScreen
 import com.muxy.app.ui.theme.MuxyTheme
 import com.muxy.app.ui.workspace.WorkspaceScreen
+import com.muxy.app.BuildConfig
 
 @Composable
 fun MuxyApp(viewModel: ConnectionViewModel = viewModel()) {
@@ -72,9 +77,11 @@ fun MuxyApp(viewModel: ConnectionViewModel = viewModel()) {
         controller.isAppearanceLightNavigationBars = !useLightIcons
     }
 
+    var showSettings by remember { mutableStateOf(false) }
+
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         when (val s = state) {
-            ConnectionState.Disconnected -> ConnectScreen(viewModel)
+            ConnectionState.Disconnected -> ConnectScreen(viewModel, onOpenSettings = { showSettings = true })
             is ConnectionState.Connecting -> CenteredStatus(s.deviceName, "Connecting…")
             is ConnectionState.AwaitingApproval -> AwaitingApproval(s.deviceName) { viewModel.disconnect() }
             is ConnectionState.Connected -> {
@@ -94,6 +101,24 @@ fun MuxyApp(viewModel: ConnectionViewModel = viewModel()) {
                 }
             }
             is ConnectionState.Error -> ErrorView(s, onRetry = { viewModel.reconnect() }, onDisconnect = { viewModel.disconnect() })
+        }
+
+        if (showSettings) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background)
+                    .statusBarsPadding()
+                    .navigationBarsPadding(),
+            ) {
+                BackHandler { showSettings = false }
+                SettingsScreen(
+                    store = viewModel.terminalPreferences,
+                    appVersion = BuildConfig.VERSION_NAME,
+                    appBuild = BuildConfig.VERSION_CODE.toString(),
+                    onBack = { showSettings = false },
+                )
+            }
         }
     }
 }

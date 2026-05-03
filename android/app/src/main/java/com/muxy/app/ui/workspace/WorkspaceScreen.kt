@@ -138,7 +138,7 @@ fun WorkspaceScreen(viewModel: ConnectionViewModel) {
         ) {
             val paneID = activeTab?.takeIf { it.kind == TabKindDTO.TERMINAL }?.paneID
             if (paneID != null) {
-                TerminalView(paneID = paneID, session = viewModel.session, modifier = Modifier.fillMaxSize())
+                TerminalView(paneID = paneID, session = viewModel.session, preferences = viewModel.terminalPreferences, modifier = Modifier.fillMaxSize())
             } else {
                 TabPlaceholder(activeTab, palette.foreground)
             }

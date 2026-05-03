@@ -21,6 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -47,7 +48,7 @@ import com.muxy.app.data.SavedDevice
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ConnectScreen(viewModel: ConnectionViewModel) {
+fun ConnectScreen(viewModel: ConnectionViewModel, onOpenSettings: () -> Unit = {}) {
     val devices by viewModel.savedDevices.collectAsState()
     var showAdd by remember { mutableStateOf(false) }
 
@@ -55,6 +56,11 @@ fun ConnectScreen(viewModel: ConnectionViewModel) {
         topBar = {
             TopAppBar(
                 title = { Text("Devices") },
+                navigationIcon = {
+                    IconButton(onClick = onOpenSettings) {
+                        Icon(Icons.Filled.Settings, contentDescription = "Settings")
+                    }
+                },
                 actions = {
                     IconButton(onClick = { showAdd = true }) {
                         Icon(Icons.Filled.Add, contentDescription = "Add device")
