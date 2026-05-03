@@ -1,5 +1,7 @@
 package com.muxy.app.model
 
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.JsonElement
@@ -19,7 +21,12 @@ private fun req(id: String, method: String, params: TaggedValue?) =
 
 @Serializable data class ProjectIDParams(val projectID: String)
 @Serializable data class SelectWorktreeParams(val projectID: String, val worktreeID: String)
-@Serializable data class CreateTabParams(val projectID: String, val areaID: String? = null, val kind: TabKindDTO = TabKindDTO.TERMINAL)
+@OptIn(ExperimentalSerializationApi::class)
+@Serializable data class CreateTabParams(
+    val projectID: String,
+    val areaID: String? = null,
+    @EncodeDefault val kind: TabKindDTO = TabKindDTO.TERMINAL,
+)
 @Serializable data class TabRefParams(val projectID: String, val areaID: String, val tabID: String)
 @Serializable data class VCSSwitchBranchParams(val projectID: String, val branch: String)
 @Serializable data class VCSCreateBranchParams(val projectID: String, val name: String)

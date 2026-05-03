@@ -244,7 +244,8 @@ class SessionRepository(
     }
 
     suspend fun createTab(projectID: String, areaID: String? = null) {
-        client.send(createTabRequest(newRequestId(), CreateTabParams(projectID, areaID)), 10.seconds)
+        val resp = client.send(createTabRequest(newRequestId(), CreateTabParams(projectID, areaID)), 10.seconds)
+        if (resp.error != null) return setError("createTab: ${resp.error.message}")
         refreshWorkspace(projectID)
     }
 
