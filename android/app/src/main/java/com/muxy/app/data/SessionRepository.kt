@@ -88,6 +88,16 @@ class SessionRepository(
     private val _myClientID = MutableStateFlow<String?>(null)
     val myClientID: StateFlow<String?> = _myClientID.asStateFlow()
 
+    /**
+     * One-shot signal: the next [TerminalView] mount is allowed to silently
+     * auto-takeover the pane regardless of who currently owns it. Set by
+     * deliberate user actions (opening a project, switching tabs); consumed
+     * by the first TerminalView that mounts after the action.
+     */
+    private val _consumeAutoTakeover = java.util.concurrent.atomic.AtomicBoolean(false)
+    fun armAutoTakeover() { _consumeAutoTakeover.set(true) }
+    fun consumeAutoTakeover(): Boolean = _consumeAutoTakeover.getAndSet(false)
+
     private val _paneOwners = MutableStateFlow<Map<String, PaneOwner>>(emptyMap())
     val paneOwners: StateFlow<Map<String, PaneOwner>> = _paneOwners.asStateFlow()
 
@@ -207,6 +217,7 @@ class SessionRepository(
     suspend fun selectProject(projectID: String) {
         _activeProjectID.value = projectID
         _workspace.value = null
+        armAutoTakeover()
         val resp = runCatching { client.send(selectProjectRequest(newRequestId(), projectID), 10.seconds) }
             .getOrElse { return setError("selectProject: ${it.message}") }
         if (!isOk(resp.result) && resp.error != null) return setError(resp.error.message)
@@ -216,6 +227,7 @@ class SessionRepository(
     fun clearActiveProject() {
         _activeProjectID.value = null
         _workspace.value = null
+        consumeAutoTakeover() // discard any unconsumed arm
     }
 
     suspend fun refreshWorkspace(projectID: String) {
@@ -237,6 +249,7 @@ class SessionRepository(
     }
 
     suspend fun selectTab(projectID: String, areaID: String, tabID: String) {
+        armAutoTakeover()
         client.send(selectTabRequest(newRequestId(), TabRefParams(projectID, areaID, tabID)), 10.seconds)
         refreshWorkspace(projectID)
     }

@@ -99,6 +99,13 @@ fun TerminalView(
     var measuredCols by remember(paneID) { mutableStateOf<Int?>(null) }
     var measuredRows by remember(paneID) { mutableStateOf<Int?>(null) }
     var autoTakenPaneID by remember { mutableStateOf<String?>(null) }
+    // Consumed at mount: true only when the user just opened a project or
+    // switched tabs. Bypasses the Mac-owns-it guard for a silent takeover.
+    val userInitiatedMount = remember(paneID) { session.consumeAutoTakeover() }
+    // Tracks whether the silent-takeover handshake has completed (we became
+    // the confirmed owner at least once). After that, normal overlay rules
+    // apply — including showing the overlay when the Mac steals back.
+    var ownershipConfirmedOnce by remember(paneID) { mutableStateOf(false) }
 
     val owner = owners[paneID]
     val isOwnedBySelf = remember(owner, myID) {
@@ -138,11 +145,24 @@ fun TerminalView(
         applyTheme(view, theme?.fg, theme?.bg, theme?.palette)
     }
 
+    LaunchedEffect(isOwnedBySelf) {
+        if (isOwnedBySelf) ownershipConfirmedOnce = true
+    }
+
     LaunchedEffect(paneID, pane, measuredCols, measuredRows) {
         val p = pane ?: return@LaunchedEffect
         val c = measuredCols ?: return@LaunchedEffect
         val r = measuredRows ?: return@LaunchedEffect
         if (autoTakenPaneID == paneID) return@LaunchedEffect
+        // Auto-takeover policy:
+        //  - If the user just opened a project or switched tabs, takeover
+        //    silently regardless of current owner (userInitiatedMount).
+        //  - Otherwise, never auto-takeover from the Mac — the user must tap
+        //    "Take Over" in the overlay.
+        if (!userInitiatedMount && owner is PaneOwner.Mac) {
+            autoTakenPaneID = paneID // suppress further attempts for this mount
+            return@LaunchedEffect
+        }
         autoTakenPaneID = paneID
         p.takeOver(c, r)
     }
@@ -190,7 +210,13 @@ fun TerminalView(
                 )
             }
 
-            if (!isOwnedBySelf && owner != null) {
+            // Suppress overlay only during the brief silent-takeover handshake:
+            // user-initiated mount, takeover RPC sent, but server hasn't yet
+            // confirmed us as owner. Once confirmed once, normal overlay rules
+            // apply — including showing it when the Mac steals back.
+            val suppressOverlay =
+                userInitiatedMount && autoTakenPaneID == paneID && !ownershipConfirmedOnce
+            if (!isOwnedBySelf && owner != null && !suppressOverlay) {
                 TakeOverOverlay(
                     ownerName = owner.displayName,
                     foreground = palette.foreground,
