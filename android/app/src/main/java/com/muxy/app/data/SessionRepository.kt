@@ -36,7 +36,7 @@ import com.muxy.app.model.vcsCreateBranchRequest
 import com.muxy.app.model.vcsListBranchesRequest
 import com.muxy.app.model.vcsRemoveWorktreeRequest
 import com.muxy.app.model.vcsSwitchBranchRequest
-import com.muxy.app.net.MuxyClient
+import com.muxy.app.net.Transport
 import com.muxy.app.net.TransportEvent
 import com.muxy.app.net.newRequestId
 import kotlinx.coroutines.CoroutineScope
@@ -50,7 +50,7 @@ import kotlin.time.Duration.Companion.seconds
 private const val TAG = "Session"
 
 class SessionRepository(
-    private val client: MuxyClient,
+    private val client: Transport,
     private val scope: CoroutineScope,
 ) {
     data class DeviceTheme(val fg: Long, val bg: Long, val palette: List<Long>) {

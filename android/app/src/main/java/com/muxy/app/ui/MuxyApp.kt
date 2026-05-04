@@ -114,10 +114,13 @@ fun MuxyApp(viewModel: ConnectionViewModel = viewModel()) {
                     .navigationBarsPadding(),
             ) {
                 BackHandler { showSettings = false }
+                val demoMode by viewModel.isDemoMode.collectAsState()
                 SettingsScreen(
                     store = viewModel.terminalPreferences,
                     appVersion = BuildConfig.VERSION_NAME,
                     appBuild = BuildConfig.VERSION_CODE.toString(),
+                    isDemoMode = demoMode,
+                    onDemoModeChange = { viewModel.setDemoMode(it) },
                     onBack = { showSettings = false },
                 )
             }

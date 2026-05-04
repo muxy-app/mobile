@@ -5,6 +5,7 @@ import android.os.Build
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.muxy.app.data.BillingRepository
+import com.muxy.app.data.DemoModeStore
 import com.muxy.app.data.DeviceCredentials
 import com.muxy.app.data.DeviceCredentialsStore
 import com.muxy.app.data.Entitlement
@@ -13,6 +14,8 @@ import com.muxy.app.data.SavedDevicesStore
 import com.muxy.app.data.SessionRepository
 import com.muxy.app.data.TerminalPreferencesStore
 import com.muxy.app.data.TrialStore
+import com.muxy.app.demo.DemoBackend
+import com.muxy.app.demo.DemoTransport
 import com.muxy.app.model.AuthenticateDeviceParams
 import com.muxy.app.model.PairDeviceParams
 import com.muxy.app.model.TaggedValue
@@ -22,6 +25,7 @@ import com.muxy.app.model.decodePairingResult
 import com.muxy.app.model.listProjectsRequest
 import com.muxy.app.model.pairDeviceRequest
 import com.muxy.app.net.MuxyClient
+import com.muxy.app.net.Transport
 import com.muxy.app.net.TransportEvent
 import com.muxy.app.net.newRequestId
 import kotlinx.coroutines.Job
@@ -47,16 +51,22 @@ sealed class ConnectionState {
 class ConnectionViewModel(app: Application) : AndroidViewModel(app) {
     private val credentialsStore = DeviceCredentialsStore(app)
     private val devicesStore = SavedDevicesStore(app)
+    private val demoModeStore = DemoModeStore(app)
     val terminalPreferences = TerminalPreferencesStore(app)
     private val trialStore = TrialStore(app)
     val billing = BillingRepository(app, viewModelScope, trialStore)
-    private val client = MuxyClient()
-    val session = SessionRepository(client, viewModelScope)
+
+    private var client: Transport = buildTransport(demoModeStore.load())
+    var session: SessionRepository = SessionRepository(client, viewModelScope)
+        private set
 
     private val _state = MutableStateFlow<ConnectionState>(ConnectionState.Disconnected)
     val state: StateFlow<ConnectionState> = _state.asStateFlow()
 
-    private val _savedDevices = MutableStateFlow(devicesStore.load())
+    private val _isDemoMode = MutableStateFlow(demoModeStore.load())
+    val isDemoMode: StateFlow<Boolean> = _isDemoMode.asStateFlow()
+
+    private val _savedDevices = MutableStateFlow(initialSavedDevices())
     val savedDevices: StateFlow<List<SavedDevice>> = _savedDevices.asStateFlow()
 
     private val androidDeviceName: String = "${Build.MANUFACTURER} ${Build.MODEL}".trim()
@@ -69,7 +79,11 @@ class ConnectionViewModel(app: Application) : AndroidViewModel(app) {
     private var transportJob: Job? = null
 
     init {
+        observeTransport()
+    }
 
+    private fun observeTransport() {
+        transportJob?.cancel()
         transportJob = viewModelScope.launch {
             client.events.collect { evt ->
                 when (evt) {
@@ -84,18 +98,41 @@ class ConnectionViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    private fun buildTransport(demo: Boolean): Transport =
+        if (demo) DemoTransport() else MuxyClient()
+
+    private fun initialSavedDevices(): List<SavedDevice> {
+        val demo = demoModeStore.load()
+        return if (demo) listOf(SavedDevice(DemoBackend.SEEDED_DEVICE_NAME, DemoBackend.SEEDED_DEVICE_HOST, DemoBackend.SEEDED_DEVICE_PORT))
+        else devicesStore.load()
+    }
+
+    fun setDemoMode(enabled: Boolean) {
+        if (_isDemoMode.value == enabled) return
+        session.stopObserving()
+        client.disconnect()
+        demoModeStore.save(enabled)
+        _isDemoMode.value = enabled
+        client = buildTransport(enabled)
+        session = SessionRepository(client, viewModelScope)
+        observeTransport()
+        lastDevice = null
+        _savedDevices.value = initialSavedDevices()
+        _state.value = ConnectionState.Disconnected
+    }
+
     fun addDevice(name: String, host: String, port: Int) {
         val cleanName = name.ifBlank { "Mac" }
         val updated = (listOf(SavedDevice(cleanName, host, port)) +
                 _savedDevices.value.filterNot { it.host == host && it.port == port })
         _savedDevices.value = updated
-        devicesStore.save(updated)
+        if (!_isDemoMode.value) devicesStore.save(updated)
     }
 
     fun removeDevice(device: SavedDevice) {
         val updated = _savedDevices.value.filterNot { it.id == device.id }
         _savedDevices.value = updated
-        devicesStore.save(updated)
+        if (!_isDemoMode.value) devicesStore.save(updated)
     }
 
     fun connect(device: SavedDevice) {
@@ -126,8 +163,17 @@ class ConnectionViewModel(app: Application) : AndroidViewModel(app) {
 
     private suspend fun runConnection(device: SavedDevice) {
         _state.value = ConnectionState.Connecting(device.name)
-        val credentials = credentialsStore.load()
         client.connect(device.host, device.port)
+        if (!client.requiresAuth) {
+            session.setMyClientID(DemoBackend.MY_CLIENT_ID)
+            val theme = DemoBackend.THEME
+            session.applyInitialTheme(theme.fg, theme.bg, theme.palette)
+            _state.value = ConnectionState.Connected(device.name, DemoBackend.MY_CLIENT_ID)
+            session.startObserving()
+            session.refreshProjects()
+            return
+        }
+        val credentials = credentialsStore.load()
         delay(500)
 
         if (!authenticateOrPair(credentials, device.name)) return
@@ -233,6 +279,7 @@ class ConnectionViewModel(app: Application) : AndroidViewModel(app) {
 
     private suspend fun verifyOrReconnect(device: SavedDevice) {
 
+        if (!client.requiresAuth) return
         val ok = runCatching {
             withTimeoutOrNull(3.seconds) {
                 client.send(listProjectsLikePing(), 3.seconds)
@@ -263,6 +310,14 @@ class ConnectionViewModel(app: Application) : AndroidViewModel(app) {
 
         session.clearPaneOwners()
         val activeProject = session.activeProjectID.value
+        if (!client.requiresAuth) {
+            client.connect(device.host, device.port)
+            session.setMyClientID(DemoBackend.MY_CLIENT_ID)
+            session.startObserving()
+            session.refreshProjects()
+            if (activeProject != null) session.refreshWorkspace(activeProject)
+            return
+        }
         val credentials = credentialsStore.load()
 
         var attempt = 0

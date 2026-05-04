@@ -32,7 +32,7 @@ sealed class TransportEvent {
     data class EventReceived(val event: com.muxy.app.model.MuxyEvent) : TransportEvent()
 }
 
-class MuxyClient {
+class MuxyClient : Transport {
     private val http = OkHttpClient.Builder()
         .pingInterval(20, TimeUnit.SECONDS)
         .readTimeout(0, TimeUnit.MILLISECONDS)
@@ -41,15 +41,16 @@ class MuxyClient {
     private var socket: WebSocket? = null
     private val pending = ConcurrentHashMap<String, CompletableDeferred<MuxyResponse>>()
 
-    val isConnected: Boolean get() = socket != null
+    override val isConnected: Boolean get() = socket != null
+    override val requiresAuth: Boolean = true
 
     private val _events = MutableSharedFlow<TransportEvent>(
         extraBufferCapacity = 64,
         onBufferOverflow = BufferOverflow.DROP_OLDEST,
     )
-    val events: SharedFlow<TransportEvent> = _events.asSharedFlow()
+    override val events: SharedFlow<TransportEvent> = _events.asSharedFlow()
 
-    fun connect(host: String, port: Int) {
+    override fun connect(host: String, port: Int) {
         disconnect()
         val url = "ws://$host:$port"
         Log.d(TAG, "Opening WebSocket to $url")
@@ -57,14 +58,14 @@ class MuxyClient {
         socket = http.newWebSocket(request, listener)
     }
 
-    fun disconnect() {
+    override fun disconnect() {
         socket?.close(1000, "client disconnect")
         socket = null
         pending.values.forEach { it.cancel() }
         pending.clear()
     }
 
-    suspend fun send(request: MuxyMessage.Request, timeout: Duration): MuxyResponse {
+    override suspend fun send(request: MuxyMessage.Request, timeout: Duration): MuxyResponse {
         val socket = this.socket ?: error("WebSocket not connected")
         val deferred = CompletableDeferred<MuxyResponse>()
         pending[request.payload.id] = deferred
@@ -81,7 +82,7 @@ class MuxyClient {
         }
     }
 
-    fun sendFireAndForget(request: MuxyMessage.Request): Boolean {
+    override fun sendFireAndForget(request: MuxyMessage.Request): Boolean {
         val socket = this.socket ?: return false
         return socket.send(encodeMessage(request))
     }

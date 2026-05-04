@@ -49,6 +49,8 @@ fun SettingsScreen(
     store: TerminalPreferencesStore,
     appVersion: String,
     appBuild: String,
+    isDemoMode: Boolean,
+    onDemoModeChange: (Boolean) -> Unit,
     onBack: () -> Unit,
 ) {
     val prefs by store.flow.collectAsState()
@@ -92,6 +94,22 @@ fun SettingsScreen(
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 PreviewRow(prefs = prefs)
             }
+
+            Spacer(Modifier.size(24.dp))
+            SectionHeader("Demo Mode")
+            SettingsCard {
+                ToggleRow(
+                    label = "Demo Mode",
+                    checked = isDemoMode,
+                    onCheckedChange = onDemoModeChange,
+                )
+            }
+            Text(
+                "Loads sample data so you can try the app without a Mac. Switching it off restores your real devices.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+            )
 
             Spacer(Modifier.size(24.dp))
             SectionHeader("About")

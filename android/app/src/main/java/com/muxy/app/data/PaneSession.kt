@@ -17,7 +17,7 @@ import com.muxy.app.model.terminalInputRequest
 import com.muxy.app.model.terminalResizeRequest
 import com.muxy.app.model.terminalScrollRequest
 import com.muxy.app.model.toKind
-import com.muxy.app.net.MuxyClient
+import com.muxy.app.net.Transport
 import com.muxy.app.net.TransportEvent
 import com.muxy.app.net.newRequestId
 import com.termux.terminal.TerminalEmulator
@@ -35,7 +35,7 @@ class PaneSession(
     val paneID: String,
     initialCols: Int,
     initialRows: Int,
-    private val client: MuxyClient,
+    private val client: Transport,
     private val scope: CoroutineScope,
 ) {
 

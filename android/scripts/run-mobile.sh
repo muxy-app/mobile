@@ -12,6 +12,9 @@
 #   --version X.Y.Z    Override versionName for this build. Major >=1 enables billing.
 #                      Example: scripts/run-mobile.sh --version 1.0.0  (paywall enabled)
 #                               scripts/run-mobile.sh --version 0.9.0  (free, billing off)
+#   --hardware         Target a USB-connected device (skips emulator boot).
+#                      Example: scripts/run-mobile.sh --hardware
+#                               scripts/run-mobile.sh logs --hardware
 #
 # Tablet AVDs are created on first use (reusing the system image already
 # installed for the default emulator).
@@ -33,6 +36,7 @@ APK="$ROOT_DIR/app/build/outputs/apk/debug/app-debug.apk"
 DEFAULT_AVD="${MUXY_AVD:-muxy_pixel}"
 
 VERSION_OVERRIDE=""
+USE_HARDWARE=0
 ARGS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -44,6 +48,10 @@ while [[ $# -gt 0 ]]; do
       VERSION_OVERRIDE="${1#--version=}"
       shift
       ;;
+    --hardware)
+      USE_HARDWARE=1
+      shift
+      ;;
     *)
       ARGS+=("$1")
       shift
@@ -51,6 +59,12 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 set -- "${ARGS[@]}"
+
+if [[ "$USE_HARDWARE" == "1" ]]; then
+  ADB_TARGET=(-d)
+else
+  ADB_TARGET=(-e)
+fi
 
 if [[ -n "$VERSION_OVERRIDE" && ! "$VERSION_OVERRIDE" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   echo "Error: --version must be X.Y.Z (got '$VERSION_OVERRIDE')" >&2
@@ -84,8 +98,8 @@ case "$cmd" in
 esac
 
 stop_app() {
-  if "$ADB" get-state >/dev/null 2>&1; then
-    "$ADB" shell am force-stop "$PKG" 2>/dev/null && echo "Muxy stopped" || echo "Muxy not running"
+  if "$ADB" "${ADB_TARGET[@]}" get-state >/dev/null 2>&1; then
+    "$ADB" "${ADB_TARGET[@]}" shell am force-stop "$PKG" 2>/dev/null && echo "Muxy stopped" || echo "Muxy not running"
   else
     echo "No device attached"
   fi
@@ -100,7 +114,7 @@ case "$cmd" in
     stop_app
     ;;
   logs)
-    exec "$ADB" logcat -v color -s "MuxyClient:* AndroidRuntime:E System.err:W $PKG:*"
+    exec "$ADB" "${ADB_TARGET[@]}" logcat -v color -s "MuxyClient:* AndroidRuntime:E System.err:W $PKG:*"
     ;;
   run|"")
     ;;
@@ -235,12 +249,25 @@ boot_emulator() {
 
 "$ADB" start-server >/dev/null 2>&1 || true
 
+if [[ "$USE_HARDWARE" == "1" ]]; then
+  HW_SERIAL="$("$ADB" devices 2>/dev/null | awk 'NR>1 && $2=="device" && $1 !~ /^emulator-/ {print $1; exit}')"
+  if [[ -z "$HW_SERIAL" ]]; then
+    echo "No USB device found. Run 'adb devices' and check that:"
+    echo "  - USB debugging is enabled in Developer Options"
+    echo "  - The phone is unlocked and the RSA prompt was accepted"
+    exit 1
+  fi
+  echo "Targeting USB device: $HW_SERIAL"
+fi
+
 CURRENT_AVD=""
-if is_booted; then
+if [[ "$USE_HARDWARE" == "0" ]] && is_booted; then
   CURRENT_AVD="$(booted_avd_name 2>/dev/null || true)"
 fi
 
-if [[ -n "$CURRENT_AVD" && "$CURRENT_AVD" == "$AVD_NAME" ]]; then
+if [[ "$USE_HARDWARE" == "1" ]]; then
+  echo "Skipping emulator boot (--hardware)."
+elif [[ -n "$CURRENT_AVD" && "$CURRENT_AVD" == "$AVD_NAME" ]]; then
   echo "Emulator '$AVD_NAME' already booted; reusing it."
 elif [[ -n "$CURRENT_AVD" && "$CURRENT_AVD" != "$AVD_NAME" ]]; then
   echo "A different AVD is booted ('$CURRENT_AVD'); switching to '$AVD_NAME'."
@@ -268,7 +295,7 @@ GRADLE_USER_HOME="$HOME/.gradle" \
 JAVA_HOME="${JAVA_HOME:-/Library/Java/JavaVirtualMachines/temurin-17.jdk/Contents/Home}" \
   "$ROOT_DIR/gradlew" -q -p "$ROOT_DIR" \
     -Pandroid.builder.sdkDownload=false \
-    "${GRADLE_VERSION_ARGS[@]}" \
+    ${GRADLE_VERSION_ARGS[@]+"${GRADLE_VERSION_ARGS[@]}"} \
     assembleDebug
 
 if [ ! -f "$APK" ]; then
@@ -277,12 +304,23 @@ if [ ! -f "$APK" ]; then
 fi
 
 echo "Installing $APK"
-"$ADB" install -r "$APK" >/dev/null
+INSTALL_FLAGS=(-r)
+[[ "$USE_HARDWARE" == "1" ]] && INSTALL_FLAGS+=(-d)
+"$ADB" "${ADB_TARGET[@]}" install "${INSTALL_FLAGS[@]}" "$APK" >/dev/null
 echo "Launching $ACTIVITY"
-"$ADB" shell am start -n "$ACTIVITY" >/dev/null
+"$ADB" "${ADB_TARGET[@]}" shell am start -n "$ACTIVITY" >/dev/null
 
 LOCAL_IP=$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || echo "unknown")
 echo
-echo "Muxy running on emulator '$AVD_NAME'"
-echo "Connect using: 10.0.2.2:4865 (emulator <-> Mac host) or $LOCAL_IP:4865 (real device)"
-echo "Tail logs:   scripts/run-mobile.sh logs"
+if [[ "$USE_HARDWARE" == "1" ]]; then
+  echo "Muxy running on USB device '$HW_SERIAL'"
+  echo "Connect using: $LOCAL_IP:4865 (Mac host on the same Wi-Fi)"
+else
+  echo "Muxy running on emulator '$AVD_NAME'"
+  echo "Connect using: 10.0.2.2:4865 (emulator <-> Mac host) or $LOCAL_IP:4865 (real device)"
+fi
+if [[ "$USE_HARDWARE" == "1" ]]; then
+  echo "Tail logs:   scripts/run-mobile.sh logs --hardware"
+else
+  echo "Tail logs:   scripts/run-mobile.sh logs"
+fi
