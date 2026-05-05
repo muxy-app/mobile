@@ -57,7 +57,7 @@ class ConnectionViewModel(app: Application) : AndroidViewModel(app) {
     val billing = BillingRepository(app, viewModelScope, trialStore)
 
     private var client: Transport = buildTransport(demoModeStore.load())
-    var session: SessionRepository = SessionRepository(client, viewModelScope)
+    var session: SessionRepository = SessionRepository(app.applicationContext, client, viewModelScope)
         private set
 
     private val _state = MutableStateFlow<ConnectionState>(ConnectionState.Disconnected)
@@ -114,7 +114,7 @@ class ConnectionViewModel(app: Application) : AndroidViewModel(app) {
         demoModeStore.save(enabled)
         _isDemoMode.value = enabled
         client = buildTransport(enabled)
-        session = SessionRepository(client, viewModelScope)
+        session = SessionRepository(getApplication<Application>().applicationContext, client, viewModelScope)
         observeTransport()
         lastDevice = null
         _savedDevices.value = initialSavedDevices()

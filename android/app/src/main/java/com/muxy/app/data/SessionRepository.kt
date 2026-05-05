@@ -1,6 +1,10 @@
 package com.muxy.app.data
 
+import android.content.Context
 import android.util.Log
+import com.muxy.app.model.SplitNodeDTO
+import com.muxy.app.ui.terminal.MuxyTerminalSession
+import com.muxy.app.ui.terminal.MuxyTerminalSessionClient
 import com.muxy.app.model.CreateTabParams
 import com.muxy.app.model.MuxyEventKind
 import com.muxy.app.model.NotificationDTO
@@ -50,6 +54,7 @@ import kotlin.time.Duration.Companion.seconds
 private const val TAG = "Session"
 
 class SessionRepository(
+    private val appContext: Context,
     private val client: Transport,
     private val scope: CoroutineScope,
 ) {
@@ -141,7 +146,10 @@ class SessionRepository(
 
         when (val kind = event.toKind()) {
             is MuxyEventKind.ProjectsChanged -> _projects.value = kind.projects
-            is MuxyEventKind.WorkspaceChanged -> _workspace.value = kind.workspace
+            is MuxyEventKind.WorkspaceChanged -> {
+                _workspace.value = kind.workspace
+                gcPanes(kind.workspace)
+            }
             is MuxyEventKind.ThemeChanged -> {
                 val t = kind.theme
                 _deviceTheme.value = DeviceTheme(t.fg, t.bg, t.palette ?: emptyList())
@@ -219,6 +227,7 @@ class SessionRepository(
             .getOrElse { return setError("getWorkspace: ${it.message}") }
         val ws = decodeWorkspace(resp.result) ?: return setError(resp.error?.message ?: "getWorkspace: unexpected response")
         _workspace.value = ws
+        gcPanes(ws)
     }
 
     suspend fun selectWorktree(projectID: String, worktreeID: String) {
@@ -291,9 +300,16 @@ class SessionRepository(
         _deviceTheme.value = DeviceTheme(fg = fg, bg = bg, palette = palette)
     }
 
-    private val panes = mutableMapOf<String, PaneSession>()
+    class PaneHandle internal constructor(
+        val pane: PaneSession,
+        val terminal: MuxyTerminalSession,
+        val terminalClient: MuxyTerminalSessionClient,
+    )
 
-    fun openPane(paneID: String, cols: Int, rows: Int): PaneSession {
+    private val panes = mutableMapOf<String, PaneHandle>()
+
+    @Synchronized
+    fun acquirePane(paneID: String, cols: Int, rows: Int): PaneHandle {
         panes[paneID]?.let { return it }
         val pane = PaneSession(
             paneID = paneID,
@@ -302,19 +318,51 @@ class SessionRepository(
             client = client,
             scope = scope,
         )
-        panes[paneID] = pane
+        val termClient = MuxyTerminalSessionClient(appContext)
+        val term = MuxyTerminalSession(pane, termClient)
+        pane.byteSink = { bytes -> term.acceptRemoteOutput(bytes) }
+        val handle = PaneHandle(pane, term, termClient)
+        panes[paneID] = handle
         _deviceTheme.value?.let { t -> pane.applyTheme(t.fg, t.bg, t.palette) }
         pane.start()
-        return pane
+        return handle
     }
 
+    @Synchronized
     fun closePane(paneID: String) {
-        panes.remove(paneID)?.stop()
+        val h = panes.remove(paneID) ?: return
+        h.pane.byteSink = null
+        h.terminal.finishIfRunning()
+        h.pane.stop()
     }
 
+    @Synchronized
     fun closeAllPanes() {
         val all = panes.values.toList()
         panes.clear()
-        all.forEach { it.stop() }
+        all.forEach {
+            it.pane.byteSink = null
+            it.terminal.finishIfRunning()
+            it.pane.stop()
+        }
+    }
+
+    private fun gcPanes(ws: WorkspaceDTO) {
+        val live = collectPaneIDs(ws.root)
+        val stale = synchronized(this) { panes.keys.filterNot { it in live } }
+        stale.forEach { closePane(it) }
+    }
+
+    private fun collectPaneIDs(node: SplitNodeDTO, into: MutableSet<String> = mutableSetOf()): Set<String> {
+        when (node) {
+            is SplitNodeDTO.TabArea -> node.area.tabs.forEach { tab ->
+                tab.paneID?.let { into.add(it) }
+            }
+            is SplitNodeDTO.Split -> {
+                collectPaneIDs(node.branch.first, into)
+                collectPaneIDs(node.branch.second, into)
+            }
+        }
+        return into
     }
 }

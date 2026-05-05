@@ -7,7 +7,7 @@ import android.util.Log
 import com.termux.terminal.TerminalSession
 import com.termux.terminal.TerminalSessionClient
 
-internal class MuxyTerminalSessionClient(
+class MuxyTerminalSessionClient(
     private val context: Context,
 ) : TerminalSessionClient {
     var onTextChanged: (() -> Unit)? = null

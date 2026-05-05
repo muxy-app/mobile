@@ -25,7 +25,6 @@ import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -73,14 +72,14 @@ fun TerminalView(
     val nerdTypeface = remember { resolveNerdTypeface(context) }
     val typeface = if (prefs.useNerdFont && nerdTypeface != null) nerdTypeface else Typeface.MONOSPACE
 
-    var pane by remember(paneID) { mutableStateOf<PaneSession?>(null) }
-    val sessionClient = remember { MuxyTerminalSessionClient(context) }
+    val handle = remember(paneID) { session.acquirePane(paneID, 2, 2) }
+    val pane: PaneSession = handle.pane
+    val termSessionValue: MuxyTerminalSession = handle.terminal
+    val sessionClient: MuxyTerminalSessionClient = handle.terminalClient
     val viewClient = remember { MuxyTerminalViewClient() }
     val accessory = remember { AccessoryState() }
-    val termSession = remember(paneID) { mutableStateOf<MuxyTerminalSession?>(null) }
     val termViewRef = remember(paneID) { mutableStateOf<TermuxTerminalView?>(null) }
     sessionClient.onTextChanged = {
-
         termViewRef.value?.let { v -> v.post { v.invalidate() } }
     }
     val sizeReporter = remember(paneID) { SizeReporter() }
@@ -105,30 +104,16 @@ fun TerminalView(
     viewClient.modifierProvider = { accessory.consume() }
     sessionClient.onPasteRequested = {
         pasteFromClipboardText(context)?.let { text ->
-            termSession.value?.write(text.toByteArray(Charsets.UTF_8), 0, text.toByteArray(Charsets.UTF_8).size)
+            val bytes = text.toByteArray(Charsets.UTF_8)
+            termSessionValue.write(bytes, 0, bytes.size)
         }
     }
 
-    DisposableEffect(paneID) {
-
-        val opened = session.openPane(paneID, 2, 2)
-        val ts = MuxyTerminalSession(opened, sessionClient)
-        opened.byteSink = { bytes -> ts.acceptRemoteOutput(bytes) }
-        pane = opened
-        termSession.value = ts
+    LaunchedEffect(paneID) {
         autoTakenPaneID = null
-        onDispose {
-            opened.byteSink = null
-            ts.finishIfRunning()
-            session.closePane(paneID)
-            pane = null
-            termSession.value = null
-            measuredCols = null
-            measuredRows = null
-        }
     }
 
-    LaunchedEffect(theme, termSession.value) {
+    LaunchedEffect(theme, termSessionValue) {
         val view = termViewRef.value ?: return@LaunchedEffect
         applyTheme(view, theme?.fg, theme?.bg, theme?.palette)
     }
@@ -137,24 +122,18 @@ fun TerminalView(
         if (isOwnedBySelf) ownershipConfirmedOnce = true
     }
 
-    LaunchedEffect(owner) {
-        if (owner == null && autoTakenPaneID == paneID && !isOwnedBySelf) {
-            autoTakenPaneID = null
-        }
-    }
-
-    LaunchedEffect(paneID, pane, measuredCols, measuredRows, owner) {
-        val p = pane ?: return@LaunchedEffect
+    LaunchedEffect(paneID, measuredCols, measuredRows, owner) {
         val c = measuredCols ?: return@LaunchedEffect
         val r = measuredRows ?: return@LaunchedEffect
         if (autoTakenPaneID == paneID) return@LaunchedEffect
+        if (ownershipConfirmedOnce) return@LaunchedEffect
 
         if (!userInitiatedMount && owner is PaneOwner.Mac) {
             autoTakenPaneID = paneID
             return@LaunchedEffect
         }
         autoTakenPaneID = paneID
-        p.takeOver(c, r)
+        pane.takeOver(c, r)
     }
 
     Column(
@@ -172,25 +151,25 @@ fun TerminalView(
                             setTerminalViewClient(viewClient)
                             setTextSize(spToPx(ctx, prefs.fontSize).toInt())
                             setTypeface(typeface)
-                            termSession.value?.let { attachSession(it) }
+                            attachSession(termSessionValue)
                             applyTheme(this, theme?.fg, theme?.bg, theme?.palette)
                             sizeReporter.attach(this) { c, r ->
                                 measuredCols = c
                                 measuredRows = r
-                                pane?.resize(c, r)
+                                pane.resize(c, r)
                             }
                             termViewRef.value = this
                         }
                     },
                     update = { view ->
-                        termSession.value?.let { view.attachSession(it) }
+                        view.attachSession(termSessionValue)
                         view.setTextSize(spToPx(context, prefs.fontSize).toInt())
                         view.setTypeface(typeface)
                         applyTheme(view, theme?.fg, theme?.bg, theme?.palette)
                         sizeReporter.attach(view) { c, r ->
                             measuredCols = c
                             measuredRows = r
-                            pane?.resize(c, r)
+                            pane.resize(c, r)
                         }
                         view.alpha = if (isOwnedBySelf) 1f else 0f
                         view.isFocusable = isOwnedBySelf
@@ -211,15 +190,13 @@ fun TerminalView(
                     foreground = palette.foreground,
                     background = palette.background,
                     onTakeOver = {
-                        val p = pane ?: return@TakeOverOverlay
-
                         val view = termViewRef.value
                         val emulator = view?.mEmulator
                         val c = emulator?.mColumns?.takeIf { it > 0 } ?: measuredCols ?: 80
                         val r = emulator?.mRows?.takeIf { it > 0 } ?: measuredRows ?: 24
                         scope.launch {
-                            termSession.value?.resetEmulatorScreen()
-                            p.takeOver(c, r)
+                            termSessionValue.resetEmulatorScreen()
+                            pane.takeOver(c, r)
                         }
                     },
                 )
@@ -231,11 +208,11 @@ fun TerminalView(
             foreground = palette.foreground,
             background = palette.background,
             keyboardVisible = keyboardVisible,
-            onSendBytes = { bytes -> pane?.sendBytes(bytes) },
+            onSendBytes = { bytes -> pane.sendBytes(bytes) },
             onPaste = {
                 pasteFromClipboardText(context)?.let { text ->
                     val bytes = text.toByteArray(Charsets.UTF_8)
-                    termSession.value?.write(bytes, 0, bytes.size)
+                    termSessionValue.write(bytes, 0, bytes.size)
                 }
             },
             onCopy = {  },
