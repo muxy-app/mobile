@@ -31,3 +31,6 @@ android/app/release.keystore
 
 # Logs
 *.log
+
+.claude
+.agents
