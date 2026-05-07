@@ -140,8 +140,17 @@ final class MuxySwiftTermView: SwiftTerm.TerminalView {
     private static let wheelPointsPerTick: CGFloat = 16
     private static let wheelMaxTicksPerFrame: Int = 2
 
-    private var userDetachedFromBottom = false
-    private static let bottomStickThreshold: CGFloat = 2
+    private var stickyBottom = true
+    private var userScrollPosition: CGFloat = 0
+    private var isAdjustingContentOffset = false
+    private var isFeedingTerminal = false
+    private static let bottomStickThreshold: CGFloat = 4
+    private static let offsetTolerance: CGFloat = 0.5
+
+    private struct ScrollState {
+        let stickyBottom: Bool
+        let offsetY: CGFloat
+    }
 
     private let hiddenKeyboardPlaceholder: UIView = {
         let view = UIView(frame: .zero)
@@ -156,6 +165,7 @@ final class MuxySwiftTermView: SwiftTerm.TerminalView {
         muxyAccessoryBar.onCopy = { [weak self] in self?.copySelectionToClipboard() }
         muxyAccessoryBar.onKeyboardToggle = { [weak self] in self?.toggleKeyboard() }
         inputAccessoryView = muxyAccessoryBar
+        delegate = self
         setupWheelGesture()
     }
 
@@ -166,15 +176,64 @@ final class MuxySwiftTermView: SwiftTerm.TerminalView {
 
     override var contentOffset: CGPoint {
         didSet {
-            if isTracking || isDragging || isDecelerating {
-                updateUserDetachedFromBottom()
-            }
+            handleContentOffsetChange(from: oldValue)
         }
     }
 
     func feedPreservingScroll(byteArray: ArraySlice<UInt8>) {
-        preserveDetachedScrollPosition {
-            feed(byteArray: byteArray)
+        let scrollState = currentScrollState()
+        let wasFeedingTerminal = isFeedingTerminal
+        isFeedingTerminal = true
+        feed(byteArray: byteArray)
+        isFeedingTerminal = wasFeedingTerminal
+        restoreScrollState(scrollState)
+    }
+
+    func scrollViewDidScroll(_: UIScrollView) {
+        guard !isAdjustingContentOffset, !isFeedingTerminal else { return }
+        if isDragging || isTracking {
+            recordUserScrollPosition()
+        }
+    }
+
+    func scrollViewWillBeginDragging(_: UIScrollView) {
+        stickyBottom = false
+        userScrollPosition = contentOffset.y
+    }
+
+    func scrollViewWillEndDragging(
+        _: UIScrollView,
+        withVelocity _: CGPoint,
+        targetContentOffset: UnsafeMutablePointer<CGPoint>
+    ) {
+        let maxOffsetY = max(0, contentSize.height - bounds.height)
+        let targetOffsetY = clampedOffsetY(targetContentOffset.pointee.y, maxOffsetY: maxOffsetY)
+        userScrollPosition = targetOffsetY
+        stickyBottom = isOffsetAtBottom(targetOffsetY, maxOffsetY: maxOffsetY)
+    }
+
+    func scrollViewDidEndDragging(_: UIScrollView, willDecelerate decelerate: Bool) {
+        if !decelerate {
+            recordUserScrollPosition()
+        }
+    }
+
+    func scrollViewDidEndDecelerating(_: UIScrollView) {
+        recordUserScrollPosition()
+    }
+
+    override func scrolled(source terminal: Terminal, yDisp: Int) {
+        let savedOffset = contentOffset
+        let wasSticky = stickyBottom
+        super.scrolled(source: terminal, yDisp: yDisp)
+        let maxOffsetY = max(0, contentSize.height - bounds.height)
+        let target: CGPoint = wasSticky
+            ? CGPoint(x: contentOffset.x, y: maxOffsetY)
+            : CGPoint(x: contentOffset.x, y: min(savedOffset.y, maxOffsetY))
+        if contentOffset != target {
+            isAdjustingContentOffset = true
+            super.contentOffset = target
+            isAdjustingContentOffset = false
         }
     }
 
@@ -272,26 +331,80 @@ final class MuxySwiftTermView: SwiftTerm.TerminalView {
         addGestureRecognizer(gesture)
     }
 
-    private func preserveDetachedScrollPosition(_ update: () -> Void) {
-        let wasDetached = userDetachedFromBottom
-        let preservedOffset = contentOffset
-        update()
-        guard wasDetached else {
-            updateUserDetachedFromBottom()
-            return
-        }
+    private var isAtBottom: Bool {
         let maxOffsetY = max(0, contentSize.height - bounds.height)
-        let restoredOffset = CGPoint(x: preservedOffset.x, y: min(preservedOffset.y, maxOffsetY))
-        if contentOffset != restoredOffset {
-            setContentOffset(restoredOffset, animated: false)
-        }
-        updateUserDetachedFromBottom()
+        return isOffsetAtBottom(contentOffset.y, maxOffsetY: maxOffsetY)
     }
 
-    private func updateUserDetachedFromBottom() {
-        let maxOffsetY = max(0, contentSize.height - bounds.height)
-        let distanceFromBottom = maxOffsetY - contentOffset.y
-        userDetachedFromBottom = distanceFromBottom > Self.bottomStickThreshold
+    private var currentMaxOffsetY: CGFloat {
+        max(0, contentSize.height - bounds.height)
+    }
+
+    private func currentScrollState() -> ScrollState {
+        ScrollState(stickyBottom: stickyBottom && isAtBottom, offsetY: contentOffset.y)
+    }
+
+    private func restoreScrollState(_ state: ScrollState) {
+        let maxOffsetY = currentMaxOffsetY
+        let targetOffsetY = state.stickyBottom ? maxOffsetY : clampedOffsetY(state.offsetY, maxOffsetY: maxOffsetY)
+        setContentOffsetY(targetOffsetY)
+        userScrollPosition = targetOffsetY
+        stickyBottom = state.stickyBottom || maxOffsetY <= Self.offsetTolerance
+    }
+
+    private func handleContentOffsetChange(from oldValue: CGPoint) {
+        guard !isAdjustingContentOffset else { return }
+        guard !isFeedingTerminal else { return }
+
+        let maxOffsetY = currentMaxOffsetY
+        if isDragging || isTracking {
+            recordUserScrollPosition(maxOffsetY: maxOffsetY)
+            return
+        }
+
+        if stickyBottom {
+            if contentOffset.y > maxOffsetY + Self.offsetTolerance {
+                setContentOffsetY(maxOffsetY)
+                return
+            }
+            recordUserScrollPosition(maxOffsetY: maxOffsetY)
+            return
+        }
+
+        if isDecelerating, isProgrammaticBottomSnap(from: oldValue, maxOffsetY: maxOffsetY) {
+            setContentOffsetY(clampedOffsetY(oldValue.y, maxOffsetY: maxOffsetY))
+            return
+        }
+
+        recordUserScrollPosition(maxOffsetY: maxOffsetY)
+    }
+
+    private func recordUserScrollPosition(maxOffsetY: CGFloat? = nil) {
+        let maxOffsetY = maxOffsetY ?? currentMaxOffsetY
+        let offsetY = clampedOffsetY(contentOffset.y, maxOffsetY: maxOffsetY)
+        userScrollPosition = offsetY
+        stickyBottom = isOffsetAtBottom(offsetY, maxOffsetY: maxOffsetY)
+    }
+
+    private func isProgrammaticBottomSnap(from oldValue: CGPoint, maxOffsetY: CGFloat) -> Bool {
+        let movedTowardBottom = contentOffset.y > oldValue.y + Self.offsetTolerance
+        let snappedToBottom = contentOffset.y >= maxOffsetY - Self.bottomStickThreshold
+        return movedTowardBottom && snappedToBottom
+    }
+
+    private func isOffsetAtBottom(_ offsetY: CGFloat, maxOffsetY: CGFloat) -> Bool {
+        maxOffsetY - offsetY <= Self.bottomStickThreshold
+    }
+
+    private func clampedOffsetY(_ offsetY: CGFloat, maxOffsetY: CGFloat) -> CGFloat {
+        min(max(offsetY, 0), maxOffsetY)
+    }
+
+    private func setContentOffsetY(_ offsetY: CGFloat) {
+        guard abs(contentOffset.y - offsetY) > Self.offsetTolerance else { return }
+        isAdjustingContentOffset = true
+        super.contentOffset = CGPoint(x: contentOffset.x, y: offsetY)
+        isAdjustingContentOffset = false
     }
 
     private lazy var wheelGestureDelegate: WheelGestureDelegate = {
