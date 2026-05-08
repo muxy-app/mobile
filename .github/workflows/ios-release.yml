@@ -15,17 +15,15 @@ on:
 jobs:
   release-ios:
     runs-on: macos-26
-    timeout-minutes: 45
+    timeout-minutes: 60
     permissions:
       contents: write
-    defaults:
-      run:
-        working-directory: ios
     env:
-      APP_SCHEME: MuxyMobile
-      APP_PROJECT: MuxyMobile.xcodeproj
-      APP_ARCHIVE_PATH: build/MuxyMobile.xcarchive
-      APP_EXPORT_PATH: build/export
+      APP_SCHEME: Muxy
+      APP_WORKSPACE: ios/Muxy.xcworkspace
+      APP_ARCHIVE_PATH: ios/build/Muxy.xcarchive
+      APP_EXPORT_PATH: ios/build/export
+      BUNDLE_ID: app.muxy.mobile
     steps:
       - uses: actions/checkout@v4
         with:
@@ -54,6 +52,40 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "build_number=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
 
+      - name: Select Xcode 26
+        run: sudo xcode-select -s /Applications/Xcode_26.0.1.app
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Set version in app.json
+        env:
+          VERSION: ${{ steps.validate.outputs.version }}
+          BUILD_NUMBER: ${{ steps.validate.outputs.build_number }}
+        run: |
+          node -e '
+            const fs = require("fs");
+            const path = "app.json";
+            const cfg = JSON.parse(fs.readFileSync(path, "utf8"));
+            cfg.expo.version = process.env.VERSION;
+            cfg.expo.ios = cfg.expo.ios || {};
+            cfg.expo.ios.buildNumber = process.env.BUILD_NUMBER;
+            fs.writeFileSync(path, JSON.stringify(cfg, null, 2) + "\n");
+          '
+
+      - name: Expo prebuild (iOS)
+        run: npx expo prebuild --platform ios --no-install --clean
+
+      - name: Install CocoaPods
+        working-directory: ios
+        run: pod install
+
       - name: Import distribution certificate
         env:
           CERTIFICATE_P12: ${{ secrets.APPLE_DISTRIBUTION_CERTIFICATE }}
@@ -78,8 +110,8 @@ jobs:
         env:
           APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
         run: |
-          mkdir -p private_keys
-          echo "$APP_STORE_CONNECT_API_KEY" > private_keys/AuthKey_${{ secrets.APP_STORE_CONNECT_KEY_ID }}.p8
+          mkdir -p ios/private_keys
+          echo "$APP_STORE_CONNECT_API_KEY" > ios/private_keys/AuthKey_${{ secrets.APP_STORE_CONNECT_KEY_ID }}.p8
 
       - name: Install App Store provisioning profile
         id: profile
@@ -109,12 +141,12 @@ jobs:
           fi
 
           if [[ "$PROFILE_GET_TASK_ALLOW" == "true" ]]; then
-            echo "Error: Provisioning profile '$PROFILE_NAME' is a development profile. Use an App Store profile for com.muxy.app."
+            echo "Error: Provisioning profile '$PROFILE_NAME' is a development profile. Use an App Store profile for $BUNDLE_ID."
             exit 1
           fi
 
-          if [[ "$PROFILE_APP_ID" != *.com.muxy.app ]]; then
-            echo "Error: Provisioning profile app id '$PROFILE_APP_ID' does not match com.muxy.app"
+          if [[ "$PROFILE_APP_ID" != *.$BUNDLE_ID ]]; then
+            echo "Error: Provisioning profile app id '$PROFILE_APP_ID' does not match $BUNDLE_ID"
             exit 1
           fi
 
@@ -152,7 +184,7 @@ jobs:
       - name: Archive app
         run: |
           xcodebuild \
-            -project "$APP_PROJECT" \
+            -workspace "$APP_WORKSPACE" \
             -scheme "$APP_SCHEME" \
             -configuration Release \
             -destination "generic/platform=iOS" \
@@ -169,8 +201,6 @@ jobs:
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
-          ARCHIVE_INFO_PLIST="$APP_ARCHIVE_PATH/Info.plist"
-          BUNDLE_ID=$(/usr/libexec/PlistBuddy -c "Print :ApplicationProperties:CFBundleIdentifier" "$ARCHIVE_INFO_PLIST")
           PROFILE_UUID="${{ steps.profile.outputs.uuid }}"
 
           if [[ -z "$PROFILE_UUID" ]]; then
@@ -233,11 +263,10 @@ jobs:
         with:
           name: ios-release-${{ steps.validate.outputs.version }}-${{ steps.validate.outputs.build_number }}
           path: |
-            ios/build/MuxyMobile.xcarchive
+            ios/build/Muxy.xcarchive
             ios/build/export/*.ipa
 
       - name: Create GitHub Release
-        working-directory: .
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

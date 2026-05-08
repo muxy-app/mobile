@@ -22,12 +22,11 @@ on:
 jobs:
   release-android:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     permissions:
       contents: write
-    defaults:
-      run:
-        working-directory: android
+    env:
+      PACKAGE_NAME: app.muxy.mobile
     steps:
       - uses: actions/checkout@v4
         with:
@@ -61,6 +60,12 @@ jobs:
           echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
           echo "track=$TRACK" >> "$GITHUB_OUTPUT"
 
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -70,7 +75,29 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Set version in app.json
+        env:
+          VERSION_NAME: ${{ steps.validate.outputs.version_name }}
+          VERSION_CODE: ${{ steps.validate.outputs.version_code }}
+        run: |
+          node -e '
+            const fs = require("fs");
+            const path = "app.json";
+            const cfg = JSON.parse(fs.readFileSync(path, "utf8"));
+            cfg.expo.version = process.env.VERSION_NAME;
+            cfg.expo.android = cfg.expo.android || {};
+            cfg.expo.android.versionCode = parseInt(process.env.VERSION_CODE, 10);
+            fs.writeFileSync(path, JSON.stringify(cfg, null, 2) + "\n");
+          '
+
+      - name: Expo prebuild (Android)
+        run: npx expo prebuild --platform android --no-install --clean
+
       - name: Make gradlew executable
+        working-directory: android
         run: chmod +x ./gradlew
 
       - name: Decode signing key
@@ -81,18 +108,46 @@ jobs:
             echo "Error: ANDROID_SIGNING_KEY_BASE64 secret is required"
             exit 1
           fi
-          echo "$SIGNING_KEY_BASE64" | base64 --decode > app/upload-keystore.jks
+          echo "$SIGNING_KEY_BASE64" | base64 --decode > android/app/upload-keystore.jks
 
-      - name: Build signed Release AAB
+      - name: Configure release signing
         env:
-          ANDROID_KEYSTORE_FILE: app/upload-keystore.jks
           ANDROID_KEY_STORE_PASSWORD: ${{ secrets.ANDROID_KEY_STORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          ./gradlew bundleRelease \
-            -PversionName=${{ steps.validate.outputs.version_name }} \
-            -PversionCode=${{ steps.validate.outputs.version_code }}
+          mkdir -p ~/.gradle/init.d
+          cat > ~/.gradle/init.d/release-signing.gradle <<'EOF'
+          allprojects {
+            afterEvaluate { project ->
+              if (project.plugins.hasPlugin("com.android.application")) {
+                android {
+                  signingConfigs {
+                    release {
+                      storeFile file("${project.projectDir}/upload-keystore.jks")
+                      storePassword System.getenv("ANDROID_KEY_STORE_PASSWORD")
+                      keyAlias System.getenv("ANDROID_KEY_ALIAS")
+                      keyPassword System.getenv("ANDROID_KEY_PASSWORD")
+                    }
+                  }
+                  buildTypes {
+                    release {
+                      signingConfig signingConfigs.release
+                    }
+                  }
+                }
+              }
+            }
+          }
+          EOF
+
+      - name: Build signed Release AAB
+        working-directory: android
+        env:
+          ANDROID_KEY_STORE_PASSWORD: ${{ secrets.ANDROID_KEY_STORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: ./gradlew bundleRelease
 
       - name: Upload AAB artifact
         uses: actions/upload-artifact@v4
@@ -118,14 +173,13 @@ jobs:
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
-          packageName: com.muxy.app
+          packageName: app.muxy.mobile
           releaseFiles: android/app/build/outputs/bundle/release/*.aab
           track: ${{ steps.validate.outputs.track }}
           status: draft
           changesNotSentForReview: ${{ steps.validate.outputs.track == 'production' }}
 
       - name: Create GitHub Release
-        working-directory: .
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
