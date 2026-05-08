@@ -98,28 +98,15 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
   term.open(root);
 
   var helperTa = document.querySelector('.xterm-helper-textarea');
-  var keyboardIntent = 'open';
   if (helperTa) {
-    helperTa.setAttribute('autocorrect', 'off');
-    helperTa.setAttribute('autocapitalize', 'none');
-    helperTa.setAttribute('autocomplete', 'off');
-    helperTa.setAttribute('spellcheck', 'false');
+    helperTa.setAttribute('readonly', 'readonly');
+    helperTa.setAttribute('aria-hidden', 'true');
+    helperTa.setAttribute('tabindex', '-1');
+    helperTa.style.pointerEvents = 'none';
     helperTa.addEventListener('focus', function () {
-      if (keyboardIntent === 'close') helperTa.blur();
-    });
+      try { helperTa.blur(); } catch (_) {}
+    }, true);
   }
-
-  function utf8ToBase64(str) {
-    var enc = new TextEncoder();
-    var bytes = enc.encode(str);
-    var bin = '';
-    for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-    return btoa(bin);
-  }
-
-  term.onData(function (data) {
-    post({ type: 'data', bytes: utf8ToBase64(data) });
-  });
 
   var touchStartX = 0;
   var touchStartY = 0;
@@ -273,15 +260,7 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
       return;
     }
     if (hadSelectionAtStart || hasSelection()) return;
-    try {
-      if (helperTa && document.activeElement === helperTa) {
-        keyboardIntent = 'close';
-        helperTa.blur();
-      } else {
-        keyboardIntent = 'open';
-        term.focus();
-      }
-    } catch (e) {}
+    post({ type: 'tap' });
   }, { passive: true });
 
   var lastDims = { cols: 0, rows: 0 };

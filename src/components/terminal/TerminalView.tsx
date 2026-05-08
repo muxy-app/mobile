@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useReanimatedKeyboardAnimation } from 'react-native-keyboard-controller';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 
+import { stringToBase64 } from '@/lib/base64';
 import { getNerdFont, NERD_FONT_FAMILY, subscribeNerdFont } from '@/lib/nerdFont';
 import {
   recordDimensions,
@@ -30,6 +31,9 @@ type Props = {
 export function TerminalView({ paneId }: Props) {
   const tokens = useTokens();
   const webRef = useRef<TerminalWebViewHandle>(null);
+  const inputRef = useRef<TextInput>(null);
+  const lastSentRef = useRef('');
+  const [inputValue, setInputValue] = useState('');
 
   const lastTheme = useDevicesStore((s) => s.lastAppliedTheme);
   const activePairing = useDevicesStore((s) => {
@@ -104,6 +108,52 @@ export function TerminalView({ paneId }: Props) {
     sendTerminalInput(paneId, base64);
   };
 
+  const sendInputDiff = useCallback(
+    (next: string) => {
+      const prev = lastSentRef.current;
+      let i = 0;
+      const min = Math.min(prev.length, next.length);
+      while (i < min && prev.charCodeAt(i) === next.charCodeAt(i)) i++;
+      const retract = prev.length - i;
+      const addition = next.slice(i);
+      let out = '';
+      for (let k = 0; k < retract; k++) out += '\b \b';
+      out += addition;
+      lastSentRef.current = next;
+      if (out) sendTerminalInput(paneId, transformWithModifiers(stringToBase64(out)));
+    },
+    [paneId],
+  );
+
+  const handleInputChange = useCallback(
+    (text: string) => {
+      const newlineIdx = text.indexOf('\n');
+      if (newlineIdx === -1) {
+        setInputValue(text);
+        sendInputDiff(text);
+        return;
+      }
+      const before = text.slice(0, newlineIdx);
+      sendInputDiff(before);
+      sendTerminalInput(paneId, stringToBase64('\r'));
+      lastSentRef.current = '';
+      setInputValue('');
+    },
+    [paneId, sendInputDiff],
+  );
+
+  const handleInputBlur = useCallback(() => {
+    lastSentRef.current = '';
+    setInputValue('');
+  }, []);
+
+  const handleTap = useCallback(() => {
+    const node = inputRef.current;
+    if (!node) return;
+    if (node.isFocused()) node.blur();
+    else node.focus();
+  }, []);
+
   const { height } = useReanimatedKeyboardAnimation();
   const slideStyle = useAnimatedStyle(() => ({
     paddingBottom: -height.value,
@@ -122,6 +172,22 @@ export function TerminalView({ paneId }: Props) {
             recordDimensions(d.cols, d.rows);
           }}
           onData={handleData}
+          onTap={handleTap}
+        />
+
+        <TextInput
+          ref={inputRef}
+          value={inputValue}
+          onChangeText={handleInputChange}
+          onBlur={handleInputBlur}
+          multiline
+          autoCorrect={false}
+          autoCapitalize="none"
+          autoComplete="off"
+          spellCheck={false}
+          keyboardType="ascii-capable"
+          caretHidden
+          style={styles.hiddenInput}
         />
 
         {reconnecting ? (
@@ -216,4 +282,12 @@ const styles = StyleSheet.create({
   body: { fontSize: 14, textAlign: 'center' },
   cta: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: 999, marginTop: 8 },
   ctaLabel: { fontSize: 14, fontWeight: '600' },
+  hiddenInput: {
+    position: 'absolute',
+    width: 1,
+    height: 1,
+    opacity: 0,
+    top: 0,
+    left: 0,
+  },
 });

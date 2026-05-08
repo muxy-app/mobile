@@ -30,10 +30,11 @@ type Props = {
   onDimensions: (dims: TerminalDimensions) => void;
   onData?: (base64: string) => void;
   onError?: (message: string) => void;
+  onTap?: () => void;
 };
 
 export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function TerminalWebView(
-  { theme, onReady, onDimensions, onData, onError },
+  { theme, onReady, onDimensions, onData, onError, onTap },
   ref,
 ) {
   const webRef = useRef<WebView>(null);
@@ -73,6 +74,9 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function
           return;
         case 'data':
           onData?.(msg.bytes);
+          return;
+        case 'tap':
+          onTap?.();
           return;
         case 'error':
           onError?.(msg.message);
