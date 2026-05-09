@@ -1,11 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
-import { client, useDevicesStore } from '@/state';
 import { useTokens } from '@/theme';
-import type { VCSBranches } from '@/transport';
 
+import { useGitBranches, useGitStore } from '../gitStore';
 import { Divider, ErrorText, MutedText, PrimaryButton, Row, Section } from '../ui';
 import type { GitRoute } from '../GitScreens';
 
@@ -16,49 +15,26 @@ type Props = {
 
 export function BranchesScreen({ projectId, setRoute }: Props) {
   const tokens = useTokens();
-  const connectionPhase = useDevicesStore((s) => s.connectionPhase);
+  const { branches: data, loading, error: loadError, reload } = useGitBranches(projectId);
+  const switchBranch = useGitStore((s) => s.switchBranch);
 
-  const [data, setData] = useState<VCSBranches | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [switching, setSwitching] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await client.request('vcsListBranches', {
-        type: 'vcsListBranches',
-        value: { projectID: projectId },
-      });
-      setData(res.value);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load branches');
-    } finally {
-      setLoading(false);
-    }
-  }, [projectId]);
-
-  useEffect(() => {
-    if (connectionPhase !== 'connected') return;
-    load();
-  }, [connectionPhase, load]);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const onSwitch = async (branch: string) => {
     if (!data || branch === data.current) return;
     setSwitching(branch);
+    setActionError(null);
     try {
-      await client.request('vcsSwitchBranch', {
-        type: 'vcsSwitchBranch',
-        value: { projectID: projectId, branch },
-      });
-      await load();
+      await switchBranch(projectId, branch);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to switch branch');
+      setActionError(err instanceof Error ? err.message : 'Failed to switch branch');
     } finally {
       setSwitching(null);
     }
   };
+
+  const error = actionError ?? loadError;
 
   if (!data && loading) {
     return (
@@ -73,7 +49,7 @@ export function BranchesScreen({ projectId, setRoute }: Props) {
       style={styles.root}
       contentContainerStyle={styles.content}
       refreshControl={
-        <RefreshControl refreshing={loading} onRefresh={load} tintColor={tokens.text.muted} />
+        <RefreshControl refreshing={loading} onRefresh={reload} tintColor={tokens.text.muted} />
       }
       showsVerticalScrollIndicator={false}>
       <PrimaryButton label="New branch" onPress={() => setRoute({ name: 'newBranch' })} />

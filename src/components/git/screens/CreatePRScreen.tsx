@@ -3,9 +3,7 @@ import { ScrollView, StyleSheet } from 'react-native';
 
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 
-import { client } from '@/state';
-
-import { useVCSStatus } from '../useVCSStatus';
+import { useGitStatus, useGitStore } from '../gitStore';
 import { ErrorText, Field, MutedText, PrimaryButton, Row } from '../ui';
 import { useTokens } from '@/theme';
 import type { GitRoute } from '../GitScreens';
@@ -17,7 +15,8 @@ type Props = {
 
 export function CreatePRScreen({ projectId, setRoute }: Props) {
   const tokens = useTokens();
-  const { status } = useVCSStatus(projectId);
+  const { status } = useGitStatus(projectId);
+  const createPR = useGitStore((s) => s.createPR);
 
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
@@ -34,17 +33,13 @@ export function CreatePRScreen({ projectId, setRoute }: Props) {
     setSubmitting(true);
     setError(null);
     try {
-      const res = await client.request('vcsCreatePR', {
-        type: 'vcsCreatePR',
-        value: {
-          projectID: projectId,
-          title: title.trim(),
-          body: body.trim(),
-          baseBranch: baseBranch.trim() || undefined,
-          draft,
-        },
+      const created = await createPR(projectId, {
+        title: title.trim(),
+        body: body.trim(),
+        baseBranch: baseBranch.trim() || undefined,
+        draft,
       });
-      setCreatedUrl(res.value.url);
+      setCreatedUrl(created.url);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create pull request');
     } finally {

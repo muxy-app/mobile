@@ -299,6 +299,10 @@ export type MethodMap = {
     params: { type: 'getVCSStatus'; value: { projectID: string } };
     result: { type: 'vcsStatus'; value: VCSStatus };
   };
+  vcsRefresh: {
+    params: { type: 'vcsRefresh'; value: { projectID: string } };
+    result: { type: 'vcsStatus'; value: VCSStatus };
+  };
   vcsCommit: {
     params: { type: 'vcsCommit'; value: { projectID: string; message: string; stageAll: boolean } };
     result: { type: 'ok' };

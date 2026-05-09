@@ -2,10 +2,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { client } from '@/state';
 import { useTokens } from '@/theme';
 
-import { useVCSStatus } from '../useVCSStatus';
+import { useGitStatus, useGitStore } from '../gitStore';
 import {
   ActionGrid,
   Divider,
@@ -25,17 +24,21 @@ type Props = {
 
 export function OverviewScreen({ projectId, setRoute }: Props) {
   const tokens = useTokens();
-  const { status, loading, error, reload } = useVCSStatus(projectId);
+  const { status, loading, error, reload } = useGitStatus(projectId);
+  const pull = useGitStore((s) => s.pull);
+  const push = useGitStore((s) => s.push);
 
   const [pulling, setPulling] = useState(false);
   const [pushing, setPushing] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const onPull = async () => {
     setPulling(true);
+    setActionError(null);
     try {
-      await client.request('vcsPull', { type: 'vcsPull', value: { projectID: projectId } });
-      await reload();
-    } catch {
+      await pull(projectId);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to pull');
     } finally {
       setPulling(false);
     }
@@ -43,10 +46,11 @@ export function OverviewScreen({ projectId, setRoute }: Props) {
 
   const onPush = async () => {
     setPushing(true);
+    setActionError(null);
     try {
-      await client.request('vcsPush', { type: 'vcsPush', value: { projectID: projectId } });
-      await reload();
-    } catch {
+      await push(projectId);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to push');
     } finally {
       setPushing(false);
     }
@@ -228,6 +232,7 @@ export function OverviewScreen({ projectId, setRoute }: Props) {
         </Section>
       )}
 
+      {actionError ? <ErrorText>{actionError}</ErrorText> : null}
       {error ? <ErrorText>{error}</ErrorText> : null}
     </ScrollView>
   );

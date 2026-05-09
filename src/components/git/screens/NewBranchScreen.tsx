@@ -2,8 +2,7 @@ import { useState } from 'react';
 import { StyleSheet } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 
-import { client } from '@/state';
-
+import { useGitStore } from '../gitStore';
 import { ErrorText, Field, PrimaryButton } from '../ui';
 import type { GitRoute } from '../GitScreens';
 
@@ -13,6 +12,7 @@ type Props = {
 };
 
 export function NewBranchScreen({ projectId, setRoute }: Props) {
+  const createBranch = useGitStore((s) => s.createBranch);
   const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -23,10 +23,7 @@ export function NewBranchScreen({ projectId, setRoute }: Props) {
     setSubmitting(true);
     setError(null);
     try {
-      await client.request('vcsCreateBranch', {
-        type: 'vcsCreateBranch',
-        value: { projectID: projectId, name: trimmed },
-      });
+      await createBranch(projectId, trimmed);
       setRoute({ name: 'branches' });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create branch');

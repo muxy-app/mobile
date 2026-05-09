@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 
-import { client } from '@/state';
 import { useTokens } from '@/theme';
 
+import { useGitStore } from '../gitStore';
 import { ErrorText, Field, MutedText, PrimaryButton } from '../ui';
 import type { GitRoute } from '../GitScreens';
 
@@ -15,6 +15,7 @@ type Props = {
 
 export function NewWorktreeScreen({ projectId, setRoute }: Props) {
   const tokens = useTokens();
+  const addWorktree = useGitStore((s) => s.addWorktree);
   const [name, setName] = useState('');
   const [branch, setBranch] = useState('');
   const [createBranch, setCreateBranch] = useState(true);
@@ -28,14 +29,10 @@ export function NewWorktreeScreen({ projectId, setRoute }: Props) {
     setSubmitting(true);
     setError(null);
     try {
-      await client.request('vcsAddWorktree', {
-        type: 'vcsAddWorktree',
-        value: {
-          projectID: projectId,
-          name: trimmedName,
-          branch: trimmedBranch,
-          createBranch,
-        },
+      await addWorktree(projectId, {
+        name: trimmedName,
+        branch: trimmedBranch,
+        createBranch,
       });
       setRoute({ name: 'worktrees' });
     } catch (err) {

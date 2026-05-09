@@ -1,11 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
-import { client, useDevicesStore } from '@/state';
 import { useTokens } from '@/theme';
 import type { Worktree } from '@/transport';
 
+import { useGitStore, useGitWorktrees } from '../gitStore';
 import { Divider, ErrorText, MutedText, PrimaryButton, Row, Section } from '../ui';
 import type { GitRoute } from '../GitScreens';
 
@@ -17,44 +17,21 @@ type Props = {
 
 export function WorktreesScreen({ projectId, setRoute, onClose }: Props) {
   const tokens = useTokens();
-  const connectionPhase = useDevicesStore((s) => s.connectionPhase);
+  const { worktrees, loading, error: loadError, reload } = useGitWorktrees(projectId);
+  const selectWorktree = useGitStore((s) => s.selectWorktree);
+  const removeWorktree = useGitStore((s) => s.removeWorktree);
 
-  const [worktrees, setWorktrees] = useState<Worktree[] | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await client.request('listWorktrees', {
-        type: 'listWorktrees',
-        value: { projectID: projectId },
-      });
-      setWorktrees(res.value);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load worktrees');
-    } finally {
-      setLoading(false);
-    }
-  }, [projectId]);
-
-  useEffect(() => {
-    if (connectionPhase !== 'connected') return;
-    load();
-  }, [connectionPhase, load]);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const onSelect = async (wt: Worktree) => {
     setBusyId(wt.id);
+    setActionError(null);
     try {
-      await client.request('selectWorktree', {
-        type: 'selectWorktree',
-        value: { projectID: projectId, worktreeID: wt.id },
-      });
+      await selectWorktree(projectId, wt.id);
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to select worktree');
+      setActionError(err instanceof Error ? err.message : 'Failed to select worktree');
     } finally {
       setBusyId(null);
     }
@@ -68,14 +45,11 @@ export function WorktreesScreen({ projectId, setRoute, onClose }: Props) {
         style: 'destructive',
         onPress: async () => {
           setBusyId(wt.id);
+          setActionError(null);
           try {
-            await client.request('vcsRemoveWorktree', {
-              type: 'vcsRemoveWorktree',
-              value: { projectID: projectId, worktreeID: wt.id },
-            });
-            await load();
+            await removeWorktree(projectId, wt.id);
           } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to remove worktree');
+            setActionError(err instanceof Error ? err.message : 'Failed to remove worktree');
           } finally {
             setBusyId(null);
           }
@@ -83,6 +57,8 @@ export function WorktreesScreen({ projectId, setRoute, onClose }: Props) {
       },
     ]);
   };
+
+  const error = actionError ?? loadError;
 
   if (!worktrees && loading) {
     return (
@@ -97,7 +73,7 @@ export function WorktreesScreen({ projectId, setRoute, onClose }: Props) {
       style={styles.root}
       contentContainerStyle={styles.content}
       refreshControl={
-        <RefreshControl refreshing={loading} onRefresh={load} tintColor={tokens.text.muted} />
+        <RefreshControl refreshing={loading} onRefresh={reload} tintColor={tokens.text.muted} />
       }
       showsVerticalScrollIndicator={false}>
       <PrimaryButton label="New worktree" onPress={() => setRoute({ name: 'newWorktree' })} />

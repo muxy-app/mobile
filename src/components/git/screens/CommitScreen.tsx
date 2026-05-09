@@ -2,10 +2,9 @@ import { useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 
-import { client } from '@/state';
 import { useTokens } from '@/theme';
 
-import { useVCSStatus } from '../useVCSStatus';
+import { useGitStatus, useGitStore } from '../gitStore';
 import {
   Divider,
   ErrorText,
@@ -25,7 +24,8 @@ type Props = {
 
 export function CommitScreen({ projectId, setRoute }: Props) {
   const tokens = useTokens();
-  const { status, loading, error: loadError } = useVCSStatus(projectId);
+  const { status, loading, error: loadError } = useGitStatus(projectId);
+  const commit = useGitStore((s) => s.commit);
 
   const [message, setMessage] = useState('');
   const [stageAll, setStageAll] = useState(true);
@@ -61,10 +61,7 @@ export function CommitScreen({ projectId, setRoute }: Props) {
     setSubmitting(true);
     setSubmitError(null);
     try {
-      await client.request('vcsCommit', {
-        type: 'vcsCommit',
-        value: { projectID: projectId, message: message.trim(), stageAll },
-      });
+      await commit(projectId, message.trim(), stageAll);
       setRoute({ name: 'overview' });
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Failed to commit');
