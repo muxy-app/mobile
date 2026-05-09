@@ -50,9 +50,6 @@ type Actions = {
   ) => Promise<void>;
   removeWorktree: (projectId: string, worktreeId: string) => Promise<void>;
   selectWorktree: (projectId: string, worktreeId: string) => Promise<void>;
-
-  clearProject: (projectId: string) => void;
-  clear: () => void;
 };
 
 export type GitStore = State & Actions;
@@ -89,7 +86,7 @@ function patchSlice(
   };
 }
 
-export const useGitStore = create<GitStore>((set, get) => {
+export const useGitStore = create<GitStore>((set) => {
   const runFetch = async <T>(
     projectId: string,
     key: SliceKey,
@@ -240,14 +237,6 @@ export const useGitStore = create<GitStore>((set, get) => {
         value: { projectID: projectId, worktreeID: worktreeId },
       });
     },
-
-    clearProject: (projectId) => {
-      const next = { ...get().byProject };
-      delete next[projectId];
-      set({ byProject: next });
-    },
-
-    clear: () => set({ byProject: {} }),
   };
 });
 

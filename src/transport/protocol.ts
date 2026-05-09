@@ -182,9 +182,9 @@ export type VCSPullRequest = {
   state: string;
   isDraft: boolean;
   baseBranch: string;
-  mergeable: boolean | null;
-  mergeStateStatus: VCSPRMergeStateStatus;
-  checks: VCSPRChecks;
+  mergeable?: boolean | null;
+  mergeStateStatus?: VCSPRMergeStateStatus;
+  checks?: VCSPRChecks;
 };
 
 export type VCSMergeMethod = 'merge' | 'squash' | 'rebase';
