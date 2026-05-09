@@ -180,6 +180,8 @@ function headerTitleFor(route: GitRoute): string {
       return 'Commit';
     case 'createPR':
       return 'New pull request';
+    case 'pullRequest':
+      return 'Pull request';
     case 'newBranch':
       return 'New branch';
     case 'newWorktree':

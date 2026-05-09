@@ -38,4 +38,8 @@ export {
   type VCSBranches,
   type VCSPRCreated,
   type VCSPullRequest,
+  type VCSPRChecks,
+  type VCSPRChecksStatus,
+  type VCSPRMergeStateStatus,
+  type VCSMergeMethod,
 } from './protocol';

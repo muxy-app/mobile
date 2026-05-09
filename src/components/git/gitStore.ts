@@ -2,7 +2,13 @@ import { useEffect } from 'react';
 import { create } from 'zustand';
 
 import { client, useDevicesStore } from '@/state';
-import type { VCSBranches, VCSPRCreated, VCSStatus, Worktree } from '@/transport';
+import type {
+  VCSBranches,
+  VCSMergeMethod,
+  VCSPRCreated,
+  VCSStatus,
+  Worktree,
+} from '@/transport';
 
 type Slice<T> = {
   data: T | null;
@@ -34,6 +40,10 @@ type Actions = {
     projectId: string,
     input: { title: string; body: string; baseBranch?: string; draft: boolean },
   ) => Promise<VCSPRCreated>;
+  mergePullRequest: (
+    projectId: string,
+    input: { number: number; method: VCSMergeMethod; deleteBranch: boolean },
+  ) => Promise<void>;
   addWorktree: (
     projectId: string,
     input: { name: string; branch: string; createBranch: boolean },
@@ -184,6 +194,19 @@ export const useGitStore = create<GitStore>((set, get) => {
       });
       await refreshStatus(projectId);
       return res.value;
+    },
+
+    mergePullRequest: async (projectId, input) => {
+      await client.request('vcsMergePullRequest', {
+        type: 'vcsMergePullRequest',
+        value: {
+          projectID: projectId,
+          number: input.number,
+          method: input.method,
+          deleteBranch: input.deleteBranch,
+        },
+      });
+      await refreshStatus(projectId);
     },
 
     addWorktree: async (projectId, input) => {

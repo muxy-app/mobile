@@ -4,6 +4,7 @@ import { CommitScreen } from './screens/CommitScreen';
 import { CreatePRScreen } from './screens/CreatePRScreen';
 import { NewBranchScreen } from './screens/NewBranchScreen';
 import { NewWorktreeScreen } from './screens/NewWorktreeScreen';
+import { PullRequestScreen } from './screens/PullRequestScreen';
 import { WorktreesScreen } from './screens/WorktreesScreen';
 
 export type GitRoute =
@@ -12,6 +13,7 @@ export type GitRoute =
   | { name: 'worktrees' }
   | { name: 'commit' }
   | { name: 'createPR' }
+  | { name: 'pullRequest' }
   | { name: 'newBranch' }
   | { name: 'newWorktree' };
 
@@ -34,6 +36,8 @@ export function GitScreens({ projectId, route, setRoute, onClose }: Props) {
       return <CommitScreen projectId={projectId} setRoute={setRoute} />;
     case 'createPR':
       return <CreatePRScreen projectId={projectId} setRoute={setRoute} />;
+    case 'pullRequest':
+      return <PullRequestScreen projectId={projectId} setRoute={setRoute} />;
     case 'newBranch':
       return <NewBranchScreen projectId={projectId} setRoute={setRoute} />;
     case 'newWorktree':

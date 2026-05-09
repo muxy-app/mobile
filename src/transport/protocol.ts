@@ -156,13 +156,38 @@ export type GitFile = {
   isUntracked: boolean;
 };
 
+export type VCSPRChecksStatus = 'none' | 'pending' | 'success' | 'failure';
+
+export type VCSPRChecks = {
+  status: VCSPRChecksStatus;
+  passing: number;
+  failing: number;
+  pending: number;
+  total: number;
+};
+
+export type VCSPRMergeStateStatus =
+  | 'CLEAN'
+  | 'HAS_HOOKS'
+  | 'UNSTABLE'
+  | 'BEHIND'
+  | 'BLOCKED'
+  | 'DIRTY'
+  | 'DRAFT'
+  | 'UNKNOWN';
+
 export type VCSPullRequest = {
   url: string;
   number: number;
   state: string;
   isDraft: boolean;
   baseBranch: string;
+  mergeable: boolean | null;
+  mergeStateStatus: VCSPRMergeStateStatus;
+  checks: VCSPRChecks;
 };
+
+export type VCSMergeMethod = 'merge' | 'squash' | 'rebase';
 
 export type VCSStatus = {
   branch: string;
@@ -348,6 +373,13 @@ export type MethodMap = {
       value: { projectID: string; title: string; body: string; baseBranch?: string; draft: boolean };
     };
     result: { type: 'vcsPRCreated'; value: VCSPRCreated };
+  };
+  vcsMergePullRequest: {
+    params: {
+      type: 'vcsMergePullRequest';
+      value: { projectID: string; number: number; method: VCSMergeMethod; deleteBranch: boolean };
+    };
+    result: { type: 'ok' };
   };
   vcsAddWorktree: {
     params: {

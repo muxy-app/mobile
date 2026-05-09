@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useTokens } from '@/theme';
+import type { VCSPullRequest } from '@/transport';
 
 import { useGitStatus, useGitStore } from '../gitStore';
 import {
@@ -152,8 +153,7 @@ export function OverviewScreen({ projectId, setRoute }: Props) {
           {
             icon: 'git-pull-request-outline',
             label: hasPR ? 'PR' : 'New PR',
-            onPress: () => setRoute({ name: 'createPR' }),
-            disabled: hasPR,
+            onPress: () => setRoute({ name: hasPR ? 'pullRequest' : 'createPR' }),
           },
         ]}
       />
@@ -164,14 +164,9 @@ export function OverviewScreen({ projectId, setRoute }: Props) {
             icon="git-pull-request"
             iconColor={tokens.accent.primary}
             title={`#${status.pullRequest.number} → ${status.pullRequest.baseBranch}`}
-            subtitle={`${status.pullRequest.state}${status.pullRequest.isDraft ? ' • draft' : ''}`}
-            trailing={<Ionicons name="open-outline" size={18} color={tokens.text.muted} />}
-            onPress={() => {
-              const url = status.pullRequest?.url;
-              if (url) {
-                import('expo-web-browser').then((wb) => wb.openBrowserAsync(url)).catch(() => {});
-              }
-            }}
+            subtitle={prRowSubtitle(status.pullRequest)}
+            trailing={<Ionicons name="chevron-forward" size={18} color={tokens.text.muted} />}
+            onPress={() => setRoute({ name: 'pullRequest' })}
           />
         </Section>
       ) : null}
@@ -241,6 +236,18 @@ export function OverviewScreen({ projectId, setRoute }: Props) {
 function fileNameOf(path: string): string {
   const idx = path.lastIndexOf('/');
   return idx >= 0 ? path.slice(idx + 1) : path;
+}
+
+function prRowSubtitle(pr: VCSPullRequest): string {
+  const parts: string[] = [pr.state.toLowerCase()];
+  if (pr.isDraft) parts.push('draft');
+  const checks = pr.checks;
+  if (checks && checks.total > 0) {
+    if (checks.failing > 0) parts.push(`${checks.failing} failing`);
+    else if (checks.pending > 0) parts.push(`${checks.pending} pending`);
+    else parts.push('checks passing');
+  }
+  return parts.join(' • ');
 }
 
 const styles = StyleSheet.create({
