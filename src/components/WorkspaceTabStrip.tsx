@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { type LayoutChangeEvent, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useTokens } from '@/theme';
 import type { Tab, TabKind } from '@/transport';
@@ -10,21 +11,86 @@ type Props = {
   onSelect: (tabId: string) => void;
 };
 
-export function WorkspaceTabStrip({ tabs, activeTabId, onSelect }: Props) {
+export type WorkspaceTabStripHandle = {
+  scrollToIndex: (fractionalIndex: number, animated: boolean) => void;
+};
+
+export const WorkspaceTabStrip = forwardRef<WorkspaceTabStripHandle, Props>(function WorkspaceTabStrip(
+  { tabs, activeTabId, onSelect },
+  ref,
+) {
   const tokens = useTokens();
+  const scrollRef = useRef<ScrollView>(null);
+  const tabLayoutsRef = useRef<Record<string, { x: number; width: number }>>({});
+  const viewportWidthRef = useRef(0);
+  const [previewTabId, setPreviewTabId] = useState<string | null>(null);
+
+  const onTabLayout = (id: string, e: LayoutChangeEvent) => {
+    const { x, width } = e.nativeEvent.layout;
+    tabLayoutsRef.current[id] = { x, width };
+  };
+
+  const tabsRef = useRef(tabs);
+  tabsRef.current = tabs;
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      scrollToIndex: (fractionalIndex, animated) => {
+        const currentTabs = tabsRef.current;
+        const nearest = Math.max(0, Math.min(currentTabs.length - 1, Math.round(fractionalIndex)));
+        const nearestTab = currentTabs[nearest];
+        setPreviewTabId(nearestTab ? nearestTab.id : null);
+
+        const vw = viewportWidthRef.current;
+        if (vw === 0) return;
+        const lo = Math.floor(fractionalIndex);
+        const hi = Math.ceil(fractionalIndex);
+        const loTab = currentTabs[lo];
+        if (!loTab) return;
+        const loLayout = tabLayoutsRef.current[loTab.id];
+        if (!loLayout) return;
+        const loCenter = loLayout.x + loLayout.width / 2;
+        let center = loCenter;
+        const hiTab = currentTabs[hi];
+        if (hiTab && hi !== lo) {
+          const hiLayout = tabLayoutsRef.current[hiTab.id];
+          if (hiLayout) {
+            const hiCenter = hiLayout.x + hiLayout.width / 2;
+            const t = fractionalIndex - lo;
+            center = loCenter + (hiCenter - loCenter) * t;
+          }
+        }
+        scrollRef.current?.scrollTo({ x: Math.max(0, center - vw / 2), animated });
+      },
+    }),
+    [],
+  );
+
+  useEffect(() => {
+    setPreviewTabId(null);
+  }, [activeTabId]);
+
+  const visiblyActiveId = previewTabId ?? activeTabId;
+
   return (
     <View style={[styles.bar, { borderBottomColor: tokens.border.subtle }]}>
       <ScrollView
+        ref={scrollRef}
         horizontal
         showsHorizontalScrollIndicator={false}
+        onLayout={(e) => {
+          viewportWidthRef.current = e.nativeEvent.layout.width;
+        }}
         contentContainerStyle={styles.row}>
         {tabs.map((tab) => {
-          const active = tab.id === activeTabId;
+          const active = tab.id === visiblyActiveId;
           return (
             <Pressable
               key={tab.id}
               onPress={() => onSelect(tab.id)}
-              disabled={active}
+              disabled={tab.id === activeTabId}
+              onLayout={(e) => onTabLayout(tab.id, e)}
               style={({ pressed }) => [
                 styles.tab,
                 {
@@ -55,7 +121,7 @@ export function WorkspaceTabStrip({ tabs, activeTabId, onSelect }: Props) {
       </ScrollView>
     </View>
   );
-}
+});
 
 function iconForKind(kind: TabKind): keyof typeof Ionicons.glyphMap {
   switch (kind) {

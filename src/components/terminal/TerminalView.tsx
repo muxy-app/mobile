@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useReanimatedKeyboardAnimation } from 'react-native-keyboard-controller';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 
@@ -147,11 +147,27 @@ export function TerminalView({ paneId }: Props) {
     setInputValue('');
   }, []);
 
+  const keyboardVisibleRef = useRef(false);
+  useEffect(() => {
+    const showSub = Keyboard.addListener('keyboardDidShow', () => {
+      keyboardVisibleRef.current = true;
+    });
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => {
+      keyboardVisibleRef.current = false;
+    });
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
   const handleTap = useCallback(() => {
-    const node = inputRef.current;
-    if (!node) return;
-    if (node.isFocused()) node.blur();
-    else node.focus();
+    if (keyboardVisibleRef.current) {
+      Keyboard.dismiss();
+      inputRef.current?.blur();
+      return;
+    }
+    inputRef.current?.focus();
   }, []);
 
   const { height } = useReanimatedKeyboardAnimation();
