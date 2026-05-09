@@ -46,7 +46,13 @@ const ARROW_DOWN = new Uint8Array([0x1b, 0x5b, 0x42]);
 const ARROW_RIGHT = new Uint8Array([0x1b, 0x5b, 0x43]);
 const ARROW_LEFT = new Uint8Array([0x1b, 0x5b, 0x44]);
 
-export function KeyBar({ onBytes }: { onBytes: (base64: string) => void }) {
+export function KeyBar({
+  onBytes,
+  onPagerScrollEnabled,
+}: {
+  onBytes: (base64: string) => void;
+  onPagerScrollEnabled?: (enabled: boolean) => void;
+}) {
   const tokens = useTokens();
   const insets = useSafeAreaInsets();
   const { progress } = useReanimatedKeyboardAnimation();
@@ -85,7 +91,11 @@ export function KeyBar({ onBytes }: { onBytes: (base64: string) => void }) {
   };
 
   return (
-    <Animated.View style={[styles.row, padStyle]}>
+    <Animated.View
+      style={[styles.row, padStyle]}
+      onTouchStart={() => onPagerScrollEnabled?.(false)}
+      onTouchEnd={() => onPagerScrollEnabled?.(true)}
+      onTouchCancel={() => onPagerScrollEnabled?.(true)}>
       <View
         style={[
           styles.capsule,

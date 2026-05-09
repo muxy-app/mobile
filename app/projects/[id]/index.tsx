@@ -63,6 +63,7 @@ export default function WorkspaceScreen() {
   const pagerRef = useRef<PagerView>(null);
   const stripRef = useRef<WorkspaceTabStripHandle>(null);
   const lastSyncedIndexRef = useRef(activeIndex);
+  const [pagerScrollEnabled, setPagerScrollEnabled] = useState(true);
 
   useEffect(() => {
     if (activeIndex < 0) return;
@@ -143,6 +144,7 @@ export default function WorkspaceScreen() {
             style={styles.body}
             initialPage={initialPage}
             offscreenPageLimit={1}
+            scrollEnabled={pagerScrollEnabled}
             onPageScroll={(e) => {
               const { position, offset } = e.nativeEvent;
               stripRef.current?.scrollToIndex(position + offset, false);
@@ -154,7 +156,7 @@ export default function WorkspaceScreen() {
                 <View key={entry.tab.id} style={styles.page}>
                   {entry.tab.kind === 'terminal' && entry.tab.paneID ? (
                     isActive ? (
-                      <TerminalView paneId={entry.tab.paneID} />
+                      <TerminalView paneId={entry.tab.paneID} onPagerScrollEnabled={setPagerScrollEnabled} />
                     ) : (
                       <TerminalPagePlaceholder tab={entry.tab} background={terminalBg} />
                     )

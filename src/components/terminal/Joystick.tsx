@@ -1,3 +1,4 @@
+import * as Haptics from 'expo-haptics';
 import { useEffect, useRef, useState } from 'react';
 import { PanResponder, StyleSheet, View } from 'react-native';
 
@@ -11,8 +12,8 @@ type Props = {
 };
 
 const KNOB_RATIO = 0.4;
-const DEAD_ZONE_RATIO = 0.2;
-const REPEAT_MS = 80;
+const DEAD_ZONE_RATIO = 0.45;
+const REPEAT_MS = 160;
 
 export function Joystick({ size = 56, onDirection }: Props) {
   const tokens = useTokens();
@@ -39,8 +40,12 @@ export function Joystick({ size = 56, onDirection }: Props) {
 
   const startRepeat = (dir: JoystickDirection) => {
     if (intervalRef.current) clearInterval(intervalRef.current);
+    Haptics.selectionAsync();
     onDirection(dir);
-    intervalRef.current = setInterval(() => onDirection(dir), REPEAT_MS);
+    intervalRef.current = setInterval(() => {
+      Haptics.selectionAsync();
+      onDirection(dir);
+    }, REPEAT_MS);
     directionRef.current = dir;
   };
 

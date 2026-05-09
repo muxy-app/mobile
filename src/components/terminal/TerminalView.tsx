@@ -26,9 +26,10 @@ import {
 
 type Props = {
   paneId: string;
+  onPagerScrollEnabled?: (enabled: boolean) => void;
 };
 
-export function TerminalView({ paneId }: Props) {
+export function TerminalView({ paneId, onPagerScrollEnabled }: Props) {
   const tokens = useTokens();
   const webRef = useRef<TerminalWebViewHandle>(null);
   const inputRef = useRef<TextInput>(null);
@@ -254,7 +255,9 @@ export function TerminalView({ paneId }: Props) {
         ) : null}
       </View>
 
-        {sessionForUs?.kind === 'streaming' ? <KeyBar onBytes={handleKeyBarBytes} /> : null}
+        {sessionForUs?.kind === 'streaming' ? (
+          <KeyBar onBytes={handleKeyBarBytes} onPagerScrollEnabled={onPagerScrollEnabled} />
+        ) : null}
       </Animated.View>
     </View>
   );
