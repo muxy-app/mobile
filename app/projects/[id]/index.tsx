@@ -90,7 +90,9 @@ export default function WorkspaceScreen() {
 
   const onSelectTab = (tabId: string) => {
     const idx = allTabs.findIndex((e) => e.tab.id === tabId);
-    if (idx >= 0) selectTabAt(idx);
+    if (idx < 0) return;
+    pagerRef.current?.setPage(idx);
+    selectTabAt(idx);
   };
 
   const headerGitButton = () => (
