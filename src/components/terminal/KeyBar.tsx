@@ -91,11 +91,7 @@ export function KeyBar({
   };
 
   return (
-    <Animated.View
-      style={[styles.row, padStyle]}
-      onTouchStart={() => onPagerScrollEnabled?.(false)}
-      onTouchEnd={() => onPagerScrollEnabled?.(true)}
-      onTouchCancel={() => onPagerScrollEnabled?.(true)}>
+    <Animated.View style={[styles.row, padStyle]}>
       <View
         style={[
           styles.capsule,
@@ -107,6 +103,10 @@ export function KeyBar({
           showsVerticalScrollIndicator={false}
           alwaysBounceVertical={false}
           directionalLockEnabled
+          keyboardShouldPersistTaps="always"
+          onScrollBeginDrag={() => onPagerScrollEnabled?.(false)}
+          onScrollEndDrag={() => onPagerScrollEnabled?.(true)}
+          onMomentumScrollEnd={() => onPagerScrollEnabled?.(true)}
           contentContainerStyle={styles.capsuleContent}>
           <CapsuleButton label="esc" onPress={() => send(ESC)} />
           <ModifierKey

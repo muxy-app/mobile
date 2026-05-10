@@ -3,7 +3,7 @@ import { ActivityIndicator, Keyboard, Pressable, StyleSheet, Text, TextInput, Vi
 import { useReanimatedKeyboardAnimation } from 'react-native-keyboard-controller';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 
-import { stringToBase64 } from '@/lib/base64';
+import { bytesToBase64, stringToBase64 } from '@/lib/base64';
 import { getNerdFont, NERD_FONT_FAMILY, subscribeNerdFont } from '@/lib/nerdFont';
 import {
   recordDimensions,
@@ -29,12 +29,14 @@ type Props = {
   onPagerScrollEnabled?: (enabled: boolean) => void;
 };
 
+const INPUT_SENTINEL = '​';
+
 export function TerminalView({ paneId, onPagerScrollEnabled }: Props) {
   const tokens = useTokens();
   const webRef = useRef<TerminalWebViewHandle>(null);
   const inputRef = useRef<TextInput>(null);
   const lastSentRef = useRef('');
-  const [inputValue, setInputValue] = useState('');
+  const [inputValue, setInputValue] = useState(INPUT_SENTINEL);
 
   const lastTheme = useDevicesStore((s) => s.lastAppliedTheme);
   const activePairing = useDevicesStore((s) => {
@@ -128,24 +130,32 @@ export function TerminalView({ paneId, onPagerScrollEnabled }: Props) {
 
   const handleInputChange = useCallback(
     (text: string) => {
-      const newlineIdx = text.indexOf('\n');
-      if (newlineIdx === -1) {
-        setInputValue(text);
-        sendInputDiff(text);
+      const sentinelIdx = text.lastIndexOf(INPUT_SENTINEL);
+      if (sentinelIdx === -1) {
+        sendTerminalInput(paneId, bytesToBase64(new Uint8Array([0x7f])));
+        lastSentRef.current = '';
+        setInputValue(INPUT_SENTINEL);
         return;
       }
-      const before = text.slice(0, newlineIdx);
+      const body = text.slice(sentinelIdx + INPUT_SENTINEL.length);
+      const newlineIdx = body.indexOf('\n');
+      if (newlineIdx === -1) {
+        setInputValue(INPUT_SENTINEL + body);
+        sendInputDiff(body);
+        return;
+      }
+      const before = body.slice(0, newlineIdx);
       sendInputDiff(before);
       sendTerminalInput(paneId, stringToBase64('\r'));
       lastSentRef.current = '';
-      setInputValue('');
+      setInputValue(INPUT_SENTINEL);
     },
     [paneId, sendInputDiff],
   );
 
   const handleInputBlur = useCallback(() => {
     lastSentRef.current = '';
-    setInputValue('');
+    setInputValue(INPUT_SENTINEL);
   }, []);
 
   const keyboardVisibleRef = useRef(false);
@@ -171,6 +181,11 @@ export function TerminalView({ paneId, onPagerScrollEnabled }: Props) {
     inputRef.current?.focus();
   }, []);
 
+  const inputSelection = useMemo(
+    () => ({ start: inputValue.length, end: inputValue.length }),
+    [inputValue],
+  );
+
   const { height } = useReanimatedKeyboardAnimation();
   const slideStyle = useAnimatedStyle(() => ({
     paddingBottom: -height.value,
@@ -195,6 +210,7 @@ export function TerminalView({ paneId, onPagerScrollEnabled }: Props) {
         <TextInput
           ref={inputRef}
           value={inputValue}
+          selection={inputSelection}
           onChangeText={handleInputChange}
           onBlur={handleInputBlur}
           multiline
