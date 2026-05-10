@@ -49,7 +49,15 @@
         }
       ],
       "expo-secure-store",
-      "react-native-iap"
+      "react-native-iap",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
