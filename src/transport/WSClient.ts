@@ -10,6 +10,11 @@ import {
 } from './protocol';
 import { BackoffScheduler, type BackoffOptions } from './reconnect';
 
+export interface DemoBackendLike {
+  handle<M extends MethodName>(method: M, params: MethodParams<M>): Promise<MethodResult<M>>;
+  handleTerminalInput(paneID: string, base64Bytes: string): void;
+}
+
 export type ConnectionState =
   | 'idle'
   | 'connecting'
@@ -53,6 +58,7 @@ export class WSClient {
   private readonly requestTimeoutMs: number;
   private readonly autoReconnect: boolean;
   private nextId = 1;
+  private demo: DemoBackendLike | null = null;
 
   constructor(opts: WSClientOptions) {
     this.url = opts.url;
@@ -81,7 +87,25 @@ export class WSClient {
     return this.bus.on(event, listener);
   }
 
+  emitDemoEvent<E extends EventName>(event: E, data: EventDataMap[E]): void {
+    this.bus.emit(event, data as AnyEventMap[E]);
+  }
+
+  setDemoBackend(backend: DemoBackendLike | null): void {
+    this.demo = backend;
+  }
+
   connect(): void {
+    if (this.demo) {
+      this.intentionallyClosed = false;
+      this.clearReconnectTimer();
+      this.closeSocket(1000, 'switching to demo');
+      this.setState('connecting');
+      Promise.resolve().then(() => {
+        if (this.demo) this.setState('open');
+      });
+      return;
+    }
     if (this.state === 'open' || this.state === 'connecting') return;
     this.intentionallyClosed = false;
     this.backoff.reset();
@@ -97,6 +121,20 @@ export class WSClient {
   }
 
   async request<M extends MethodName>(method: M, params: MethodParams<M>): Promise<MethodResult<M>> {
+    if (this.demo) {
+      if (method === 'terminalInput') {
+        const v = (params as MethodParams<'terminalInput'>)!.value;
+        this.demo.handleTerminalInput(v.paneID, v.bytes);
+        return { type: 'ok' } as MethodResult<M>;
+      }
+      try {
+        return await this.demo.handle(method, params);
+      } catch (err) {
+        const code = (err as { code?: number })?.code ?? 0;
+        const message = err instanceof Error ? err.message : String(err);
+        throw new WSError(code, message);
+      }
+    }
     if (this.state !== 'open' || !this.socket) {
       throw new WSError(0, `Cannot send "${method}": connection is ${this.state}`);
     }

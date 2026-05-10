@@ -1,10 +1,12 @@
 import { Redirect, Stack, useRouter } from 'expo-router';
+import { useMemo } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useEntitlement } from '@/billing';
 import { EntitlementFooter } from '@/components/billing/EntitlementFooter';
 import { DeviceRow } from '@/components/DeviceRow';
 import { HeaderIconButton } from '@/components/HeaderIconButton';
+import { DEMO_DEVICE_ID } from '@/demo/demoBackend';
 import { useDevicesStore, useSettingsStore, type DeviceEntry } from '@/state';
 import { useTokens } from '@/theme';
 
@@ -15,10 +17,16 @@ export default function DevicesScreen() {
   const hasHydrated = useDevicesStore((s) => s.hasHydrated);
   const settingsHydrated = useSettingsStore((s) => s.hasHydrated);
   const hasOnboarded = useSettingsStore((s) => s.hasOnboarded);
+  const demoMode = useSettingsStore((s) => s.demoMode);
   const devices = useDevicesStore((s) => s.devices);
   const setActiveDevice = useDevicesStore((s) => s.setActiveDevice);
   const removeDevice = useDevicesStore((s) => s.removeDevice);
   const entitlement = useEntitlement();
+
+  const visibleDevices = useMemo(
+    () => (demoMode ? devices.filter((d) => d.id === DEMO_DEVICE_ID) : devices.filter((d) => d.id !== DEMO_DEVICE_ID)),
+    [demoMode, devices],
+  );
 
   if (!hasHydrated || !settingsHydrated) return null;
   if (!hasOnboarded) return <Redirect href="/onboarding" />;
@@ -79,7 +87,7 @@ export default function DevicesScreen() {
         }}
       />
 
-      {devices.length === 0 ? (
+      {visibleDevices.length === 0 ? (
         <View style={styles.center}>
           <Text style={[styles.emptyTitle, { color: tokens.text.primary }]}>No devices yet</Text>
           <Text style={[styles.emptyBody, { color: tokens.text.muted }]}>
@@ -88,7 +96,7 @@ export default function DevicesScreen() {
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.list}>
-          {devices.map((d) => (
+          {visibleDevices.map((d) => (
             <DeviceRow
               key={d.id}
               label={d.label}
@@ -96,7 +104,7 @@ export default function DevicesScreen() {
               port={d.port}
               needsRepair={Boolean(d.needsRepair)}
               onPress={() => handleSelect(d.id)}
-              onLongPress={() => handleLongPress(d)}
+              onLongPress={demoMode && d.id === DEMO_DEVICE_ID ? () => {} : () => handleLongPress(d)}
               onRepair={() => handleRepair(d)}
             />
           ))}

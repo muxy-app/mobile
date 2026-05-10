@@ -12,6 +12,8 @@ export default function SettingsScreen() {
   const router = useRouter();
   const useNerdFont = useSettingsStore((s) => s.useNerdFont);
   const setUseNerdFont = useSettingsStore((s) => s.setUseNerdFont);
+  const demoMode = useSettingsStore((s) => s.demoMode);
+  const setDemoMode = useSettingsStore((s) => s.setDemoMode);
 
   const hint =
     source === 'device'
@@ -80,6 +82,25 @@ export default function SettingsScreen() {
           <Switch
             value={useNerdFont}
             onValueChange={setUseNerdFont}
+            trackColor={{ true: tokens.accent.primary, false: tokens.surface.tertiary }}
+            thumbColor={tokens.surface.primary}
+          />
+        </View>
+      </View>
+
+      <Text style={[styles.sectionLabel, { color: tokens.text.muted }]}>Demo</Text>
+      <View
+        style={[styles.card, { backgroundColor: tokens.surface.secondary, borderColor: tokens.border.subtle }]}>
+        <View style={styles.toggleRow}>
+          <View style={styles.toggleText}>
+            <Text style={[styles.rowLabel, { color: tokens.text.primary }]}>Demo Mode</Text>
+            <Text style={[styles.rowHint, { color: tokens.text.muted }]}>
+              Loads sample data so you can try the app without a Mac. Switching it off restores your real devices.
+            </Text>
+          </View>
+          <Switch
+            value={demoMode}
+            onValueChange={setDemoMode}
             trackColor={{ true: tokens.accent.primary, false: tokens.surface.tertiary }}
             thumbColor={tokens.surface.primary}
           />

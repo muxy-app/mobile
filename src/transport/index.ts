@@ -1,4 +1,4 @@
-export { WSClient, type ConnectionState, type WSClientOptions } from './WSClient';
+export { WSClient, type ConnectionState, type DemoBackendLike, type WSClientOptions } from './WSClient';
 export { WSError, isWSError } from './errors';
 export { AppStateBinder } from './AppStateBinder';
 export { BackoffScheduler, type BackoffOptions } from './reconnect';

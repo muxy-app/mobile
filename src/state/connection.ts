@@ -1,14 +1,64 @@
+import {
+  DEMO_DEVICE_HOST,
+  DEMO_DEVICE_ID,
+  DEMO_DEVICE_NAME,
+  DEMO_DEVICE_PORT,
+  DemoBackend,
+} from '@/demo/demoBackend';
 import { AppStateBinder, isWSError, WSClient } from '@/transport';
 
 import { resolveDeviceName } from './deviceName';
 import { useDevicesStore } from './devicesStore';
 import { readInstallToken } from './secureTokens';
+import { useSettingsStore } from './settingsStore';
 
 export const client = new WSClient({
   url: 'ws://0.0.0.0:0',
   autoReconnect: true,
   requestTimeoutMs: 15_000,
 });
+
+let demoBackend: DemoBackend | null = null;
+
+function ensureDemoBackend(): DemoBackend {
+  if (!demoBackend) {
+    demoBackend = new DemoBackend((event, data) => client.emitDemoEvent(event, data));
+    client.setDemoBackend(demoBackend);
+  }
+  return demoBackend;
+}
+
+function clearDemoBackend(): void {
+  if (!demoBackend) return;
+  demoBackend = null;
+  client.setDemoBackend(null);
+}
+
+export function applyDemoMode(enabled: boolean): void {
+  const s = useDevicesStore.getState();
+  const hasDemoEntry = s.devices.some((d) => d.id === DEMO_DEVICE_ID);
+  const activeId = s.activeDeviceId;
+
+  if (enabled) {
+    ensureDemoBackend();
+    s.ensureInstallDeviceID();
+    if (!hasDemoEntry) {
+      s.upsertDevice({
+        id: DEMO_DEVICE_ID,
+        label: DEMO_DEVICE_NAME,
+        host: DEMO_DEVICE_HOST,
+        port: DEMO_DEVICE_PORT,
+        pairedAt: new Date().toISOString(),
+      });
+    }
+    if (activeId && activeId !== DEMO_DEVICE_ID) {
+      s.setActiveDevice(null);
+    }
+  } else {
+    clearDemoBackend();
+    if (hasDemoEntry) s.removeDevice(DEMO_DEVICE_ID);
+  }
+}
 
 let started = false;
 
@@ -35,7 +85,8 @@ export function startConnectionLifecycle(): () => void {
     const targetEntryId = active.id;
 
     try {
-      const token = await readInstallToken();
+      const isDemo = useSettingsStore.getState().demoMode && active.id === DEMO_DEVICE_ID;
+      const token = isDemo ? 'demo-token' : await readInstallToken();
       if (!token) {
         s.setNeedsRepair(targetEntryId, true);
         s.setConnection('unauthorized', 'No saved credential — please pair again.');
