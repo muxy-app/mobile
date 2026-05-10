@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useTokens } from '@/theme';
 
@@ -8,15 +8,34 @@ type Props = {
   host: string;
   port: number;
   needsRepair: boolean;
+  connecting?: boolean;
+  errorMessage?: string | null;
   onPress: () => void;
   onLongPress: () => void;
   onRepair?: () => void;
 };
 
-export function DeviceRow({ label, host, port, needsRepair, onPress, onLongPress, onRepair }: Props) {
+export function DeviceRow({
+  label,
+  host,
+  port,
+  needsRepair,
+  connecting,
+  errorMessage,
+  onPress,
+  onLongPress,
+  onRepair,
+}: Props) {
   const tokens = useTokens();
 
-  const subtitle = needsRepair ? 'Pairing revoked — re-pair to reconnect' : `${host}:${port}`;
+  const subtitle = needsRepair
+    ? 'Pairing revoked — re-pair to reconnect'
+    : connecting
+      ? 'Connecting…'
+      : errorMessage
+        ? errorMessage
+        : `${host}:${port}`;
+  const subtitleColor = needsRepair || errorMessage ? tokens.status.danger : tokens.text.muted;
 
   return (
     <Pressable
@@ -34,12 +53,7 @@ export function DeviceRow({ label, host, port, needsRepair, onPress, onLongPress
         <Text style={[styles.label, { color: tokens.text.primary }]} numberOfLines={1}>
           {label}
         </Text>
-        <Text
-          style={[
-            styles.subtitle,
-            { color: needsRepair ? tokens.status.danger : tokens.text.muted },
-          ]}
-          numberOfLines={1}>
+        <Text style={[styles.subtitle, { color: subtitleColor }]} numberOfLines={1}>
           {subtitle}
         </Text>
       </View>
@@ -52,6 +66,8 @@ export function DeviceRow({ label, host, port, needsRepair, onPress, onLongPress
           style={[styles.repair, { backgroundColor: tokens.accent.primary }]}>
           <Text style={[styles.repairLabel, { color: tokens.accent.contrast }]}>Re-pair</Text>
         </Pressable>
+      ) : connecting ? (
+        <ActivityIndicator color={tokens.text.muted} />
       ) : (
         <Ionicons name="chevron-forward" size={18} color={tokens.text.muted} />
       )}

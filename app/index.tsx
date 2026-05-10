@@ -1,5 +1,5 @@
 import { Redirect, Stack, useRouter } from 'expo-router';
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useEntitlement } from '@/billing';
@@ -21,23 +21,75 @@ export default function DevicesScreen() {
   const devices = useDevicesStore((s) => s.devices);
   const setActiveDevice = useDevicesStore((s) => s.setActiveDevice);
   const removeDevice = useDevicesStore((s) => s.removeDevice);
+  const connectionPhase = useDevicesStore((s) => s.connectionPhase);
+  const connectionError = useDevicesStore((s) => s.connectionError);
   const entitlement = useEntitlement();
+
+  const [pendingId, setPendingId] = useState<string | null>(null);
+  const [errorByDevice, setErrorByDevice] = useState<Record<string, string>>({});
 
   const visibleDevices = useMemo(
     () => (demoMode ? devices.filter((d) => d.id === DEMO_DEVICE_ID) : devices.filter((d) => d.id !== DEMO_DEVICE_ID)),
     [demoMode, devices],
   );
 
+  useEffect(() => {
+    if (!pendingId) return;
+    if (connectionPhase === 'connected') {
+      const id = pendingId;
+      setPendingId(null);
+      setErrorByDevice((prev) => {
+        if (!(id in prev)) return prev;
+        const { [id]: _removed, ...rest } = prev;
+        return rest;
+      });
+      router.push('/projects');
+      return;
+    }
+    if (connectionPhase === 'unauthorized' || connectionPhase === 'disconnected') {
+      const id = pendingId;
+      const message = connectionError ?? (connectionPhase === 'unauthorized' ? 'Pairing revoked' : 'Couldn’t connect');
+      setPendingId(null);
+      setActiveDevice(null);
+      setErrorByDevice((prev) => ({ ...prev, [id]: message }));
+    }
+  }, [pendingId, connectionPhase, connectionError, router, setActiveDevice]);
+
+  const handleRepair = useCallback(
+    (entry: DeviceEntry) => {
+      router.push({
+        pathname: '/add-device',
+        params: {
+          entryId: entry.id,
+          host: entry.host,
+          port: String(entry.port),
+          label: entry.label,
+        },
+      });
+    },
+    [router],
+  );
+
   if (!hasHydrated || !settingsHydrated) return null;
   if (!hasOnboarded) return <Redirect href="/onboarding" />;
 
   const handleSelect = (id: string) => {
+    const entry = devices.find((d) => d.id === id);
+    if (entry?.needsRepair) {
+      handleRepair(entry);
+      return;
+    }
     if (entitlement.kind === 'expired') {
       router.push('/paywall');
       return;
     }
+    setErrorByDevice((prev) => {
+      if (!(id in prev)) return prev;
+      const { [id]: _removed, ...rest } = prev;
+      return rest;
+    });
+    setPendingId(id);
     setActiveDevice(id);
-    router.push('/projects');
   };
 
   const handleLongPress = (entry: DeviceEntry) => {
@@ -51,18 +103,6 @@ export default function DevicesScreen() {
         },
       },
     ]);
-  };
-
-  const handleRepair = (entry: DeviceEntry) => {
-    router.push({
-      pathname: '/add-device',
-      params: {
-        entryId: entry.id,
-        host: entry.host,
-        port: String(entry.port),
-        label: entry.label,
-      },
-    });
   };
 
   return (
@@ -103,6 +143,8 @@ export default function DevicesScreen() {
               host={d.host}
               port={d.port}
               needsRepair={Boolean(d.needsRepair)}
+              connecting={pendingId === d.id}
+              errorMessage={pendingId === d.id ? null : errorByDevice[d.id] ?? null}
               onPress={() => handleSelect(d.id)}
               onLongPress={demoMode && d.id === DEMO_DEVICE_ID ? () => {} : () => handleLongPress(d)}
               onRepair={() => handleRepair(d)}
