@@ -48,10 +48,8 @@ const ARROW_LEFT = new Uint8Array([0x1b, 0x5b, 0x44]);
 
 export function KeyBar({
   onBytes,
-  onPagerScrollEnabled,
 }: {
   onBytes: (base64: string) => void;
-  onPagerScrollEnabled?: (enabled: boolean) => void;
 }) {
   const tokens = useTokens();
   const insets = useSafeAreaInsets();
@@ -104,9 +102,6 @@ export function KeyBar({
           alwaysBounceVertical={false}
           directionalLockEnabled
           keyboardShouldPersistTaps="always"
-          onScrollBeginDrag={() => onPagerScrollEnabled?.(false)}
-          onScrollEndDrag={() => onPagerScrollEnabled?.(true)}
-          onMomentumScrollEnd={() => onPagerScrollEnabled?.(true)}
           contentContainerStyle={styles.capsuleContent}>
           <CapsuleButton label="esc" onPress={() => send(ESC)} />
           <ModifierKey

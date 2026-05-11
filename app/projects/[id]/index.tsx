@@ -1,12 +1,11 @@
 import { Stack, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import PagerView from 'react-native-pager-view';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 
 import { GitSheet } from '@/components/git/GitSheet';
 import { HeaderIconButton } from '@/components/HeaderIconButton';
 import { TabKindPlaceholder } from '@/components/TabKindPlaceholder';
-import { buildTerminalTheme } from '@/components/terminal/buildTerminalTheme';
 import { TerminalView } from '@/components/terminal/TerminalView';
 import { WorkspaceTabStrip, type WorkspaceTabStripHandle } from '@/components/WorkspaceTabStrip';
 import {
@@ -19,7 +18,6 @@ import {
   useWorkspaceStore,
 } from '@/state';
 import { useTokens } from '@/theme';
-import type { Tab } from '@/transport';
 
 export default function WorkspaceScreen() {
   const tokens = useTokens();
@@ -32,66 +30,45 @@ export default function WorkspaceScreen() {
   const fetchPhase = useWorkspaceStore((s) => s.fetchPhase);
   const fetchError = useWorkspaceStore((s) => s.fetchError);
 
-  const lastTheme = useDevicesStore((s) => s.lastAppliedTheme);
-  const activePairing = useDevicesStore((s) => {
-    const did = s.activeDeviceId;
-    if (!did) return null;
-    return s.devices.find((d) => d.id === did)?.pairing ?? null;
-  });
-  const terminalBg = useMemo(() => {
-    const device = activePairing
-      ? {
-          themeFg: activePairing.themeFg,
-          themeBg: activePairing.themeBg,
-          themePalette: activePairing.themePalette,
-        }
-      : lastTheme;
-    return buildTerminalTheme(device, tokens).background;
-  }, [activePairing, lastTheme, tokens]);
-
   useWorkspace(id);
 
-  const allTabs = workspace ? flattenTabs(workspace.root) : [];
+  const allTabs = useMemo(() => (workspace ? flattenTabs(workspace.root) : []), [workspace]);
   const focusedArea = workspace
     ? findArea(workspace.root, workspace.focusedAreaID) ?? null
     : null;
   const activeTabId = focusedArea?.activeTabID;
   const activeIndex = activeTabId ? allTabs.findIndex((e) => e.tab.id === activeTabId) : -1;
+  const activeEntry = activeIndex >= 0 ? allTabs[activeIndex] : undefined;
 
   const headerTitle = project?.name ?? 'Workspace';
 
-  const pagerRef = useRef<PagerView>(null);
   const stripRef = useRef<WorkspaceTabStripHandle>(null);
-  const lastSyncedIndexRef = useRef(activeIndex);
-  const [pagerScrollEnabled, setPagerScrollEnabled] = useState(true);
 
   useEffect(() => {
     if (activeIndex < 0) return;
-    if (activeIndex === lastSyncedIndexRef.current) return;
-    lastSyncedIndexRef.current = activeIndex;
-    pagerRef.current?.setPage(activeIndex);
     stripRef.current?.scrollToIndex(activeIndex, true);
   }, [activeIndex]);
 
-  const selectTabAt = (index: number) => {
-    if (!id) return;
-    const target = allTabs[index];
-    if (!target) return;
-    if (target.tab.id === activeTabId) return;
-    lastSyncedIndexRef.current = index;
-    useWorkspaceStore.getState().selectTabLocal(target.areaId, target.tab.id);
-    client
-      .request('selectTab', {
-        type: 'selectTab',
-        value: { projectID: id, areaID: target.areaId, tabID: target.tab.id },
-      })
-      .catch(() => {});
-  };
+  const selectTabAt = useCallback(
+    (index: number) => {
+      if (!id) return;
+      const target = allTabs[index];
+      if (!target) return;
+      if (target.tab.id === activeTabId) return;
+      useWorkspaceStore.getState().selectTabLocal(target.areaId, target.tab.id);
+      client
+        .request('selectTab', {
+          type: 'selectTab',
+          value: { projectID: id, areaID: target.areaId, tabID: target.tab.id },
+        })
+        .catch(() => {});
+    },
+    [id, allTabs, activeTabId],
+  );
 
   const onSelectTab = (tabId: string) => {
     const idx = allTabs.findIndex((e) => e.tab.id === tabId);
     if (idx < 0) return;
-    pagerRef.current?.setPage(idx);
     selectTabAt(idx);
   };
 
@@ -103,7 +80,28 @@ export default function WorkspaceScreen() {
     />
   );
 
-  const initialPage = activeIndex >= 0 ? activeIndex : 0;
+  const tabCount = allTabs.length;
+  const swipeGesture = useMemo(() => {
+    const goToNeighbor = (delta: number) => {
+      if (activeIndex < 0) return;
+      const next = activeIndex + delta;
+      if (next < 0 || next >= tabCount) return;
+      selectTabAt(next);
+    };
+    return Gesture.Pan()
+      .activeOffsetX([-25, 25])
+      .failOffsetY([-15, 15])
+      .onEnd((e) => {
+        const dx = e.translationX;
+        const vx = e.velocityX;
+        if (dx <= -40 || vx <= -500) {
+          goToNeighbor(1);
+        } else if (dx >= 40 || vx >= 500) {
+          goToNeighbor(-1);
+        }
+      })
+      .runOnJS(true);
+  }, [tabCount, activeIndex, selectTabAt]);
 
   return (
     <View style={[styles.root, { backgroundColor: tokens.surface.primary }]}>
@@ -140,35 +138,17 @@ export default function WorkspaceScreen() {
             activeTabId={activeTabId}
             onSelect={onSelectTab}
           />
-          <PagerView
-            key={allTabs.map((e) => e.tab.id).join('|')}
-            ref={pagerRef}
-            style={styles.body}
-            initialPage={initialPage}
-            offscreenPageLimit={1}
-            scrollEnabled={pagerScrollEnabled}
-            onPageScroll={(e) => {
-              const { position, offset } = e.nativeEvent;
-              stripRef.current?.scrollToIndex(position + offset, false);
-            }}
-            onPageSelected={(e) => selectTabAt(e.nativeEvent.position)}>
-            {allTabs.map((entry, index) => {
-              const isActive = index === activeIndex;
-              return (
-                <View key={entry.tab.id} style={styles.page}>
-                  {entry.tab.kind === 'terminal' && entry.tab.paneID ? (
-                    isActive ? (
-                      <TerminalView paneId={entry.tab.paneID} onPagerScrollEnabled={setPagerScrollEnabled} />
-                    ) : (
-                      <TerminalPagePlaceholder tab={entry.tab} background={terminalBg} />
-                    )
-                  ) : (
-                    <TabKindPlaceholder tab={entry.tab} />
-                  )}
-                </View>
-              );
-            })}
-          </PagerView>
+          <GestureDetector gesture={swipeGesture}>
+            <View style={styles.body}>
+              {activeEntry ? (
+                activeEntry.tab.kind === 'terminal' && activeEntry.tab.paneID ? (
+                  <TerminalView key={activeEntry.tab.id} paneId={activeEntry.tab.paneID} />
+                ) : (
+                  <TabKindPlaceholder tab={activeEntry.tab} />
+                )
+              ) : null}
+            </View>
+          </GestureDetector>
         </>
       )}
     </View>
@@ -179,28 +159,11 @@ function Centered({ children, tokens }: { children: React.ReactNode; tokens: Ret
   return <View style={[styles.center, { backgroundColor: tokens.surface.primary }]}>{children}</View>;
 }
 
-function TerminalPagePlaceholder({ tab, background }: { tab: Tab; background: string }) {
-  const tokens = useTokens();
-  return (
-    <View style={[styles.terminalPlaceholder, { backgroundColor: background }]}>
-      <ActivityIndicator color={tokens.text.muted} />
-      {tab.title ? (
-        <Text style={[styles.terminalPlaceholderLabel, { color: tokens.text.muted }]} numberOfLines={1}>
-          {tab.title}
-        </Text>
-      ) : null}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   root: { flex: 1 },
   body: { flex: 1 },
-  page: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, gap: 10 },
   title: { fontSize: 20, fontWeight: '600' },
   hint: { fontSize: 14, textAlign: 'center' },
   errorBody: { fontSize: 14, textAlign: 'center' },
-  terminalPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
-  terminalPlaceholderLabel: { fontSize: 13, fontWeight: '500' },
 });
