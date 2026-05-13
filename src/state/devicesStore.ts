@@ -11,6 +11,7 @@ export type DeviceEntry = {
   label: string;
   host: string;
   port: number;
+  serviceName?: string;
   pairedAt: string;
   lastConnectedAt?: string;
   pairing?: Pairing;
@@ -47,6 +48,7 @@ type Actions = {
   setActiveDevice: (id: string | null) => void;
   setNeedsRepair: (id: string, needs: boolean) => void;
   setLastConnectedAt: (id: string, isoTs: string) => void;
+  setResolvedAddress: (id: string, host: string, port: number) => void;
   setPairing: (id: string, pairing: Pairing) => void;
   setConnection: (phase: ConnectionPhase, error?: string | null) => void;
   setThemeSource: (source: ThemeSource) => void;
@@ -105,6 +107,11 @@ export const useDevicesStore = create<DevicesStore>()(
       setLastConnectedAt: (id, iso) =>
         set((s) => ({
           devices: s.devices.map((d) => (d.id === id ? { ...d, lastConnectedAt: iso } : d)),
+        })),
+
+      setResolvedAddress: (id, host, port) =>
+        set((s) => ({
+          devices: s.devices.map((d) => (d.id === id ? { ...d, host, port } : d)),
         })),
 
       setPairing: (id, pairing) =>

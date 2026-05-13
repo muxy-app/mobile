@@ -9,6 +9,7 @@ export {
 export { client } from './connection';
 export { useConnection } from './useConnection';
 export { pairWithDevice, PairingError, type PairingPhase, type PairResult } from './pair';
+export { parsePairUri, type PairUriPayload } from './pairUri';
 export { getOrCreateInstallToken, readInstallToken } from './secureTokens';
 export { resolveDeviceName } from './deviceName';
 export { newDeviceID, newToken, newEntryId } from './ids';

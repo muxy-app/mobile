@@ -5,7 +5,7 @@ import {
   DEMO_DEVICE_PORT,
   DemoBackend,
 } from '@/demo/demoBackend';
-import { AppStateBinder, isWSError, WSClient } from '@/transport';
+import { AppStateBinder, isWSError, resolveService, WSClient } from '@/transport';
 
 import { resolveDeviceName } from './deviceName';
 import { useDevicesStore } from './devicesStore';
@@ -61,6 +61,8 @@ export function applyDemoMode(enabled: boolean): void {
 }
 
 let started = false;
+let applyToken = 0;
+let pendingResolvedAddress: { deviceId: string; host: string; port: number } | null = null;
 
 export function startConnectionLifecycle(): () => void {
   if (started) return () => {};
@@ -79,6 +81,14 @@ export function startConnectionLifecycle(): () => void {
     if (state === 'reconnecting') return s.setConnection('reconnecting');
     if (state === 'closed') return s.setConnection('disconnected');
     if (state !== 'open') return;
+
+    if (pendingResolvedAddress && pendingResolvedAddress.deviceId === active.id) {
+      const { host, port } = pendingResolvedAddress;
+      if (active.host !== host || active.port !== port) {
+        s.setResolvedAddress(active.id, host, port);
+      }
+      pendingResolvedAddress = null;
+    }
 
     if (!s.installDeviceID) return;
     s.setConnection('authenticating');
@@ -155,11 +165,25 @@ export function applyActiveDevice(): void {
   const active = s.activeDeviceId ? s.devices.find((d) => d.id === s.activeDeviceId) : null;
 
   if (!active || !s.installDeviceID) {
+    pendingResolvedAddress = null;
     client.disconnect();
     s.setConnection('idle');
     return;
   }
 
+  const token = ++applyToken;
+  pendingResolvedAddress = null;
   client.setUrl(`ws://${active.host}:${active.port}`);
   client.connect();
+
+  if (!active.serviceName || active.id === DEMO_DEVICE_ID) return;
+
+  void resolveService(active.serviceName).then((resolved) => {
+    if (token !== applyToken) return;
+    if (!resolved) return;
+    if (resolved.host === active.host && resolved.port === active.port) return;
+    pendingResolvedAddress = { deviceId: active.id, host: resolved.host, port: resolved.port };
+    client.setUrl(`ws://${resolved.host}:${resolved.port}`);
+    client.connect();
+  });
 }

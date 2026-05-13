@@ -16,6 +16,7 @@
         "NSAppTransportSecurity": {
           "NSAllowsLocalNetworking": true
         },
+        "NSBonjourServices": ["_muxy._tcp"],
         "ITSAppUsesNonExemptEncryption": false
       },
       "buildNumber": "1"
@@ -50,6 +51,12 @@
       ],
       "expo-secure-store",
       "react-native-iap",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Muxy uses the camera to scan pairing QR codes shown on your desktop."
+        }
+      ],
       [
         "expo-build-properties",
         {
