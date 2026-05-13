@@ -1,5 +1,5 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -39,6 +39,7 @@ export default function AddDeviceScreen() {
     port?: string;
     label?: string;
     service?: string;
+    auto?: string;
   }>();
   const isRepair = Boolean(params.entryId);
 
@@ -76,7 +77,9 @@ export default function AddDeviceScreen() {
     if (!label.trim()) setLabel(service.name);
   };
 
-  const onPair = async () => {
+  const autoPairedRef = useRef(false);
+
+  const onPair = useCallback(async () => {
     setError(null);
     const trimmedHost = host.trim();
     const portNum = parseInt(port, 10);
@@ -103,14 +106,22 @@ export default function AddDeviceScreen() {
         onPhase: (p) => setPhase(p),
       });
 
-      const finalEntryId = isRepair && existingEntry ? existingEntry.id : result.entryId;
+      const allDevices = useDevicesStore.getState().devices;
+      const duplicate = isRepair
+        ? null
+        : (serviceName
+            ? allDevices.find((d) => d.serviceName && d.serviceName === serviceName)
+            : null) ??
+          allDevices.find((d) => d.host === trimmedHost && d.port === portNum);
+      const reusedEntry = isRepair ? existingEntry : duplicate;
+      const finalEntryId = reusedEntry?.id ?? result.entryId;
       const entry: DeviceEntry = {
         id: finalEntryId,
-        label: label.trim() || trimmedHost,
+        label: label.trim() || reusedEntry?.label || trimmedHost,
         host: trimmedHost,
         port: portNum,
-        serviceName: serviceName ?? existingEntry?.serviceName,
-        pairedAt: existingEntry?.pairedAt ?? new Date().toISOString(),
+        serviceName: serviceName ?? reusedEntry?.serviceName,
+        pairedAt: reusedEntry?.pairedAt ?? new Date().toISOString(),
         pairing: result.pairing,
       };
 
@@ -123,7 +134,12 @@ export default function AddDeviceScreen() {
       }
 
       setPhase('success');
-      router.back();
+      if (params.auto === '1') {
+        if (router.canDismiss()) router.dismissAll();
+        router.push('/projects');
+      } else {
+        router.back();
+      }
     } catch (err) {
       const message =
         err instanceof PairingError
@@ -140,7 +156,28 @@ export default function AddDeviceScreen() {
       setPhase('error');
       setError(message);
     }
-  };
+  }, [
+    host,
+    port,
+    label,
+    serviceName,
+    isRepair,
+    existingEntry,
+    ensureInstallDeviceID,
+    upsertDevice,
+    setActiveDevice,
+    setNeedsRepair,
+    router,
+    params.auto,
+  ]);
+
+  useEffect(() => {
+    if (params.auto !== '1' || isRepair) return;
+    if (autoPairedRef.current) return;
+    if (!host.trim() || !port.trim()) return;
+    autoPairedRef.current = true;
+    void onPair();
+  }, [params.auto, isRepair, host, port, onPair]);
 
   const phaseHint = (() => {
     switch (phase) {

@@ -28,6 +28,7 @@ export default function ScanPairScreen() {
         params: {
           host: payload.host,
           port: String(payload.port),
+          auto: '1',
           ...(payload.serviceName ? { service: payload.serviceName } : {}),
           ...(payload.label ? { label: payload.label } : {}),
         },
