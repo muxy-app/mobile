@@ -1,10 +1,12 @@
 import { Stack, useLocalSearchParams } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 
 import { GitSheet } from '@/components/git/GitSheet';
 import { HeaderIconButton } from '@/components/HeaderIconButton';
+import { SwipeArrowOverlay, type SwipeArrowOverlayHandle } from '@/components/SwipeArrowOverlay';
 import { TabKindPlaceholder } from '@/components/TabKindPlaceholder';
 import { TerminalView } from '@/components/terminal/TerminalView';
 import { WorkspaceTabStrip, type WorkspaceTabStripHandle } from '@/components/WorkspaceTabStrip';
@@ -43,6 +45,7 @@ export default function WorkspaceScreen() {
   const headerTitle = project?.name ?? 'Workspace';
 
   const stripRef = useRef<WorkspaceTabStripHandle>(null);
+  const arrowRef = useRef<SwipeArrowOverlayHandle>(null);
 
   useEffect(() => {
     if (activeIndex < 0) return;
@@ -69,6 +72,10 @@ export default function WorkspaceScreen() {
   const onSelectTab = (tabId: string) => {
     const idx = allTabs.findIndex((e) => e.tab.id === tabId);
     if (idx < 0) return;
+    if (idx !== activeIndex) {
+      arrowRef.current?.flash(idx > activeIndex ? 'next' : 'prev');
+      Haptics.selectionAsync();
+    }
     selectTabAt(idx);
   };
 
@@ -82,16 +89,35 @@ export default function WorkspaceScreen() {
 
   const tabCount = allTabs.length;
   const swipeGesture = useMemo(() => {
+    const canPrev = activeIndex > 0;
+    const canNext = activeIndex >= 0 && activeIndex < tabCount - 1;
     const goToNeighbor = (delta: number) => {
       if (activeIndex < 0) return;
       const next = activeIndex + delta;
       if (next < 0 || next >= tabCount) return;
+      Haptics.selectionAsync();
       selectTabAt(next);
     };
+    let crossedThreshold = false;
     return Gesture.Pan()
       .activeOffsetX([-25, 25])
       .failOffsetY([-15, 15])
+      .onBegin(() => {
+        crossedThreshold = false;
+      })
+      .onUpdate((e) => {
+        arrowRef.current?.setDragOffset(e.translationX, canPrev, canNext);
+        const reached = Math.abs(e.translationX) >= 40;
+        const directionAllowed = e.translationX > 0 ? canPrev : canNext;
+        if (reached && directionAllowed && !crossedThreshold) {
+          crossedThreshold = true;
+          Haptics.selectionAsync();
+        } else if (!reached && crossedThreshold) {
+          crossedThreshold = false;
+        }
+      })
       .onEnd((e) => {
+        arrowRef.current?.releaseDrag();
         const dx = e.translationX;
         const vx = e.velocityX;
         if (dx <= -40 || vx <= -500) {
@@ -99,6 +125,9 @@ export default function WorkspaceScreen() {
         } else if (dx >= 40 || vx >= 500) {
           goToNeighbor(-1);
         }
+      })
+      .onFinalize(() => {
+        arrowRef.current?.releaseDrag();
       })
       .runOnJS(true);
   }, [tabCount, activeIndex, selectTabAt]);
@@ -147,6 +176,7 @@ export default function WorkspaceScreen() {
                   <TabKindPlaceholder tab={activeEntry.tab} />
                 )
               ) : null}
+              <SwipeArrowOverlay ref={arrowRef} />
             </View>
           </GestureDetector>
         </>
