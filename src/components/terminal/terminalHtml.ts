@@ -97,6 +97,17 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
   var root = document.getElementById('root');
   term.open(root);
 
+  function encodeUtf8ToBase64(str) {
+    var utf8 = unescape(encodeURIComponent(str));
+    return btoa(utf8);
+  }
+  term.onData(function (data) {
+    post({ type: 'data', bytes: encodeUtf8ToBase64(data) });
+  });
+  term.onBinary(function (data) {
+    post({ type: 'data', bytes: btoa(data) });
+  });
+
   var helperTa = document.querySelector('.xterm-helper-textarea');
   if (helperTa) {
     helperTa.setAttribute('readonly', 'readonly');
@@ -110,26 +121,67 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
 
   var touchStartX = 0;
   var touchStartY = 0;
+  var lastTouchX = 0;
   var lastTouchY = 0;
   var touchMoved = false;
   var hadSelectionAtStart = false;
   var velocitySamples = [];
   var momentumRaf = 0;
   var scrollAccumulator = 0;
+  var pendingLines = 0;
+  var pendingClientX = 0;
+  var pendingClientY = 0;
+  var flushRaf = 0;
 
   function getLineHeightPx() {
     var fontSize = term.options.fontSize || INITIAL.fontSize;
     return (term.options.lineHeight || 1) * fontSize;
   }
-  function applyScrollPixels(dy) {
+  function isAltBuffer() {
+    try {
+      return term.buffer && term.buffer.active && term.buffer.active.type === 'alternate';
+    } catch (err) {
+      return false;
+    }
+  }
+  function sendArrowKeys(lines) {
+    if (lines === 0) return;
+    var seq = lines > 0 ? '\\x1b[B' : '\\x1b[A';
+    var count = Math.abs(lines);
+    var out = '';
+    for (var i = 0; i < count; i++) out += seq;
+    post({ type: 'data', bytes: btoa(out) });
+  }
+  function flushPendingLines() {
+    flushRaf = 0;
+    var lines = pendingLines;
+    if (lines === 0) return;
+    pendingLines = 0;
+    if (isMouseTrackingActive()) {
+      dispatchWheel(lines, pendingClientX, pendingClientY);
+      return;
+    }
+    if (isAltBuffer()) {
+      sendArrowKeys(lines);
+      return;
+    }
+    try { term.scrollLines(lines); } catch (e) {}
+  }
+  function queueLines(lines, clientX, clientY) {
+    if (lines === 0) return;
+    pendingLines += lines;
+    pendingClientX = clientX;
+    pendingClientY = clientY;
+    if (!flushRaf) flushRaf = requestAnimationFrame(flushPendingLines);
+  }
+  function queueScrollPixels(dy, clientX, clientY) {
     scrollAccumulator += dy;
     var lineHeight = getLineHeightPx();
     if (lineHeight <= 0) return;
     var lines = (scrollAccumulator / lineHeight) | 0;
-    if (lines !== 0) {
-      try { term.scrollLines(lines); } catch (e) {}
-      scrollAccumulator -= lines * lineHeight;
-    }
+    if (lines === 0) return;
+    scrollAccumulator -= lines * lineHeight;
+    queueLines(lines, clientX, clientY);
   }
   function hasSelection() {
     var sel = window.getSelection && window.getSelection();
@@ -138,6 +190,11 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
   function cancelMomentum() {
     if (momentumRaf) cancelAnimationFrame(momentumRaf);
     momentumRaf = 0;
+  }
+  function cancelFlush() {
+    if (flushRaf) cancelAnimationFrame(flushRaf);
+    flushRaf = 0;
+    pendingLines = 0;
   }
   function dispatchWheel(deltaLines, clientX, clientY) {
     var target = term.element;
@@ -188,7 +245,7 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
     return (startSample.y - endSample.y) / dt;
   }
 
-  function startMomentum(initialVelocity) {
+  function startMomentum(initialVelocity, clientX, clientY) {
     cancelMomentum();
     var velocity = initialVelocity;
     var lastTime = performance.now();
@@ -196,7 +253,7 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
       var now = performance.now();
       var dt = Math.min(now - lastTime, 33);
       lastTime = now;
-      applyScrollPixels(velocity * dt);
+      queueScrollPixels(velocity * dt, clientX, clientY);
       velocity *= Math.pow(0.96, dt / 16);
       if (Math.abs(velocity) > 0.03) {
         momentumRaf = requestAnimationFrame(step);
@@ -209,11 +266,13 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
 
   root.addEventListener('touchstart', function (e) {
     cancelMomentum();
+    cancelFlush();
     scrollAccumulator = 0;
     touchMoved = false;
     if (e.touches && e.touches[0]) {
       touchStartX = e.touches[0].clientX;
       touchStartY = e.touches[0].clientY;
+      lastTouchX = touchStartX;
       lastTouchY = touchStartY;
       velocitySamples = [{ t: performance.now(), y: touchStartY }];
     }
@@ -228,23 +287,10 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
     var totalDy = Math.abs(ty - touchStartY);
     if (totalDx > 8 || totalDy > 8) touchMoved = true;
 
-    if (isMouseTrackingActive()) {
-      if (totalDy > totalDx && totalDy > 8) {
-        var lineHeight = getLineHeightPx();
-        if (lineHeight > 0) {
-          var lines = Math.round((lastTouchY - ty) / lineHeight);
-          if (lines !== 0) {
-            dispatchWheel(lines, tx, ty);
-            lastTouchY = ty;
-          }
-        }
-      }
-      return;
-    }
-
     if (totalDy > totalDx) {
       var dy = lastTouchY - ty;
-      if (dy !== 0) applyScrollPixels(dy);
+      if (dy !== 0) queueScrollPixels(dy, tx, ty);
+      lastTouchX = tx;
       lastTouchY = ty;
       velocitySamples.push({ t: performance.now(), y: ty });
       while (velocitySamples.length > 6) velocitySamples.shift();
@@ -253,10 +299,8 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
 
   root.addEventListener('touchend', function () {
     if (touchMoved) {
-      if (!isMouseTrackingActive()) {
-        var v = computeVelocity();
-        if (Math.abs(v) > 0.1) startMomentum(v);
-      }
+      var v = computeVelocity();
+      if (Math.abs(v) > 0.1) startMomentum(v, lastTouchX, lastTouchY);
       return;
     }
     if (hadSelectionAtStart || hasSelection()) return;
