@@ -7,27 +7,17 @@ export type DiscoveredService = {
   port: number;
 };
 
-type RawResolvedService = ZeroconfService;
-
 const SERVICE_TYPE = 'muxy';
 const SERVICE_PROTOCOL = 'tcp';
 const SERVICE_DOMAIN = 'local.';
 
 const RESOLVE_TIMEOUT_MS = 4000;
 
-let zeroconf: Zeroconf | null = null;
-
 export function isDiscoveryAvailable(): boolean {
   return NativeModules.RNZeroconf != null;
 }
 
-function instance(): Zeroconf | null {
-  if (!isDiscoveryAvailable()) return null;
-  if (!zeroconf) zeroconf = new Zeroconf();
-  return zeroconf;
-}
-
-function pickHost(service: RawResolvedService): string | null {
+function pickHost(service: ZeroconfService): string | null {
   const ipv4 = service.addresses?.find((a) => /^\d+\.\d+\.\d+\.\d+$/.test(a));
   if (ipv4) return ipv4;
   const first = service.addresses?.[0];
@@ -36,7 +26,7 @@ function pickHost(service: RawResolvedService): string | null {
   return null;
 }
 
-function toDiscovered(raw: RawResolvedService): DiscoveredService | null {
+function toDiscovered(raw: ZeroconfService): DiscoveredService | null {
   if (!raw.name || !raw.port) return null;
   const host = pickHost(raw);
   if (!host) return null;
@@ -51,17 +41,21 @@ export function browseServices(
   onUpdate: (services: DiscoveredService[]) => void,
   onError?: (err: Error) => void,
 ): BrowseHandle {
-  const z = instance();
-  if (!z) {
+  if (!isDiscoveryAvailable()) {
     onUpdate([]);
     return { stop: () => {} };
   }
 
+  const z = new Zeroconf();
   const resolved = new Map<string, DiscoveredService>();
+  let stopped = false;
 
-  const emit = () => onUpdate(Array.from(resolved.values()));
+  const emit = () => {
+    if (stopped) return;
+    onUpdate(Array.from(resolved.values()));
+  };
 
-  const onResolved = (raw: RawResolvedService) => {
+  const onResolved = (raw: ZeroconfService) => {
     const service = toDiscovered(raw);
     if (!service) return;
     resolved.set(service.name, service);
@@ -87,11 +81,14 @@ export function browseServices(
 
   return {
     stop: () => {
+      if (stopped) return;
+      stopped = true;
       z.off('resolved', onResolved);
       z.off('remove', onRemove);
       z.off('error', onErr);
       try {
         z.stop();
+        z.removeDeviceListeners();
       } catch {}
     },
   };
@@ -99,12 +96,12 @@ export function browseServices(
 
 export function resolveService(serviceName: string): Promise<DiscoveredService | null> {
   return new Promise((resolve) => {
-    const z = instance();
-    if (!z) {
+    if (!isDiscoveryAvailable()) {
       resolve(null);
       return;
     }
 
+    const z = new Zeroconf();
     let settled = false;
 
     const finish = (result: DiscoveredService | null) => {
@@ -114,11 +111,12 @@ export function resolveService(serviceName: string): Promise<DiscoveredService |
       clearTimeout(timer);
       try {
         z.stop();
+        z.removeDeviceListeners();
       } catch {}
       resolve(result);
     };
 
-    const onResolved = (raw: RawResolvedService) => {
+    const onResolved = (raw: ZeroconfService) => {
       if (raw.name !== serviceName) return;
       const service = toDiscovered(raw);
       if (service) finish(service);
