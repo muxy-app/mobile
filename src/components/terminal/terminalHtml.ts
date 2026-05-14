@@ -28,6 +28,7 @@ export type TerminalInitOptions = {
   theme: TerminalTheme;
   fontFamily: string;
   fontSize: number;
+  commandShortcutsEnabled?: boolean;
 };
 
 export function buildTerminalHtml(init: TerminalInitOptions): string {
@@ -96,6 +97,25 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
 
   var root = document.getElementById('root');
   term.open(root);
+
+  if (INITIAL.commandShortcutsEnabled !== false) {
+    window.addEventListener('keydown', function (e) {
+      if (!e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+      var key = String(e.key || '').toLowerCase();
+      if (key === 't') {
+        e.preventDefault();
+        e.stopPropagation();
+        post({ type: 'newTerminalShortcut' });
+        return;
+      }
+      if (/^[1-9]$/.test(key)) {
+        e.preventDefault();
+        e.stopPropagation();
+        post({ type: 'selectTabShortcut', digit: Number(key) });
+        return;
+      }
+    }, true);
+  }
 
   function encodeUtf8ToBase64(str) {
     var utf8 = unescape(encodeURIComponent(str));

@@ -17,6 +17,8 @@ export { useProjectsStore, type ProjectsStore, type ProjectsFetchPhase } from '.
 export { useProjects, useProjectLogo } from './useProjects';
 export { useWorkspaceStore, type WorkspaceStore, type WorkspaceFetchPhase } from './workspaceStore';
 export { useWorkspace } from './useWorkspace';
+export { createTerminalTab } from './workspaceActions';
+export { tabShortcutToIndex, type WorkspaceMenuCommand } from './workspaceCommands';
 export { flattenAreas, flattenTabs, findArea, mapAreas } from './workspaceTree';
 export { usePaneSessionStore, type PaneSession, type PaneSessionStore } from './paneSessionStore';
 export { usePaneSession, reclaimPane, sendTerminalInput } from './usePaneSession';

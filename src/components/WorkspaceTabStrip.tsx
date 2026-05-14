@@ -9,6 +9,8 @@ type Props = {
   tabs: Tab[];
   activeTabId: string | undefined;
   onSelect: (tabId: string) => void;
+  onCreateTerminal: () => void;
+  creatingTerminal?: boolean;
 };
 
 export type WorkspaceTabStripHandle = {
@@ -16,7 +18,7 @@ export type WorkspaceTabStripHandle = {
 };
 
 export const WorkspaceTabStrip = forwardRef<WorkspaceTabStripHandle, Props>(function WorkspaceTabStrip(
-  { tabs, activeTabId, onSelect },
+  { tabs, activeTabId, onSelect, onCreateTerminal, creatingTerminal = false },
   ref,
 ) {
   const tokens = useTokens();
@@ -118,6 +120,21 @@ export const WorkspaceTabStrip = forwardRef<WorkspaceTabStripHandle, Props>(func
             </Pressable>
           );
         })}
+        <Pressable
+          onPress={onCreateTerminal}
+          disabled={creatingTerminal}
+          accessibilityRole="button"
+          accessibilityLabel="New terminal"
+          style={({ pressed }) => [
+            styles.addButton,
+            {
+              backgroundColor: tokens.surface.secondary,
+              borderColor: tokens.border.subtle,
+              opacity: creatingTerminal ? 0.45 : pressed ? 0.75 : 1,
+            },
+          ]}>
+          <Ionicons name="add" size={18} color={tokens.text.secondary} />
+        </Pressable>
       </ScrollView>
     </View>
   );
@@ -167,6 +184,14 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     borderWidth: StyleSheet.hairlineWidth,
     maxWidth: 220,
+  },
+  addButton: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   label: {
     fontSize: 13,

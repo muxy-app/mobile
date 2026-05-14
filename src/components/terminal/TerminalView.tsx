@@ -23,14 +23,17 @@ import {
   type TerminalDimensions,
   type TerminalWebViewHandle,
 } from './TerminalWebView';
+import { scheduleTerminalInputFocus } from './terminalFocus';
 
 type Props = {
   paneId: string;
+  onNewTerminal?: () => void;
+  onSelectTabShortcut?: (digit: number) => void;
 };
 
 const INPUT_SENTINEL = '​';
 
-export function TerminalView({ paneId }: Props) {
+export function TerminalView({ paneId, onNewTerminal, onSelectTabShortcut }: Props) {
   const tokens = useTokens();
   const webRef = useRef<TerminalWebViewHandle>(null);
   const inputRef = useRef<TextInput>(null);
@@ -96,6 +99,8 @@ export function TerminalView({ paneId }: Props) {
   const ownershipLost = sessionForUs?.kind === 'lost';
   const failed = sessionForUs?.kind === 'failed';
   const reconnecting = connectionPhase === 'reconnecting' || connectionPhase === 'connecting';
+
+  useEffect(() => scheduleTerminalInputFocus(inputRef.current), [paneId]);
 
   const onResume = () => {
     if (!dimensions) return;
@@ -204,6 +209,8 @@ export function TerminalView({ paneId }: Props) {
           }}
           onData={handleData}
           onTap={handleTap}
+          onNewTerminalShortcut={onNewTerminal}
+          onSelectTabShortcut={onSelectTabShortcut}
         />
 
         <TextInput

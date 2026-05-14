@@ -37,6 +37,7 @@
     },
     "plugins": [
       "expo-router",
+      "./plugins/withMuxyMenuCommands",
       [
         "expo-splash-screen",
         {

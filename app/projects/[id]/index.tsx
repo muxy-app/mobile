@@ -1,7 +1,7 @@
 import { Stack, useLocalSearchParams } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, NativeEventEmitter, NativeModules, Platform, StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 
 import { GitSheet } from '@/components/git/GitSheet';
@@ -12,8 +12,10 @@ import { TerminalView } from '@/components/terminal/TerminalView';
 import { WorkspaceTabStrip, type WorkspaceTabStripHandle } from '@/components/WorkspaceTabStrip';
 import {
   client,
+  createTerminalTab,
   findArea,
   flattenTabs,
+  tabShortcutToIndex,
   useDevicesStore,
   useProjectsStore,
   useWorkspace,
@@ -21,10 +23,21 @@ import {
 } from '@/state';
 import { useTokens } from '@/theme';
 
+type MuxyMenuCommandEvent = {
+  type: 'newTab' | 'selectTab';
+  index?: number;
+};
+
+const muxyMenuCommands = NativeModules.MuxyMenuCommands
+  ? new NativeEventEmitter(NativeModules.MuxyMenuCommands)
+  : null;
+
 export default function WorkspaceScreen() {
   const tokens = useTokens();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [gitOpen, setGitOpen] = useState(false);
+  const [creatingTerminal, setCreatingTerminal] = useState(false);
+  const [terminalCreationError, setTerminalCreationError] = useState<string | null>(null);
 
   const project = useProjectsStore((s) => s.projects.find((p) => p.id === id));
   const connectionPhase = useDevicesStore((s) => s.connectionPhase);
@@ -43,6 +56,7 @@ export default function WorkspaceScreen() {
   const activeEntry = activeIndex >= 0 ? allTabs[activeIndex] : undefined;
 
   const headerTitle = project?.name ?? 'Workspace';
+  const tabCount = allTabs.length;
 
   const stripRef = useRef<WorkspaceTabStripHandle>(null);
   const arrowRef = useRef<SwipeArrowOverlayHandle>(null);
@@ -79,6 +93,52 @@ export default function WorkspaceScreen() {
     selectTabAt(idx);
   };
 
+  const selectTabShortcut = useCallback(
+    (digit: number) => {
+      const idx = tabShortcutToIndex(digit, tabCount);
+      if (idx === null) return;
+      if (idx !== activeIndex) {
+        arrowRef.current?.flash(idx > activeIndex ? 'next' : 'prev');
+        Haptics.selectionAsync();
+      }
+      selectTabAt(idx);
+    },
+    [activeIndex, selectTabAt, tabCount],
+  );
+
+  const handleCreateTerminal = useCallback(async () => {
+    if (!id || creatingTerminal) return;
+    setCreatingTerminal(true);
+    setTerminalCreationError(null);
+    try {
+      await createTerminalTab({
+        projectId: id,
+        workspace,
+        request: client.request.bind(client),
+        setWorkspace: useWorkspaceStore.getState().setWorkspace,
+      });
+      Haptics.selectionAsync();
+    } catch {
+      setTerminalCreationError('Couldn’t create terminal');
+    } finally {
+      setCreatingTerminal(false);
+    }
+  }, [id, workspace, creatingTerminal]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'ios' || !muxyMenuCommands) return;
+    const sub = muxyMenuCommands.addListener('MuxyMenuCommand', (event: MuxyMenuCommandEvent) => {
+      if (event.type === 'newTab') {
+        handleCreateTerminal();
+        return;
+      }
+      if (event.type === 'selectTab' && typeof event.index === 'number') {
+        selectTabShortcut(event.index + 1);
+      }
+    });
+    return () => sub.remove();
+  }, [handleCreateTerminal, selectTabShortcut]);
+
   const headerGitButton = () => (
     <HeaderIconButton
       icon="git-branch-outline"
@@ -87,7 +147,6 @@ export default function WorkspaceScreen() {
     />
   );
 
-  const tabCount = allTabs.length;
   const swipeGesture = useMemo(() => {
     const canPrev = activeIndex > 0;
     const canNext = activeIndex >= 0 && activeIndex < tabCount - 1;
@@ -158,6 +217,11 @@ export default function WorkspaceScreen() {
           <Text style={[styles.hint, { color: tokens.text.muted }]}>
             Open Muxy on your desktop and create a tab in this project.
           </Text>
+          {terminalCreationError ? (
+            <Text style={[styles.errorBody, { color: tokens.status.danger }]}>
+              {terminalCreationError}
+            </Text>
+          ) : null}
         </Centered>
       ) : (
         <>
@@ -166,12 +230,28 @@ export default function WorkspaceScreen() {
             tabs={allTabs.map((e) => e.tab)}
             activeTabId={activeTabId}
             onSelect={onSelectTab}
+            onCreateTerminal={handleCreateTerminal}
+            creatingTerminal={creatingTerminal}
           />
+          {terminalCreationError ? (
+            <Text
+              style={[
+                styles.inlineError,
+                { color: tokens.status.danger, borderBottomColor: tokens.border.subtle },
+              ]}>
+              {terminalCreationError}
+            </Text>
+          ) : null}
           <GestureDetector gesture={swipeGesture}>
             <View style={styles.body}>
               {activeEntry ? (
                 activeEntry.tab.kind === 'terminal' && activeEntry.tab.paneID ? (
-                  <TerminalView key={activeEntry.tab.id} paneId={activeEntry.tab.paneID} />
+                  <TerminalView
+                    key={activeEntry.tab.id}
+                    paneId={activeEntry.tab.paneID}
+                    onNewTerminal={handleCreateTerminal}
+                    onSelectTabShortcut={selectTabShortcut}
+                  />
                 ) : (
                   <TabKindPlaceholder tab={activeEntry.tab} />
                 )
@@ -196,4 +276,10 @@ const styles = StyleSheet.create({
   title: { fontSize: 20, fontWeight: '600' },
   hint: { fontSize: 14, textAlign: 'center' },
   errorBody: { fontSize: 14, textAlign: 'center' },
+  inlineError: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    fontSize: 13,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
 });
