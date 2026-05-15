@@ -27,14 +27,11 @@ export type ConnectionPhase =
   | 'disconnected'
   | 'unauthorized';
 
-export type ThemeSource = 'device' | 'system' | 'light' | 'dark';
-
 type State = {
   hasHydrated: boolean;
   installDeviceID: string | null;
   devices: DeviceEntry[];
   activeDeviceId: string | null;
-  themeSource: ThemeSource;
   lastAppliedTheme: DeviceTheme | null;
   connectionPhase: ConnectionPhase;
   connectionError: string | null;
@@ -51,7 +48,6 @@ type Actions = {
   setResolvedAddress: (id: string, host: string, port: number) => void;
   setPairing: (id: string, pairing: Pairing) => void;
   setConnection: (phase: ConnectionPhase, error?: string | null) => void;
-  setThemeSource: (source: ThemeSource) => void;
   setLastAppliedTheme: (theme: DeviceTheme | null) => void;
 };
 
@@ -62,7 +58,6 @@ const initialState: State = {
   installDeviceID: null,
   devices: [],
   activeDeviceId: null,
-  themeSource: 'device',
   lastAppliedTheme: null,
   connectionPhase: 'idle',
   connectionError: null,
@@ -121,8 +116,6 @@ export const useDevicesStore = create<DevicesStore>()(
 
       setConnection: (phase, error = null) => set({ connectionPhase: phase, connectionError: error }),
 
-      setThemeSource: (source) => set({ themeSource: source }),
-
       setLastAppliedTheme: (theme) => set({ lastAppliedTheme: theme }),
     }),
     {
@@ -131,7 +124,6 @@ export const useDevicesStore = create<DevicesStore>()(
       partialize: (state) => ({
         installDeviceID: state.installDeviceID,
         devices: state.devices,
-        themeSource: state.themeSource,
         lastAppliedTheme: state.lastAppliedTheme,
       }),
       merge: (persisted, current) => ({

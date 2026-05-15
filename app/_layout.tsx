@@ -4,7 +4,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
 import { useEffect, useMemo } from 'react';
-import { AppState, Platform, StyleSheet, View } from 'react-native';
+import { AppState, Platform, StyleSheet, useColorScheme, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import 'react-native-reanimated';
@@ -13,6 +13,7 @@ import { useBillingStore } from '@/billing';
 import { loadNerdFont } from '@/lib/nerdFont';
 import { useConnection, useDevicesStore, useSettingsStore } from '@/state';
 import { ThemeProvider, useTheme, useTokens } from '@/theme';
+import { hexToRgb, isDark } from '@/theme/colorMath';
 
 
 
@@ -21,6 +22,7 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 function NavStack() {
   const { mode } = useTheme();
   const tokens = useTokens();
+  const systemScheme = useColorScheme();
   useConnection();
 
   const devicesHydrated = useDevicesStore((s) => s.hasHydrated);
@@ -90,7 +92,10 @@ function NavStack() {
         <Stack.Screen name="projects/[id]/index" />
         <Stack.Screen name="onboarding" options={{ headerShown: false, animation: 'fade' }} />
       </Stack>
-      <StatusBar style={mode === 'dark' ? 'light' : 'dark'} />
+      <StatusBar
+        key={systemScheme}
+        style={isDark(hexToRgb(tokens.text.primary)) ? 'dark' : 'light'}
+      />
     </NavThemeProvider>
   );
 }

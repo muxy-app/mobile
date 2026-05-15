@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, type ReactNode } from 'react';
 import { Appearance, useColorScheme } from 'react-native';
 
-import { useDevicesStore, type ThemeSource } from '@/state';
+import { useDevicesStore } from '@/state';
 import type { DeviceTheme } from '@/transport';
 
 import { canDeriveFromTheme, deriveTokensFromTheme } from './deriveTokens';
@@ -10,17 +10,12 @@ import { defaultTokens, type ThemeMode, type ThemeTokens } from './tokens';
 type ThemeContextValue = {
   tokens: ThemeTokens;
   mode: ThemeMode;
-  source: ThemeSource;
-  setSource: (source: ThemeSource) => void;
-  isDeviceTheme: boolean;
 };
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const systemScheme = useColorScheme();
-  const source = useDevicesStore((s) => s.themeSource);
-  const setSource = useDevicesStore((s) => s.setThemeSource);
 
   const pairing = useDevicesStore((s) => {
     const id = s.activeDeviceId;
@@ -43,26 +38,26 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, [pairing, lastTheme]);
 
   const value = useMemo<ThemeContextValue>(() => {
-    if (source === 'device' && deviceTheme) {
+    if (deviceTheme) {
       const tokens = deriveTokensFromTheme(deviceTheme);
-      return { tokens, mode: tokens.mode, source, setSource, isDeviceTheme: true };
+      return { tokens, mode: tokens.mode };
     }
 
-    let mode: ThemeMode;
-    if (source === 'light') mode = 'light';
-    else if (source === 'dark') mode = 'dark';
-    else mode = systemScheme === 'light' ? 'light' : 'dark';
-
+    const mode: ThemeMode = systemScheme === 'light' ? 'light' : 'dark';
     const tokens = mode === 'dark' ? defaultTokens.dark : defaultTokens.light;
-    return { tokens, mode, source, setSource, isDeviceTheme: false };
-  }, [source, deviceTheme, systemScheme, setSource]);
+    return { tokens, mode };
+  }, [deviceTheme, systemScheme]);
 
   useEffect(() => {
+    if (!deviceTheme) {
+      Appearance.setColorScheme(null);
+      return;
+    }
     Appearance.setColorScheme(value.mode);
     return () => {
       Appearance.setColorScheme(null);
     };
-  }, [value.mode]);
+  }, [deviceTheme, value.mode]);
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }

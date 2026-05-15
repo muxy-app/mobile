@@ -1,26 +1,17 @@
 import { Stack, useRouter } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 
 import { HeaderIconButton } from '@/components/HeaderIconButton';
 import { useSettingsStore } from '@/state';
-import { useTheme, type ThemeSource } from '@/theme';
-
-const SOURCES: ThemeSource[] = ['device', 'system', 'light', 'dark'];
+import { useTheme } from '@/theme';
 
 export default function SettingsScreen() {
-  const { tokens, source, setSource, mode, isDeviceTheme } = useTheme();
+  const { tokens } = useTheme();
   const router = useRouter();
   const useNerdFont = useSettingsStore((s) => s.useNerdFont);
   const setUseNerdFont = useSettingsStore((s) => s.setUseNerdFont);
   const demoMode = useSettingsStore((s) => s.demoMode);
   const setDemoMode = useSettingsStore((s) => s.setDemoMode);
-
-  const hint =
-    source === 'device'
-      ? isDeviceTheme
-        ? `Following the connected device. Active mode: ${mode}.`
-        : 'Will follow the device once one is connected and reports a theme.'
-      : `Active mode: ${mode}.`;
 
   return (
     <ScrollView
@@ -34,40 +25,6 @@ export default function SettingsScreen() {
           ),
         }}
       />
-
-      <Text style={[styles.sectionLabel, { color: tokens.text.muted }]}>Appearance</Text>
-      <View
-        style={[styles.card, { backgroundColor: tokens.surface.secondary, borderColor: tokens.border.subtle }]}>
-        <Text style={[styles.rowLabel, { color: tokens.text.primary }]}>Theme source</Text>
-        <Text style={[styles.rowHint, { color: tokens.text.muted }]}>{hint}</Text>
-        <View style={styles.segmented}>
-          {SOURCES.map((s) => {
-            const selected = source === s;
-            return (
-              <Pressable
-                key={s}
-                accessibilityRole="button"
-                accessibilityState={{ selected }}
-                onPress={() => setSource(s)}
-                style={[
-                  styles.segment,
-                  {
-                    backgroundColor: selected ? tokens.accent.primary : tokens.surface.tertiary,
-                    borderColor: tokens.border.subtle,
-                  },
-                ]}>
-                <Text
-                  style={[
-                    styles.segmentLabel,
-                    { color: selected ? tokens.accent.contrast : tokens.text.secondary },
-                  ]}>
-                  {s}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      </View>
 
       <Text style={[styles.sectionLabel, { color: tokens.text.muted }]}>Terminal</Text>
       <View
@@ -123,15 +80,6 @@ const styles = StyleSheet.create({
   card: { borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, padding: 16, gap: 12 },
   rowLabel: { fontSize: 16, fontWeight: '500' },
   rowHint: { fontSize: 13 },
-  segmented: { flexDirection: 'row', gap: 8 },
-  segment: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 8,
-    borderWidth: StyleSheet.hairlineWidth,
-    alignItems: 'center',
-  },
-  segmentLabel: { fontSize: 14, fontWeight: '500', textTransform: 'capitalize' },
   toggleRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   toggleText: { flex: 1, gap: 4 },
 });

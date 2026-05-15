@@ -2,6 +2,7 @@ import {
   bestContrast,
   contrastRatio,
   darken,
+  hexToRgb,
   intToHex,
   intToRgb,
   isDark,
@@ -41,6 +42,24 @@ describe('rgbToHex / intToHex', () => {
 
   it('intToHex round-trips through rgb', () => {
     expect(intToHex(0xabcdef)).toBe('#abcdef');
+  });
+});
+
+describe('hexToRgb', () => {
+  it('parses 6-digit hex with leading hash', () => {
+    expect(hexToRgb('#ff8040')).toEqual({ r: 0xff, g: 0x80, b: 0x40 });
+  });
+
+  it('parses 6-digit hex without leading hash', () => {
+    expect(hexToRgb('00aaff')).toEqual({ r: 0x00, g: 0xaa, b: 0xff });
+  });
+
+  it('expands 3-digit shorthand', () => {
+    expect(hexToRgb('#abc')).toEqual({ r: 0xaa, g: 0xbb, b: 0xcc });
+  });
+
+  it('returns black for malformed input', () => {
+    expect(hexToRgb('not-a-color')).toEqual(BLACK);
   });
 });
 
