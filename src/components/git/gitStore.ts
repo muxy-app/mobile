@@ -4,6 +4,7 @@ import { create } from 'zustand';
 import { client, useDevicesStore } from '@/state';
 import type {
   VCSBranches,
+  VCSDiff,
   VCSMergeMethod,
   VCSPRCreated,
   VCSStatus,
@@ -20,6 +21,7 @@ type ProjectGitState = {
   status: Slice<VCSStatus>;
   branches: Slice<VCSBranches>;
   worktrees: Slice<Worktree[]>;
+  diffsByPath: Record<string, Slice<VCSDiff>>;
 };
 
 type State = {
@@ -50,6 +52,7 @@ type Actions = {
   ) => Promise<void>;
   removeWorktree: (projectId: string, worktreeId: string) => Promise<void>;
   selectWorktree: (projectId: string, worktreeId: string) => Promise<void>;
+  loadDiff: (projectId: string, filePath: string, forceFull: boolean) => Promise<void>;
 };
 
 export type GitStore = State & Actions;
@@ -62,9 +65,10 @@ const emptyProject = (): ProjectGitState => ({
   status: emptySlice<VCSStatus>(),
   branches: emptySlice<VCSBranches>(),
   worktrees: emptySlice<Worktree[]>(),
+  diffsByPath: {},
 });
 
-type SliceKey = keyof ProjectGitState;
+type SliceKey = Exclude<keyof ProjectGitState, 'diffsByPath'>;
 
 type SlicePatch = { data?: unknown; loading?: boolean; error?: string | null };
 
@@ -81,6 +85,30 @@ function patchSlice(
       [projectId]: {
         ...project,
         [key]: { ...project[key], ...patch },
+      },
+    },
+  };
+}
+
+type DiffSlicePatch = { data?: VCSDiff; loading?: boolean; error?: string | null };
+
+function patchDiffSlice(
+  state: State,
+  projectId: string,
+  filePath: string,
+  patch: DiffSlicePatch,
+): State {
+  const project = state.byProject[projectId] ?? emptyProject();
+  const existing = project.diffsByPath[filePath] ?? emptySlice<VCSDiff>();
+  return {
+    byProject: {
+      ...state.byProject,
+      [projectId]: {
+        ...project,
+        diffsByPath: {
+          ...project.diffsByPath,
+          [filePath]: { ...existing, ...patch },
+        },
       },
     },
   };
@@ -237,6 +265,20 @@ export const useGitStore = create<GitStore>((set) => {
         value: { projectID: projectId, worktreeID: worktreeId },
       });
     },
+
+    loadDiff: async (projectId, filePath, forceFull) => {
+      set((s) => patchDiffSlice(s, projectId, filePath, { loading: true, error: null }));
+      try {
+        const res = await client.request('vcsGetDiff', {
+          type: 'vcsGetDiff',
+          value: { projectID: projectId, filePath, forceFull },
+        });
+        set((s) => patchDiffSlice(s, projectId, filePath, { data: res.value, loading: false }));
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to load diff';
+        set((s) => patchDiffSlice(s, projectId, filePath, { loading: false, error: message }));
+      }
+    },
   };
 });
 
@@ -289,6 +331,32 @@ export function useGitBranches(projectId: string) {
     loading: slice.loading,
     error: slice.error,
     reload: () => refresh(projectId),
+  };
+}
+
+export function selectDiff(projectId: string, filePath: string) {
+  return (s: GitStore): Slice<VCSDiff> =>
+    s.byProject[projectId]?.diffsByPath[filePath] ?? emptySlice();
+}
+
+export function useGitDiff(projectId: string, filePath: string) {
+  const slice = useGitStore(selectDiff(projectId, filePath));
+  const load = useGitStore((s) => s.loadDiff);
+  const connectionPhase = useDevicesStore((s) => s.connectionPhase);
+
+  useEffect(() => {
+    if (!projectId || !filePath || connectionPhase !== 'connected') return;
+    if (slice.data === null && !slice.loading && slice.error === null) {
+      load(projectId, filePath, false);
+    }
+  }, [projectId, filePath, connectionPhase, load, slice.data, slice.loading, slice.error]);
+
+  return {
+    diff: slice.data,
+    loading: slice.loading,
+    error: slice.error,
+    reload: () => load(projectId, filePath, false),
+    loadFull: () => load(projectId, filePath, true),
   };
 }
 

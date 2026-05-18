@@ -199,6 +199,7 @@ export function OverviewScreen({ projectId, setRoute }: Props) {
                   title={fileNameOf(f.path)}
                   subtitle={f.path}
                   trailing={<StatusPill label={meta.label} color={meta.color} textColor={tokens.accent.contrast} />}
+                  onPress={() => setRoute({ name: 'fileDiff', filePath: f.path })}
                 />
               </View>
             );
@@ -213,6 +214,7 @@ export function OverviewScreen({ projectId, setRoute }: Props) {
                   title={fileNameOf(f.path)}
                   subtitle={f.path}
                   trailing={<StatusPill label={meta.label} color={meta.color} textColor={tokens.accent.contrast} />}
+                  onPress={() => setRoute({ name: 'fileDiff', filePath: f.path })}
                 />
               </View>
             );

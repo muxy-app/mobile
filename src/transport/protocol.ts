@@ -211,6 +211,24 @@ export type VCSPRCreated = {
   number: number;
 };
 
+export type VCSDiffRowKind = 'hunk' | 'context' | 'addition' | 'deletion' | 'collapsed';
+
+export type VCSDiffRow = {
+  kind: VCSDiffRowKind;
+  oldLineNumber?: number | null;
+  newLineNumber?: number | null;
+  text: string;
+};
+
+export type VCSDiff = {
+  filePath: string;
+  rows: VCSDiffRow[];
+  additions: number;
+  deletions: number;
+  truncated: boolean;
+  isBinary: boolean;
+};
+
 export type AuthParams = {
   deviceID: string;
   deviceName: string;
@@ -391,6 +409,13 @@ export type MethodMap = {
   vcsRemoveWorktree: {
     params: { type: 'vcsRemoveWorktree'; value: { projectID: string; worktreeID: string } };
     result: { type: 'ok' };
+  };
+  vcsGetDiff: {
+    params: {
+      type: 'vcsGetDiff';
+      value: { projectID: string; filePath: string; forceFull: boolean };
+    };
+    result: { type: 'vcsDiff'; value: VCSDiff };
   };
 };
 

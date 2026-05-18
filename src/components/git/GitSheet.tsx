@@ -186,7 +186,14 @@ function headerTitleFor(route: GitRoute): string {
       return 'New branch';
     case 'newWorktree':
       return 'New worktree';
+    case 'fileDiff':
+      return fileNameOf(route.filePath);
   }
+}
+
+function fileNameOf(path: string): string {
+  const idx = path.lastIndexOf('/');
+  return idx >= 0 ? path.slice(idx + 1) : path;
 }
 
 const styles = StyleSheet.create({

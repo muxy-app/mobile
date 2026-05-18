@@ -2,6 +2,7 @@ import { OverviewScreen } from './screens/OverviewScreen';
 import { BranchesScreen } from './screens/BranchesScreen';
 import { CommitScreen } from './screens/CommitScreen';
 import { CreatePRScreen } from './screens/CreatePRScreen';
+import { FileDiffScreen } from './screens/FileDiffScreen';
 import { NewBranchScreen } from './screens/NewBranchScreen';
 import { NewWorktreeScreen } from './screens/NewWorktreeScreen';
 import { PullRequestScreen } from './screens/PullRequestScreen';
@@ -15,7 +16,8 @@ export type GitRoute =
   | { name: 'createPR' }
   | { name: 'pullRequest' }
   | { name: 'newBranch' }
-  | { name: 'newWorktree' };
+  | { name: 'newWorktree' }
+  | { name: 'fileDiff'; filePath: string };
 
 type Props = {
   projectId: string;
@@ -42,5 +44,7 @@ export function GitScreens({ projectId, route, setRoute, onClose }: Props) {
       return <NewBranchScreen projectId={projectId} setRoute={setRoute} />;
     case 'newWorktree':
       return <NewWorktreeScreen projectId={projectId} setRoute={setRoute} />;
+    case 'fileDiff':
+      return <FileDiffScreen projectId={projectId} filePath={route.filePath} setRoute={setRoute} />;
   }
 }

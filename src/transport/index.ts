@@ -49,4 +49,7 @@ export {
   type VCSPRChecksStatus,
   type VCSPRMergeStateStatus,
   type VCSMergeMethod,
+  type VCSDiff,
+  type VCSDiffRow,
+  type VCSDiffRowKind,
 } from './protocol';
