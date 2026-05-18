@@ -14,7 +14,7 @@ const FONT_SIZE = 12;
 
 export type TerminalWebViewHandle = {
   write: (base64: string) => void;
-  loadSnapshot: (base64: string) => void;
+  loadSnapshot: (base64: string, cols?: number, rows?: number) => void;
   setTheme: (theme: TerminalTheme) => void;
   clear: () => void;
   requestDimensions: () => void;
@@ -53,7 +53,8 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function
     ref,
     () => ({
       write: (base64) => send({ type: 'write', bytes: base64 }),
-      loadSnapshot: (base64) => send({ type: 'loadSnapshot', bytes: base64 }),
+      loadSnapshot: (base64, cols, rows) =>
+        send({ type: 'loadSnapshot', bytes: base64, cols, rows }),
       setTheme: (next) => send({ type: 'setTheme', theme: next }),
       clear: () => send({ type: 'clear' }),
       requestDimensions: () => send({ type: 'requestDimensions' }),

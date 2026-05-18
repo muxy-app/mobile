@@ -72,7 +72,7 @@ export function TerminalView({ paneId }: Props) {
     paneId,
     cols: dimensions?.cols ?? null,
     rows: dimensions?.rows ?? null,
-    onSnapshotBytes: (base64) => webRef.current?.loadSnapshot(base64),
+    onSnapshotBytes: (base64, cols, rows) => webRef.current?.loadSnapshot(base64, cols, rows),
     onWrite: (base64) => webRef.current?.write(base64),
   });
 
