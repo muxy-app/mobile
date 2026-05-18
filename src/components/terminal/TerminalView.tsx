@@ -235,7 +235,6 @@ export function TerminalView({ paneId, onNewTerminal, onSelectTabShortcut }: Pro
           autoCapitalize="none"
           autoComplete="off"
           spellCheck={false}
-          keyboardType="ascii-capable"
           caretHidden
           style={styles.hiddenInput}
         />
