@@ -1,4 +1,10 @@
-import { ADDON_FIT_JS, XTERM_CSS, XTERM_JS } from './xtermBundle';
+import {
+  ADDON_CANVAS_JS,
+  ADDON_FIT_JS,
+  ADDON_WEBGL_JS,
+  XTERM_CSS,
+  XTERM_JS,
+} from './xtermBundle';
 
 export type TerminalTheme = {
   background: string;
@@ -42,6 +48,7 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
 #root { position: absolute; inset: 0; padding: 8px; box-sizing: border-box; }
 .xterm, .xterm-screen { user-select: text; -webkit-user-select: text; -webkit-touch-callout: default; }
 .xterm-viewport { background-color: transparent !important; }
+.xterm-screen canvas { pointer-events: none !important; }
 .xterm .xterm-scrollable-element > .scrollbar.vertical { width: 4px !important; }
 .xterm .xterm-scrollable-element > .scrollbar.vertical > .slider { width: 4px !important; left: 0 !important; border-radius: 2px; }
 .xterm, .xterm-rows {
@@ -56,10 +63,14 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
 <div id="root"></div>
 <script>${XTERM_JS}</script>
 <script>${ADDON_FIT_JS}</script>
+<script>${ADDON_WEBGL_JS}</script>
+<script>${ADDON_CANVAS_JS}</script>
 <script>
 (function () {
   var Terminal = window.Terminal;
   var FitAddon = window.FitAddon && window.FitAddon.FitAddon;
+  var WebglAddon = window.WebglAddon && window.WebglAddon.WebglAddon;
+  var CanvasAddon = window.CanvasAddon && window.CanvasAddon.CanvasAddon;
   var INITIAL = ${JSON.stringify(init)};
 
   function post(msg) {
@@ -96,6 +107,50 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
 
   var root = document.getElementById('root');
   term.open(root);
+
+  var activeRenderer = 'dom';
+  var canvasAddon = null;
+  function loadCanvas() {
+    if (!CanvasAddon) return false;
+    try {
+      canvasAddon = new CanvasAddon();
+      term.loadAddon(canvasAddon);
+      activeRenderer = 'canvas';
+      return true;
+    } catch (err) {
+      canvasAddon = null;
+      reportError('canvas renderer init failed', err);
+      return false;
+    }
+  }
+  function disposeCanvas() {
+    if (!canvasAddon) return;
+    try { canvasAddon.dispose(); } catch (_) {}
+    canvasAddon = null;
+  }
+  function loadWebgl() {
+    if (!WebglAddon) return false;
+    try {
+      var webgl = new WebglAddon();
+      webgl.onContextLoss(function () {
+        try { webgl.dispose(); } catch (_) {}
+        if (loadCanvas()) {
+          post({ type: 'info', renderer: activeRenderer, reason: 'webgl-context-loss' });
+        } else {
+          activeRenderer = 'dom';
+          post({ type: 'info', renderer: activeRenderer, reason: 'webgl-context-loss' });
+        }
+      });
+      term.loadAddon(webgl);
+      activeRenderer = 'webgl';
+      return true;
+    } catch (err) {
+      reportError('webgl renderer init failed', err);
+      return false;
+    }
+  }
+  if (!loadWebgl()) loadCanvas();
+  post({ type: 'info', renderer: activeRenderer });
 
   function encodeUtf8ToBase64(str) {
     var utf8 = unescape(encodeURIComponent(str));
@@ -265,6 +320,7 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
   }
 
   root.addEventListener('touchstart', function (e) {
+    e.stopPropagation();
     cancelMomentum();
     cancelFlush();
     scrollAccumulator = 0;
@@ -277,9 +333,10 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
       velocitySamples = [{ t: performance.now(), y: touchStartY }];
     }
     hadSelectionAtStart = hasSelection();
-  }, { passive: true });
+  }, { passive: true, capture: true });
 
   root.addEventListener('touchmove', function (e) {
+    e.stopPropagation();
     if (!e.touches || !e.touches[0]) return;
     var tx = e.touches[0].clientX;
     var ty = e.touches[0].clientY;
@@ -295,9 +352,10 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
       velocitySamples.push({ t: performance.now(), y: ty });
       while (velocitySamples.length > 6) velocitySamples.shift();
     }
-  }, { passive: true });
+  }, { passive: true, capture: true });
 
-  root.addEventListener('touchend', function () {
+  root.addEventListener('touchend', function (e) {
+    e.stopPropagation();
     if (touchMoved) {
       var v = computeVelocity();
       if (Math.abs(v) > 0.1) startMomentum(v, lastTouchX, lastTouchY);
@@ -305,7 +363,7 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
     }
     if (hadSelectionAtStart || hasSelection()) return;
     post({ type: 'tap' });
-  }, { passive: true });
+  }, { passive: true, capture: true });
 
   var lastDims = { cols: 0, rows: 0 };
   function reportDimensions() {
@@ -319,6 +377,18 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
   }
 
   window.addEventListener('resize', reportDimensions);
+
+  if (typeof ResizeObserver !== 'undefined') {
+    var resizeRaf = 0;
+    var ro = new ResizeObserver(function () {
+      if (resizeRaf) return;
+      resizeRaf = requestAnimationFrame(function () {
+        resizeRaf = 0;
+        reportDimensions();
+      });
+    });
+    ro.observe(root);
+  }
 
   var pendingWrites = [];
   var flushScheduled = false;

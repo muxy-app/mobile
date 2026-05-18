@@ -9,6 +9,8 @@ const sources = {
   XTERM_JS: resolve(projectRoot, 'node_modules/@xterm/xterm/lib/xterm.js'),
   XTERM_CSS: resolve(projectRoot, 'node_modules/@xterm/xterm/css/xterm.css'),
   ADDON_FIT_JS: resolve(projectRoot, 'node_modules/@xterm/addon-fit/lib/addon-fit.js'),
+  ADDON_WEBGL_JS: resolve(projectRoot, 'node_modules/@xterm/addon-webgl/lib/addon-webgl.js'),
+  ADDON_CANVAS_JS: resolve(projectRoot, 'node_modules/@xterm/addon-canvas/lib/addon-canvas.js'),
 };
 
 const out = resolve(projectRoot, 'src/components/terminal/xtermBundle.ts');

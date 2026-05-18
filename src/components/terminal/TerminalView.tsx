@@ -204,6 +204,13 @@ export function TerminalView({ paneId }: Props) {
           }}
           onData={handleData}
           onTap={handleTap}
+          onRenderer={(renderer, reason) => {
+            if (reason) {
+              console.log('[terminal] renderer=' + renderer + ' reason=' + reason);
+              return;
+            }
+            console.log('[terminal] renderer=' + renderer);
+          }}
         />
 
         <TextInput
