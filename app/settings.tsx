@@ -10,6 +10,8 @@ export default function SettingsScreen() {
   const router = useRouter();
   const useNerdFont = useSettingsStore((s) => s.useNerdFont);
   const setUseNerdFont = useSettingsStore((s) => s.setUseNerdFont);
+  const autoFocusTerminal = useSettingsStore((s) => s.autoFocusTerminal);
+  const setAutoFocusTerminal = useSettingsStore((s) => s.setAutoFocusTerminal);
   const demoMode = useSettingsStore((s) => s.demoMode);
   const setDemoMode = useSettingsStore((s) => s.setDemoMode);
 
@@ -39,6 +41,20 @@ export default function SettingsScreen() {
           <Switch
             value={useNerdFont}
             onValueChange={setUseNerdFont}
+            trackColor={{ true: tokens.accent.primary, false: tokens.surface.tertiary }}
+            thumbColor={tokens.surface.primary}
+          />
+        </View>
+        <View style={styles.toggleRow}>
+          <View style={styles.toggleText}>
+            <Text style={[styles.rowLabel, { color: tokens.text.primary }]}>Auto-focus terminal</Text>
+            <Text style={[styles.rowHint, { color: tokens.text.muted }]}>
+              Focus the terminal automatically when switching or creating tabs. May open the on-screen keyboard.
+            </Text>
+          </View>
+          <Switch
+            value={autoFocusTerminal}
+            onValueChange={setAutoFocusTerminal}
             trackColor={{ true: tokens.accent.primary, false: tokens.surface.tertiary }}
             thumbColor={tokens.surface.primary}
           />

@@ -66,6 +66,7 @@ export function TerminalView({ paneId, onNewTerminal, onSelectTabShortcut }: Pro
   const [ready, setReady] = useState(false);
   const [nerdFontLoaded, setNerdFontLoaded] = useState<boolean>(() => getNerdFont() !== null);
   const useNerdFont = useSettingsStore((s) => s.useNerdFont);
+  const autoFocusTerminal = useSettingsStore((s) => s.autoFocusTerminal);
 
   const fontFamily = useNerdFont && nerdFontLoaded
     ? `'${NERD_FONT_FAMILY}', Menlo, monospace`
@@ -100,7 +101,10 @@ export function TerminalView({ paneId, onNewTerminal, onSelectTabShortcut }: Pro
   const failed = sessionForUs?.kind === 'failed';
   const reconnecting = connectionPhase === 'reconnecting' || connectionPhase === 'connecting';
 
-  useEffect(() => scheduleTerminalInputFocus(inputRef.current), [paneId]);
+  useEffect(() => {
+    if (!autoFocusTerminal) return;
+    return scheduleTerminalInputFocus(inputRef.current);
+  }, [paneId, autoFocusTerminal]);
 
   const onResume = () => {
     if (!dimensions) return;

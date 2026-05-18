@@ -6,6 +6,7 @@ type State = {
   hasHydrated: boolean;
   hasOnboarded: boolean;
   useNerdFont: boolean;
+  autoFocusTerminal: boolean;
   demoMode: boolean;
 };
 
@@ -13,6 +14,7 @@ type Actions = {
   setHasHydrated: (value: boolean) => void;
   setOnboarded: (value: boolean) => void;
   setUseNerdFont: (value: boolean) => void;
+  setAutoFocusTerminal: (value: boolean) => void;
   setDemoMode: (value: boolean) => void;
 };
 
@@ -24,10 +26,12 @@ export const useSettingsStore = create<SettingsStore>()(
       hasHydrated: false,
       hasOnboarded: false,
       useNerdFont: true,
+      autoFocusTerminal: false,
       demoMode: false,
       setHasHydrated: (value) => set({ hasHydrated: value }),
       setOnboarded: (value) => set({ hasOnboarded: value }),
       setUseNerdFont: (value) => set({ useNerdFont: value }),
+      setAutoFocusTerminal: (value) => set({ autoFocusTerminal: value }),
       setDemoMode: (value) => set({ demoMode: value }),
     }),
     {
@@ -35,6 +39,7 @@ export const useSettingsStore = create<SettingsStore>()(
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({
         useNerdFont: state.useNerdFont,
+        autoFocusTerminal: state.autoFocusTerminal,
         hasOnboarded: state.hasOnboarded,
         demoMode: state.demoMode,
       }),
