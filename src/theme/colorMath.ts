@@ -16,6 +16,20 @@ export function intToHex(n: number): string {
   return rgbToHex(intToRgb(n));
 }
 
+export function hexToRgb(hex: string): RGB {
+  const normalized = hex.startsWith('#') ? hex.slice(1) : hex;
+  const expanded =
+    normalized.length === 3
+      ? normalized
+          .split('')
+          .map((c) => c + c)
+          .join('')
+      : normalized;
+  const n = parseInt(expanded, 16);
+  if (Number.isNaN(n) || expanded.length !== 6) return { r: 0, g: 0, b: 0 };
+  return intToRgb(n);
+}
+
 export function mix(a: RGB, b: RGB, t: number): RGB {
   const tt = clamp01(t);
   return {

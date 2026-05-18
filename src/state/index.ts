@@ -4,7 +4,6 @@ export {
   type ConnectionPhase,
   type DeviceEntry,
   type DevicesStore,
-  type ThemeSource,
 } from './devicesStore';
 export { client } from './connection';
 export { useConnection } from './useConnection';

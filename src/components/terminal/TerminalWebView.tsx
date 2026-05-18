@@ -14,7 +14,7 @@ const FONT_SIZE = 12;
 
 export type TerminalWebViewHandle = {
   write: (base64: string) => void;
-  loadSnapshot: (base64: string) => void;
+  loadSnapshot: (base64: string, cols?: number, rows?: number) => void;
   setTheme: (theme: TerminalTheme) => void;
   clear: () => void;
   requestDimensions: () => void;
@@ -33,10 +33,21 @@ type Props = {
   onTap?: () => void;
   onNewTerminalShortcut?: () => void;
   onSelectTabShortcut?: (digit: number) => void;
+  onRenderer?: (renderer: string, reason?: string) => void;
 };
 
 export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function TerminalWebView(
-  { theme, onReady, onDimensions, onData, onError, onTap, onNewTerminalShortcut, onSelectTabShortcut },
+  {
+    theme,
+    onReady,
+    onDimensions,
+    onData,
+    onError,
+    onTap,
+    onNewTerminalShortcut,
+    onSelectTabShortcut,
+    onRenderer,
+  },
   ref,
 ) {
   const webRef = useRef<WebView>(null);
@@ -59,7 +70,8 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function
     ref,
     () => ({
       write: (base64) => send({ type: 'write', bytes: base64 }),
-      loadSnapshot: (base64) => send({ type: 'loadSnapshot', bytes: base64 }),
+      loadSnapshot: (base64, cols, rows) =>
+        send({ type: 'loadSnapshot', bytes: base64, cols, rows }),
       setTheme: (next) => send({ type: 'setTheme', theme: next }),
       clear: () => send({ type: 'clear' }),
       requestDimensions: () => send({ type: 'requestDimensions' }),
@@ -93,6 +105,9 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function
           return;
         case 'error':
           onError?.(msg.message);
+          return;
+        case 'info':
+          if (msg.renderer) onRenderer?.(msg.renderer, msg.reason);
           return;
       }
     } catch {

@@ -4,9 +4,9 @@ Native iOS and Android clients for the [Muxy](https://github.com/muxy-app/muxy) 
 
 ## Install
 
-### iOS (TestFlight)
+### iOS
 
-1. Join via [TestFlight](https://testflight.apple.com/join/7t1AaYHW).
+1. Download from [App Store](https://apps.apple.com/de/app/muxy/id6762464046?l=en-GB)
 2. On your Mac, open Muxy → Settings (`Cmd + ,`) → Mobile, enable **Allow mobile device connection**.
 3. Open the iOS app, enter the IP and port, approve the connection on your Mac.
 

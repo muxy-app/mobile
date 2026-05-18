@@ -5,7 +5,7 @@ import { useDevicesStore } from './devicesStore';
 import { type PaneSession, usePaneSessionStore } from './paneSessionStore';
 
 export type PaneSessionCallbacks = {
-  onSnapshotBytes: (base64: string) => void;
+  onSnapshotBytes: (base64: string, cols?: number, rows?: number) => void;
   onWrite: (base64: string) => void;
 };
 
@@ -17,6 +17,7 @@ export type UsePaneSessionOptions = PaneSessionCallbacks & {
 
 const TAKEOVER_GRACE_MS = 2000;
 const SNAPSHOT_WAIT_MS = 1500;
+const RESIZE_RESYNC_DEBOUNCE_MS = 180;
 
 let lastTakeOverAt = 0;
 
@@ -59,6 +60,7 @@ export function usePaneSession({
   onWrite,
 }: UsePaneSessionOptions) {
   const connectionPhase = useDevicesStore((s) => s.connectionPhase);
+  const sessionKind = usePaneSessionStore((s) => s.session.kind);
 
   const callbacksRef = useRef<PaneSessionCallbacks>({ onSnapshotBytes, onWrite });
   callbacksRef.current = { onSnapshotBytes, onWrite };
@@ -69,11 +71,20 @@ export function usePaneSession({
   }
   const dimsReady = cols !== null && rows !== null && cols > 0 && rows > 0;
 
+  const requestedDimsRef = useRef<{ cols: number; rows: number } | null>(null);
+
   useEffect(() => {
     const offOutput = client.on('terminalOutput', (event) => {
       const session = usePaneSessionStore.getState().session;
       if (session.kind !== 'streaming' || event.value.paneID !== session.paneId) return;
       callbacksRef.current.onWrite(event.value.bytes);
+    });
+
+    const offSnapshot = client.on('terminalSnapshot', (event) => {
+      const session = usePaneSessionStore.getState().session;
+      if (session.kind !== 'streaming' || event.value.paneID !== session.paneId) return;
+      const dims = requestedDimsRef.current;
+      callbacksRef.current.onSnapshotBytes(event.value.bytes, dims?.cols, dims?.rows);
     });
 
     const offOwnership = client.on('paneOwnershipChanged', (event) => {
@@ -118,6 +129,7 @@ export function usePaneSession({
 
     return () => {
       offOutput();
+      offSnapshot();
       offOwnership();
     };
   }, []);
@@ -142,6 +154,7 @@ export function usePaneSession({
       markTakeOver();
 
       const snapshotPromise = waitForSnapshot(paneId, SNAPSHOT_WAIT_MS);
+      requestedDimsRef.current = { cols: dims.cols, rows: dims.rows };
 
       try {
         await client.request('takeOverPane', {
@@ -166,7 +179,7 @@ export function usePaneSession({
 
       const snapshot = await snapshotPromise;
       if (cancelled) return;
-      if (snapshot) callbacksRef.current.onSnapshotBytes(snapshot);
+      if (snapshot) callbacksRef.current.onSnapshotBytes(snapshot, dims.cols, dims.rows);
 
       const session = usePaneSessionStore.getState().session;
       if (session.kind === 'taking-over' && session.paneId === paneId) {
@@ -186,6 +199,7 @@ export function usePaneSession({
 
   useEffect(() => {
     if (!paneId || cols === null || rows === null) return;
+    if (sessionKind !== 'streaming') return;
     const session = usePaneSessionStore.getState().session;
     if (session.kind !== 'streaming' || session.paneId !== paneId) return;
     client
@@ -194,7 +208,20 @@ export function usePaneSession({
         value: { paneID: paneId, cols, rows },
       })
       .catch(() => {});
-  }, [paneId, cols, rows]);
+    const resyncTimer = setTimeout(() => {
+      const current = usePaneSessionStore.getState().session;
+      if (current.kind !== 'streaming' || current.paneId !== paneId) return;
+      markTakeOver();
+      requestedDimsRef.current = { cols, rows };
+      client
+        .request('takeOverPane', {
+          type: 'takeOverPane',
+          value: { paneID: paneId, cols, rows },
+        })
+        .catch(() => {});
+    }, RESIZE_RESYNC_DEBOUNCE_MS);
+    return () => clearTimeout(resyncTimer);
+  }, [paneId, cols, rows, sessionKind]);
 }
 
 export function sendTerminalInput(paneId: string, base64: string): void {
