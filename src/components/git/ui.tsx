@@ -256,6 +256,11 @@ export function MutedText({ children }: { children: ReactNode }) {
   return <Text style={[styles.muted, { color: tokens.text.muted }]}>{children}</Text>;
 }
 
+export function fileNameOf(path: string): string {
+  const idx = path.lastIndexOf('/');
+  return idx >= 0 ? path.slice(idx + 1) : path;
+}
+
 export function tokensStatusForFile(status: string, tokens: ThemeTokens): { color: string; label: string } {
   switch (status) {
     case 'added':

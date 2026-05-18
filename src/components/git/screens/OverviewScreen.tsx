@@ -10,6 +10,7 @@ import {
   ActionGrid,
   Divider,
   ErrorText,
+  fileNameOf,
   MutedText,
   Row,
   Section,
@@ -233,11 +234,6 @@ export function OverviewScreen({ projectId, setRoute }: Props) {
       {error ? <ErrorText>{error}</ErrorText> : null}
     </ScrollView>
   );
-}
-
-function fileNameOf(path: string): string {
-  const idx = path.lastIndexOf('/');
-  return idx >= 0 ? path.slice(idx + 1) : path;
 }
 
 function prRowSubtitle(pr: VCSPullRequest): string {

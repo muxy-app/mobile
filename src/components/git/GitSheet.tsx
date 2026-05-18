@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTokens } from '@/theme';
 
 import { GitScreens, type GitRoute } from './GitScreens';
+import { fileNameOf } from './ui';
 
 type Props = {
   visible: boolean;
@@ -189,11 +190,6 @@ function headerTitleFor(route: GitRoute): string {
     case 'fileDiff':
       return fileNameOf(route.filePath);
   }
-}
-
-function fileNameOf(path: string): string {
-  const idx = path.lastIndexOf('/');
-  return idx >= 0 ? path.slice(idx + 1) : path;
 }
 
 const styles = StyleSheet.create({

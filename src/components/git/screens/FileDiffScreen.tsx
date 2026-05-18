@@ -10,8 +10,6 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { runOnJS } from 'react-native-reanimated';
 
 import { useTokens } from '@/theme';
 import type { ThemeTokens } from '@/theme';
@@ -19,33 +17,21 @@ import type { VCSDiffRow, VCSDiffRowKind } from '@/transport';
 
 import { useGitDiff } from '../gitStore';
 import { ErrorText, MutedText } from '../ui';
-import type { GitRoute } from '../GitScreens';
 
 type Props = {
   projectId: string;
   filePath: string;
-  setRoute: (r: GitRoute) => void;
 };
 
 const MONO_FONT = Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' });
 const LINE_NUMBER_WIDTH = 44;
 
-export function FileDiffScreen({ projectId, filePath, setRoute }: Props) {
+export function FileDiffScreen({ projectId, filePath }: Props) {
   const tokens = useTokens();
   const { diff, loading, error, reload, loadFull } = useGitDiff(projectId, filePath);
   const [wrap, setWrap] = useState(false);
 
   const colors = useMemo(() => diffColors(tokens), [tokens]);
-  const goBack = () => setRoute({ name: 'overview' });
-
-  const swipeBack = Gesture.Pan()
-    .activeOffsetX(12)
-    .failOffsetY([-12, 12])
-    .onEnd((e) => {
-      if (e.translationX > 80 || e.velocityX > 800) {
-        runOnJS(goBack)();
-      }
-    });
 
   const body = renderBody({
     diff,
@@ -60,36 +46,34 @@ export function FileDiffScreen({ projectId, filePath, setRoute }: Props) {
   });
 
   return (
-    <GestureDetector gesture={swipeBack}>
-      <View style={styles.root}>
-        <View style={[styles.summary, { borderBottomColor: tokens.border.subtle }]}>
-          <Text style={[styles.path, { color: tokens.text.primary }]} numberOfLines={1}>
-            {filePath}
-          </Text>
-          {diff && !diff.isBinary ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={wrap ? 'Disable word wrap' : 'Enable word wrap'}
-              onPress={() => setWrap((v) => !v)}
-              hitSlop={8}
-              style={({ pressed }) => [styles.wrapButton, { opacity: pressed ? 0.5 : 1 }]}>
-              <Ionicons
-                name={wrap ? 'return-down-back' : 'swap-horizontal'}
-                size={18}
-                color={wrap ? tokens.accent.primary : tokens.text.muted}
-              />
-            </Pressable>
-          ) : null}
-          {diff ? (
-            <View style={styles.stats}>
-              <Text style={[styles.statText, { color: tokens.status.success }]}>+{diff.additions}</Text>
-              <Text style={[styles.statText, { color: tokens.status.danger }]}>-{diff.deletions}</Text>
-            </View>
-          ) : null}
-        </View>
-        {body}
+    <View style={styles.root}>
+      <View style={[styles.summary, { borderBottomColor: tokens.border.subtle }]}>
+        <Text style={[styles.path, { color: tokens.text.primary }]} numberOfLines={1}>
+          {filePath}
+        </Text>
+        {diff && !diff.isBinary ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={wrap ? 'Disable word wrap' : 'Enable word wrap'}
+            onPress={() => setWrap((v) => !v)}
+            hitSlop={8}
+            style={({ pressed }) => [styles.wrapButton, { opacity: pressed ? 0.5 : 1 }]}>
+            <Ionicons
+              name={wrap ? 'return-down-back' : 'swap-horizontal'}
+              size={18}
+              color={wrap ? tokens.accent.primary : tokens.text.muted}
+            />
+          </Pressable>
+        ) : null}
+        {diff ? (
+          <View style={styles.stats}>
+            <Text style={[styles.statText, { color: tokens.status.success }]}>+{diff.additions}</Text>
+            <Text style={[styles.statText, { color: tokens.status.danger }]}>-{diff.deletions}</Text>
+          </View>
+        ) : null}
       </View>
-    </GestureDetector>
+      {body}
+    </View>
   );
 }
 

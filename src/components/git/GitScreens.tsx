@@ -45,6 +45,6 @@ export function GitScreens({ projectId, route, setRoute, onClose }: Props) {
     case 'newWorktree':
       return <NewWorktreeScreen projectId={projectId} setRoute={setRoute} />;
     case 'fileDiff':
-      return <FileDiffScreen projectId={projectId} filePath={route.filePath} setRoute={setRoute} />;
+      return <FileDiffScreen projectId={projectId} filePath={route.filePath} />;
   }
 }

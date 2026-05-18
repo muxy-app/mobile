@@ -114,6 +114,17 @@ function patchDiffSlice(
   };
 }
 
+function clearDiffs(state: State, projectId: string): State {
+  const project = state.byProject[projectId];
+  if (!project || Object.keys(project.diffsByPath).length === 0) return state;
+  return {
+    byProject: {
+      ...state.byProject,
+      [projectId]: { ...project, diffsByPath: {} },
+    },
+  };
+}
+
 export const useGitStore = create<GitStore>((set) => {
   const runFetch = async <T>(
     projectId: string,
@@ -169,6 +180,7 @@ export const useGitStore = create<GitStore>((set) => {
         type: 'vcsCommit',
         value: { projectID: projectId, message, stageAll },
       });
+      set((s) => clearDiffs(s, projectId));
       await refreshStatus(projectId);
     },
 
@@ -185,6 +197,7 @@ export const useGitStore = create<GitStore>((set) => {
         type: 'vcsPull',
         value: { projectID: projectId },
       });
+      set((s) => clearDiffs(s, projectId));
       await refreshStatus(projectId);
     },
 
@@ -193,6 +206,7 @@ export const useGitStore = create<GitStore>((set) => {
         type: 'vcsSwitchBranch',
         value: { projectID: projectId, branch },
       });
+      set((s) => clearDiffs(s, projectId));
       await refreshStatus(projectId);
       await refreshBranches(projectId);
     },
@@ -264,6 +278,7 @@ export const useGitStore = create<GitStore>((set) => {
         type: 'selectWorktree',
         value: { projectID: projectId, worktreeID: worktreeId },
       });
+      set((s) => clearDiffs(s, projectId));
     },
 
     loadDiff: async (projectId, filePath, forceFull) => {
