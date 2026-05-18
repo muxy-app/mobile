@@ -102,16 +102,31 @@ const menuBlock = `
 
 function upsertMenuBlock(contents) {
   if (contents.includes('func newMuxyTab()')) return contents;
-  const marker = '\n}\n\nclass ReactNativeDelegate';
-  if (!contents.includes(marker)) {
-    throw new Error('Could not find AppDelegate insertion point for Muxy menu commands');
+  const classMatch = contents.match(/class\s+AppDelegate\s*:\s*[^{]*\{/);
+  if (!classMatch) return null;
+  const classStart = classMatch.index + classMatch[0].length;
+  let depth = 1;
+  for (let i = classStart; i < contents.length; i += 1) {
+    const ch = contents[i];
+    if (ch === '{') depth += 1;
+    else if (ch === '}') {
+      depth -= 1;
+      if (depth === 0) {
+        return contents.slice(0, i) + menuBlock + contents.slice(i);
+      }
+    }
   }
-  return contents.replace(marker, `${menuBlock}}\n\nclass ReactNativeDelegate`);
+  return null;
 }
 
 module.exports = function withMuxyMenuCommands(config) {
   config = withAppDelegate(config, (mod) => {
-    mod.modResults.contents = upsertMenuBlock(mod.modResults.contents);
+    const next = upsertMenuBlock(mod.modResults.contents);
+    if (next) {
+      mod.modResults.contents = next;
+    } else {
+      console.warn('[withMuxyMenuCommands] AppDelegate insertion point not found; skipping menu commands');
+    }
     return mod;
   });
 

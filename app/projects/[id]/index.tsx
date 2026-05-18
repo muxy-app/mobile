@@ -37,6 +37,7 @@ export default function WorkspaceScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [gitOpen, setGitOpen] = useState(false);
   const [creatingTerminal, setCreatingTerminal] = useState(false);
+  const creatingTerminalRef = useRef(false);
   const [terminalCreationError, setTerminalCreationError] = useState<string | null>(null);
 
   const project = useProjectsStore((s) => s.projects.find((p) => p.id === id));
@@ -107,13 +108,14 @@ export default function WorkspaceScreen() {
   );
 
   const handleCreateTerminal = useCallback(async () => {
-    if (!id || creatingTerminal) return;
+    if (!id || creatingTerminalRef.current) return;
+    creatingTerminalRef.current = true;
     setCreatingTerminal(true);
     setTerminalCreationError(null);
     try {
       await createTerminalTab({
         projectId: id,
-        workspace,
+        workspace: useWorkspaceStore.getState().workspace,
         request: client.request.bind(client),
         setWorkspace: useWorkspaceStore.getState().setWorkspace,
       });
@@ -121,9 +123,10 @@ export default function WorkspaceScreen() {
     } catch {
       setTerminalCreationError('Couldn’t create terminal');
     } finally {
+      creatingTerminalRef.current = false;
       setCreatingTerminal(false);
     }
-  }, [id, workspace, creatingTerminal]);
+  }, [id]);
 
   useEffect(() => {
     if (Platform.OS !== 'ios' || !muxyMenuCommands) return;

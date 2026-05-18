@@ -185,6 +185,35 @@ function buildWorkspaces(): Record<string, Workspace> {
   };
 }
 
+function initialNextTabNumber(workspaces: Record<string, Workspace>): number {
+  let max = 0;
+  for (const ws of Object.values(workspaces)) {
+    visitTabs(ws, (tabID, paneID) => {
+      for (const id of [tabID, paneID]) {
+        if (!id) continue;
+        const match = /-(\d+)$/.exec(id);
+        if (!match) continue;
+        const n = Number(match[1]);
+        if (Number.isFinite(n) && n > max) max = n;
+      }
+    });
+  }
+  return max + 1;
+}
+
+function visitTabs(workspace: Workspace, fn: (tabID: string, paneID: string | undefined) => void) {
+  const stack = [workspace.root];
+  while (stack.length) {
+    const node = stack.pop();
+    if (!node) continue;
+    if (node.type === 'tabArea') {
+      for (const tab of node.tabArea.tabs) fn(tab.id, tab.paneID);
+    } else {
+      stack.push(node.split.first, node.split.second);
+    }
+  }
+}
+
 function buildStatus(): Record<string, VCSStatus> {
   return {
     [MUXY_ID]: {
@@ -230,7 +259,7 @@ export class DemoBackend {
   private statusByProject = buildStatus();
   private branchesByProject = buildBranches();
   private greetedPanes = new Set<string>();
-  private nextTabNumber = 3;
+  private nextTabNumber = initialNextTabNumber(this.workspaces);
 
   constructor(private readonly emit: DemoEmitter) {}
 
