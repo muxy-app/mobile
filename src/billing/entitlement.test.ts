@@ -1,9 +1,4 @@
-import {
-  computeEntitlement,
-  daysRemaining,
-  PAYMENT_REQUIRED,
-  TRIAL_DURATION_MS,
-} from './entitlement';
+import { computeEntitlement, daysRemaining, TRIAL_DURATION_MS } from './entitlement';
 
 describe('computeEntitlement', () => {
   it('returns unlocked when purchased, regardless of trial state', () => {
@@ -15,36 +10,28 @@ describe('computeEntitlement', () => {
     ).toEqual({ kind: 'unlocked' });
   });
 
-  if (!PAYMENT_REQUIRED) {
-    it('returns a full trial when payment is not required', () => {
-      expect(
-        computeEntitlement({ purchased: false, trialStartedAt: null, now: Date.now() }),
-      ).toEqual({ kind: 'trial', msRemaining: TRIAL_DURATION_MS });
-    });
-  } else {
-    it('returns loading when trial has not started yet', () => {
-      expect(
-        computeEntitlement({ purchased: false, trialStartedAt: null, now: Date.now() }),
-      ).toEqual({ kind: 'loading' });
-    });
+  it('returns loading when trial has not started yet', () => {
+    expect(
+      computeEntitlement({ purchased: false, trialStartedAt: null, now: Date.now() }),
+    ).toEqual({ kind: 'loading' });
+  });
 
-    it('returns trial with remaining ms during the trial window', () => {
-      const startedAt = 1_000_000;
-      const now = startedAt + TRIAL_DURATION_MS / 2;
-      expect(computeEntitlement({ purchased: false, trialStartedAt: startedAt, now })).toEqual({
-        kind: 'trial',
-        msRemaining: TRIAL_DURATION_MS / 2,
-      });
+  it('returns trial with remaining ms during the trial window', () => {
+    const startedAt = 1_000_000;
+    const now = startedAt + TRIAL_DURATION_MS / 2;
+    expect(computeEntitlement({ purchased: false, trialStartedAt: startedAt, now })).toEqual({
+      kind: 'trial',
+      msRemaining: TRIAL_DURATION_MS / 2,
     });
+  });
 
-    it('returns expired once the trial window has elapsed', () => {
-      const startedAt = 0;
-      const now = TRIAL_DURATION_MS;
-      expect(computeEntitlement({ purchased: false, trialStartedAt: startedAt, now })).toEqual({
-        kind: 'expired',
-      });
+  it('returns expired once the trial window has elapsed', () => {
+    const startedAt = 0;
+    const now = TRIAL_DURATION_MS;
+    expect(computeEntitlement({ purchased: false, trialStartedAt: startedAt, now })).toEqual({
+      kind: 'expired',
     });
-  }
+  });
 });
 
 describe('daysRemaining', () => {
