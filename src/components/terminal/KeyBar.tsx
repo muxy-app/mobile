@@ -2,9 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useReanimatedKeyboardAnimation } from 'react-native-keyboard-controller';
-import Animated, { useAnimatedStyle } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { create } from 'zustand';
 
 import { bytesToBase64, stringToBase64 } from '@/lib/base64';
@@ -52,17 +49,10 @@ export function KeyBar({
   onBytes: (base64: string) => void;
 }) {
   const tokens = useTokens();
-  const insets = useSafeAreaInsets();
-  const { progress } = useReanimatedKeyboardAnimation();
   const active = useModifierStore((s) => s.active);
   const slot = useModifierStore((s) => s.slot);
   const setActive = useModifierStore((s) => s.set);
   const setSlot = useModifierStore((s) => s.setSlot);
-
-  const restingPad = Math.max(8, insets.bottom);
-  const padStyle = useAnimatedStyle(() => ({
-    paddingBottom: restingPad - (restingPad / 2) * progress.value,
-  }));
 
   const send = (bytes: Uint8Array) => onBytes(bytesToBase64(bytes));
 
@@ -89,7 +79,7 @@ export function KeyBar({
   };
 
   return (
-    <Animated.View style={[styles.row, padStyle]}>
+    <View style={styles.row}>
       <View
         style={[
           styles.capsule,
@@ -123,7 +113,7 @@ export function KeyBar({
       </View>
 
       <Joystick size={48} onDirection={onJoystick} />
-    </Animated.View>
+    </View>
   );
 }
 
@@ -325,7 +315,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingVertical: 8,
   },
   capsule: {
     flex: 1,

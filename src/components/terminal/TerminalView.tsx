@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useReanimatedKeyboardAnimation } from 'react-native-keyboard-controller';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { bytesToBase64, stringToBase64 } from '@/lib/base64';
 import { getNerdFont, NERD_FONT_FAMILY, subscribeNerdFont } from '@/lib/nerdFont';
@@ -194,9 +195,10 @@ export function TerminalView({ paneId, onNewTerminal, onSelectTabShortcut }: Pro
     [inputValue],
   );
 
+  const insets = useSafeAreaInsets();
   const { height } = useReanimatedKeyboardAnimation();
   const slideStyle = useAnimatedStyle(() => ({
-    paddingBottom: -height.value,
+    paddingBottom: Math.max(insets.bottom, -height.value),
   }));
 
   return (
