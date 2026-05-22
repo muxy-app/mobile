@@ -6,6 +6,7 @@ import {
   fetchUnlockProduct,
   finalizePurchase,
   isPurchased,
+  isUserCancelledPurchaseError,
   queryUnlockPurchases,
   subscribePurchases,
 } from './iap';
@@ -78,6 +79,10 @@ export const useBillingStore = create<BillingStore>()((set, get) => ({
         set({ purchased: true, purchasing: false, error: null });
       },
       (error) => {
+        if (isUserCancelledPurchaseError(error)) {
+          set({ purchasing: false, error: null });
+          return;
+        }
         set({ purchasing: false, error: error.message ?? null });
       },
     );
@@ -127,6 +132,10 @@ export const useBillingStore = create<BillingStore>()((set, get) => ({
     try {
       await buyUnlock();
     } catch (err) {
+      if (isUserCancelledPurchaseError(err)) {
+        set({ purchasing: false, error: null });
+        return;
+      }
       set({ purchasing: false, error: errorMessage(err) });
     }
   },
@@ -155,4 +164,3 @@ function errorMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
   return 'Unexpected error';
 }
-

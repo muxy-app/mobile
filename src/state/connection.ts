@@ -148,7 +148,7 @@ export function startConnectionLifecycle(): () => void {
     s.setConnection(s.connectionPhase, e.message);
   });
 
-  const binder = new AppStateBinder(client);
+  const binder = new AppStateBinder(client, { shouldReconnect: hasConnectableActiveDevice });
   binder.start();
 
   return () => {
@@ -186,4 +186,12 @@ export function applyActiveDevice(): void {
     client.setUrl(`ws://${resolved.host}:${resolved.port}`);
     client.connect();
   });
+}
+
+function hasConnectableActiveDevice(): boolean {
+  const s = useDevicesStore.getState();
+  if (!s.activeDeviceId || !s.installDeviceID) return false;
+  const active = s.devices.find((d) => d.id === s.activeDeviceId);
+  if (!active) return false;
+  return Boolean(active.host.trim()) && active.port > 0 && active.port <= 65_535;
 }

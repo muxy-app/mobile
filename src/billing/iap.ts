@@ -10,7 +10,7 @@ export type IapPurchase = {
   purchaseToken: string | null;
   transactionId: string | null;
 };
-export type IapError = { message: string };
+export type IapError = { code: string | null; message: string };
 
 export type PurchaseListener = (purchase: IapPurchase) => void;
 export type ErrorListener = (error: IapError) => void;
@@ -74,8 +74,8 @@ export async function buyUnlock(): Promise<void> {
     type: 'in-app',
     request:
       Platform.OS === 'ios'
-        ? { ios: { sku: PRODUCT_ID } }
-        : { android: { skus: [PRODUCT_ID] } },
+        ? { apple: { sku: PRODUCT_ID } }
+        : { google: { skus: [PRODUCT_ID] } },
   });
 }
 
@@ -105,7 +105,7 @@ export async function subscribePurchases(
   });
   const errorSub = m.purchaseErrorListener((e) => {
     try {
-      onError({ message: e.message });
+      onError({ code: e.code ?? null, message: e.message });
     } catch {}
   });
   return () => {
@@ -116,4 +116,18 @@ export async function subscribePurchases(
 
 export function isPurchased(purchase: IapPurchase): boolean {
   return purchase.productId === PRODUCT_ID && purchase.purchaseState === 'purchased';
+}
+
+export function isUserCancelledPurchaseError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const code = 'code' in error ? String(error.code ?? '') : '';
+  if (code === 'user-cancelled' || code === 'E_USER_CANCELLED') return true;
+  const message = 'message' in error ? String(error.message ?? '') : '';
+  const normalizedMessage = message.toLowerCase();
+  return (
+    normalizedMessage.includes('user cancelled') ||
+    normalizedMessage.includes('user canceled') ||
+    normalizedMessage.includes('payment is cancelled') ||
+    normalizedMessage.includes('payment is canceled')
+  );
 }

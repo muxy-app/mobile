@@ -3,6 +3,8 @@ import { useRouter } from 'expo-router';
 import { useEffect } from 'react';
 import {
   ActivityIndicator,
+  BackHandler,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -33,6 +35,17 @@ export function PaywallScreen() {
     }
   }, [entitlement.kind, router]);
 
+  useEffect(() => {
+    if (Platform.OS !== 'android' || !purchasing) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => true);
+    return () => sub.remove();
+  }, [purchasing]);
+
+  const closePaywall = () => {
+    if (purchasing) return;
+    router.back();
+  };
+
   const title = copy.paywallTitle(entitlement);
   const subtitle = copy.paywallSubtitle(entitlement);
   const ctaLabel = copy.paywallButtonLabel({ entitlement, price });
@@ -44,9 +57,10 @@ export function PaywallScreen() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Close"
-          onPress={() => router.back()}
+          onPress={closePaywall}
+          disabled={purchasing}
           hitSlop={12}
-          style={({ pressed }) => [styles.headerButton, { opacity: pressed ? 0.5 : 1 }]}>
+          style={({ pressed }) => [styles.headerButton, { opacity: purchasing ? 0.5 : pressed ? 0.5 : 1 }]}>
           <Ionicons name="close" size={26} color={tokens.text.primary} />
         </Pressable>
       </View>

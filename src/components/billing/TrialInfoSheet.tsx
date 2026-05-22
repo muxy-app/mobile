@@ -50,11 +50,12 @@ export function TrialInfoSheet({ visible, onClose }: Props) {
   const finishClose = useCallback(() => onClose(), [onClose]);
 
   const dismiss = useCallback(() => {
+    if (purchasing) return;
     overlay.value = withTiming(0, { duration: 220 });
     translateY.value = withTiming(sheetHeight, { duration: 220 }, (finished) => {
       if (finished) runOnJS(finishClose)();
     });
-  }, [overlay, translateY, sheetHeight, finishClose]);
+  }, [purchasing, overlay, translateY, sheetHeight, finishClose]);
 
   useEffect(() => {
     if (visible) {
@@ -72,6 +73,10 @@ export function TrialInfoSheet({ visible, onClose }: Props) {
       if (e.translationY > 0) translateY.value = e.translationY;
     })
     .onEnd((e) => {
+      if (purchasing) {
+        translateY.value = withSpring(0, { damping: 22, stiffness: 220 });
+        return;
+      }
       if (e.translationY > 120 || e.velocityY > 600) {
         overlay.value = withTiming(0, { duration: 220 });
         translateY.value = withTiming(sheetHeight, { duration: 220 }, (finished) => {
@@ -140,11 +145,12 @@ export function TrialInfoSheet({ visible, onClose }: Props) {
                     accessibilityRole="button"
                     accessibilityLabel="Close"
                     onPress={dismiss}
+                    disabled={purchasing}
                     hitSlop={10}
                     style={({ pressed }) => [
                       styles.headerSide,
                       styles.headerRight,
-                      { opacity: pressed ? 0.5 : 1 },
+                      { opacity: purchasing ? 0.5 : pressed ? 0.5 : 1 },
                     ]}>
                     <Ionicons name="close" size={22} color={tokens.text.primary} />
                   </Pressable>
