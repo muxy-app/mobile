@@ -479,6 +479,7 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
             term.reset();
           }
           if (msg.bytes) term.write(decodeBase64(msg.bytes));
+          requestAnimationFrame(function () { term.scrollToBottom(); });
           break;
         case 'setTheme':
           term.options.theme = msg.theme;

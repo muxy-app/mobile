@@ -226,21 +226,6 @@ export function TerminalView({ paneId, onNewTerminal, onSelectTabShortcut }: Pro
           }}
         />
 
-        <TextInput
-          ref={inputRef}
-          value={inputValue}
-          selection={inputSelection}
-          onChangeText={handleInputChange}
-          onBlur={handleInputBlur}
-          multiline
-          autoCorrect={false}
-          autoCapitalize="none"
-          autoComplete="off"
-          spellCheck={false}
-          caretHidden
-          style={styles.hiddenInput}
-        />
-
         {reconnecting ? (
           <View
             style={[
@@ -293,6 +278,20 @@ export function TerminalView({ paneId, onNewTerminal, onSelectTabShortcut }: Pro
           <KeyBar onBytes={handleKeyBarBytes} />
         ) : null}
       </Animated.View>
+      <TextInput
+        ref={inputRef}
+        value={inputValue}
+        selection={inputSelection}
+        onChangeText={handleInputChange}
+        onBlur={handleInputBlur}
+        multiline
+        autoCorrect={false}
+        autoCapitalize="none"
+        autoComplete="off"
+        spellCheck={false}
+        caretHidden
+        style={styles.hiddenInput}
+      />
     </View>
   );
 }
