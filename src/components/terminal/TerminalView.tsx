@@ -25,6 +25,7 @@ import {
   type TerminalWebViewHandle,
 } from './TerminalWebView';
 import { scheduleTerminalInputFocus } from './terminalFocus';
+import { buildTerminalInputDiff } from './terminalInput';
 
 type Props = {
   paneId: string;
@@ -123,14 +124,7 @@ export function TerminalView({ paneId, onNewTerminal, onSelectTabShortcut }: Pro
   const sendInputDiff = useCallback(
     (next: string) => {
       const prev = lastSentRef.current;
-      let i = 0;
-      const min = Math.min(prev.length, next.length);
-      while (i < min && prev.charCodeAt(i) === next.charCodeAt(i)) i++;
-      const retract = prev.length - i;
-      const addition = next.slice(i);
-      let out = '';
-      for (let k = 0; k < retract; k++) out += '\b \b';
-      out += addition;
+      const out = buildTerminalInputDiff(prev, next);
       lastSentRef.current = next;
       if (out) sendTerminalInput(paneId, transformWithModifiers(stringToBase64(out)));
     },

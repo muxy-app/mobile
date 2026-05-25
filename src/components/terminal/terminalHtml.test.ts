@@ -36,4 +36,17 @@ describe('buildTerminalHtml', () => {
     expect(html).toContain('"commandShortcutsEnabled":false');
     expect(html).toContain('INITIAL.commandShortcutsEnabled !== false');
   });
+
+  it('keeps terminal viewport anchored after resize and snapshot updates', () => {
+    const html = buildTerminalHtml({
+      theme,
+      fontFamily: 'Menlo',
+      fontSize: 12,
+    });
+
+    expect(html).toContain('function isScrolledToBottom()');
+    expect(html).toContain('var shouldStickToBottom = isAltBuffer() || isScrolledToBottom();');
+    expect(html).toContain('if (shouldStickToBottom) scrollToBottom();');
+    expect(html).toContain('if (resizeShouldStickToBottom) scrollToBottom();');
+  });
 });

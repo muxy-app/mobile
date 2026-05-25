@@ -51,6 +51,9 @@ app-example
 /src/components/terminal/xtermBundle.ts
 
 .claude
+.opencode
+.pi
+.agents
 
 # python venv created by scripts/release-android.sh for Play upload
 .venv-play-upload/

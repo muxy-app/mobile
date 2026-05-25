@@ -37,4 +37,6 @@ jobs:
         run: npx --yes expo-doctor
 
       - name: Prebuild dry run
-        run: npx expo prebuild --no-install --clean --non-interactive
+        run: npx expo prebuild --no-install --clean
+        env:
+          CI: 1
