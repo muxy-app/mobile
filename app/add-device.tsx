@@ -12,7 +12,7 @@ import {
   View,
 } from 'react-native';
 
-import { useBillingStore } from '@/billing';
+import { isBillingEnforced, useBillingStore } from '@/billing';
 import { HeaderIconButton } from '@/components/HeaderIconButton';
 import {
   getOrCreateInstallToken,
@@ -129,7 +129,7 @@ export default function AddDeviceScreen() {
       setNeedsRepair(finalEntryId, false);
       setActiveDevice(finalEntryId);
 
-      if (Platform.OS !== 'ios') {
+      if (isBillingEnforced()) {
         await useBillingStore.getState().startTrialIfAbsent();
       }
 

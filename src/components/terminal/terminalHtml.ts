@@ -219,6 +219,17 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
       return false;
     }
   }
+  function isScrolledToBottom() {
+    try {
+      var buffer = term.buffer && term.buffer.active;
+      return !!buffer && buffer.viewportY >= buffer.baseY;
+    } catch (err) {
+      return true;
+    }
+  }
+  function scrollToBottom() {
+    try { term.scrollToBottom(); } catch (e) {}
+  }
   function sendArrowKeys(lines) {
     if (lines === 0) return;
     var seq = lines > 0 ? '\\x1b[B' : '\\x1b[A';
@@ -387,9 +398,11 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
 
   var lastDims = { cols: 0, rows: 0 };
   function reportDimensions() {
+    var shouldStickToBottom = isAltBuffer() || isScrolledToBottom();
     try {
       fit.fit();
     } catch (e) {}
+    if (shouldStickToBottom) scrollToBottom();
     if (term.cols !== lastDims.cols || term.rows !== lastDims.rows) {
       lastDims = { cols: term.cols, rows: term.rows };
       post({ type: 'dimensions', cols: term.cols, rows: term.rows });
@@ -479,12 +492,15 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
             term.reset();
           }
           if (msg.bytes) term.write(decodeBase64(msg.bytes));
+          scrollToBottom();
           break;
         case 'setTheme':
           term.options.theme = msg.theme;
           break;
         case 'resize':
+          var resizeShouldStickToBottom = isAltBuffer() || isScrolledToBottom();
           term.resize(msg.cols, msg.rows);
+          if (resizeShouldStickToBottom) scrollToBottom();
           break;
         case 'clear':
           term.clear();

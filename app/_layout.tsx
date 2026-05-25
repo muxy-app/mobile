@@ -4,12 +4,12 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
 import { useEffect, useMemo } from 'react';
-import { AppState, Platform, StyleSheet, useColorScheme, View } from 'react-native';
+import { AppState, StyleSheet, useColorScheme, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import 'react-native-reanimated';
 
-import { useBillingStore } from '@/billing';
+import { isBillingEnforced, useBillingStore } from '@/billing';
 import { loadNerdFont } from '@/lib/nerdFont';
 import { useConnection, useDevicesStore, useSettingsStore } from '@/state';
 import { ThemeProvider, useTheme, useTokens } from '@/theme';
@@ -41,7 +41,7 @@ function NavStack() {
 
   useEffect(() => {
     if (!ready) return;
-    if (Platform.OS === 'ios') return;
+    if (!isBillingEnforced()) return;
     useBillingStore.getState().init().catch(() => {});
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
