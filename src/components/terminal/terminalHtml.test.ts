@@ -49,4 +49,15 @@ describe('buildTerminalHtml', () => {
     expect(html).toContain('if (shouldStickToBottom) scrollToBottom();');
     expect(html).toContain('if (resizeShouldStickToBottom) scrollToBottom();');
   });
+
+  it('accepts batched terminal output chunks from the native host', () => {
+    const html = buildTerminalHtml({
+      theme,
+      fontFamily: 'Menlo',
+      fontSize: 12,
+    });
+
+    expect(html).toContain('Array.isArray(msg.bytes)');
+    expect(html).toContain('pendingWrites.push(decodeBase64(msg.bytes[writeIndex]));');
+  });
 });

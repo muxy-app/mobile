@@ -478,7 +478,13 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
     try {
       switch (msg.type) {
         case 'write':
-          pendingWrites.push(decodeBase64(msg.bytes));
+          if (Array.isArray(msg.bytes)) {
+            for (var writeIndex = 0; writeIndex < msg.bytes.length; writeIndex++) {
+              pendingWrites.push(decodeBase64(msg.bytes[writeIndex]));
+            }
+          } else {
+            pendingWrites.push(decodeBase64(msg.bytes));
+          }
           scheduleFlush();
           break;
         case 'loadSnapshot':

@@ -1,4 +1,4 @@
-import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
+import { forwardRef, useCallback, useImperativeHandle, useRef, useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import WebView, { type WebViewMessageEvent } from 'react-native-webview';
 
@@ -51,6 +51,8 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function
   ref,
 ) {
   const webRef = useRef<WebView>(null);
+  const queuedWritesRef = useRef<string[]>([]);
+  const writeFrameRef = useRef<number | null>(null);
 
   const [html] = useState(() =>
     buildTerminalHtml({
@@ -61,24 +63,51 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function
     }),
   );
 
-  const send = (msg: object) => {
+  const send = useCallback((msg: object) => {
     const code = `window.handleMessage && window.handleMessage(${JSON.stringify(msg)}); true;`;
     webRef.current?.injectJavaScript(code);
-  };
+  }, []);
+
+  const cancelQueuedWrites = useCallback(() => {
+    if (writeFrameRef.current !== null) {
+      cancelAnimationFrame(writeFrameRef.current);
+      writeFrameRef.current = null;
+    }
+    queuedWritesRef.current = [];
+  }, []);
+
+  const flushQueuedWrites = useCallback(() => {
+    writeFrameRef.current = null;
+    const writes = queuedWritesRef.current;
+    if (writes.length === 0) return;
+    queuedWritesRef.current = [];
+    send({ type: 'write', bytes: writes });
+  }, [send]);
+
+  const queueWrite = useCallback((base64: string) => {
+    queuedWritesRef.current.push(base64);
+    if (writeFrameRef.current !== null) return;
+    writeFrameRef.current = requestAnimationFrame(flushQueuedWrites);
+  }, [flushQueuedWrites]);
 
   useImperativeHandle(
     ref,
     () => ({
-      write: (base64) => send({ type: 'write', bytes: base64 }),
-      loadSnapshot: (base64, cols, rows) =>
-        send({ type: 'loadSnapshot', bytes: base64, cols, rows }),
+      write: queueWrite,
+      loadSnapshot: (base64, cols, rows) => {
+        cancelQueuedWrites();
+        send({ type: 'loadSnapshot', bytes: base64, cols, rows });
+      },
       setTheme: (next) => send({ type: 'setTheme', theme: next }),
-      clear: () => send({ type: 'clear' }),
+      clear: () => {
+        cancelQueuedWrites();
+        send({ type: 'clear' });
+      },
       requestDimensions: () => send({ type: 'requestDimensions' }),
       installFont: (regular, bold) => send({ type: 'installFont', regular, bold }),
       setFontFamily: (fontFamily) => send({ type: 'setFontFamily', fontFamily }),
     }),
-    [],
+    [cancelQueuedWrites, queueWrite, send],
   );
 
   const handleMessage = (event: WebViewMessageEvent) => {
