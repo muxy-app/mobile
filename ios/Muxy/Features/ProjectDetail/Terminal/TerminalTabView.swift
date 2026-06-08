@@ -105,7 +105,7 @@ private extension UIColor {
 }
 
 extension Color {
-    static let terminalAccent = Color(red: 0.0, green: 0.48, blue: 1.0)
+    static let terminalAccent = Color.muxyBrand
 }
 
 private extension ColorScheme {

@@ -59,16 +59,20 @@ struct AddDeviceView: View {
                     } label: {
                         discoveredRow(service)
                     }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.primary)
                 }
             }
         }
     }
 
     private func discoveredRow(_ service: DiscoveredService) -> some View {
-        HStack {
+        HStack(spacing: 12) {
             Image(systemName: "desktopcomputer")
+                .foregroundStyle(.primary)
             VStack(alignment: .leading) {
                 Text(service.name)
+                    .foregroundStyle(.primary)
                 Text("\(service.host):\(String(service.port))")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -83,6 +87,8 @@ struct AddDeviceView: View {
             } label: {
                 Label("Scan QR Code", systemImage: "qrcode.viewfinder")
             }
+            .buttonStyle(.plain)
+            .foregroundStyle(.primary)
         }
     }
 

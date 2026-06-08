@@ -46,7 +46,7 @@ const darkTokens: ThemeTokens = {
     strong: '#34343F',
   },
   accent: {
-    primary: '#7C3AED',
+    primary: '#A74BA7',
     contrast: '#FFFFFF',
   },
   status: {
@@ -74,7 +74,7 @@ const lightTokens: ThemeTokens = {
     strong: '#D1D1D6',
   },
   accent: {
-    primary: '#7C3AED',
+    primary: '#A74BA7',
     contrast: '#FFFFFF',
   },
   status: {

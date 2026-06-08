@@ -3,6 +3,7 @@ import SwiftUI
 struct RootView: View {
     let container: AppContainer
 
+    @AppStorage("muxy.hasCompletedOnboarding") private var hasCompletedOnboarding = false
     @State private var devicesViewModel: DevicesListViewModel
     @State private var path = NavigationPath()
     @State private var isAddingDevice = false
@@ -13,29 +14,38 @@ struct RootView: View {
     }
 
     var body: some View {
-        NavigationStack(path: $path) {
-            DevicesListView(
-                viewModel: devicesViewModel,
-                onSelect: { device in path.append(AppRoute.projects(device)) },
-                onAddDevice: { isAddingDevice = true }
-            )
-            .navigationDestination(for: AppRoute.self) { route in
-                switch route {
-                case let .projects(device):
-                    ProjectsView(
-                        viewModel: container.makeProjectsViewModel(for: device),
-                        onSelect: { project in
-                            path.append(AppRoute.projectDetail(device: device, project: project))
-                        }
+        Group {
+            if hasCompletedOnboarding {
+                NavigationStack(path: $path) {
+                    DevicesListView(
+                        viewModel: devicesViewModel,
+                        onSelect: { device in path.append(AppRoute.projects(device)) },
+                        onAddDevice: { isAddingDevice = true }
                     )
-                case let .projectDetail(device, project):
-                    ProjectDetailView(viewModel: container.makeProjectDetailViewModel(for: project, device: device))
+                    .navigationDestination(for: AppRoute.self) { route in
+                        switch route {
+                        case let .projects(device):
+                            ProjectsView(
+                                viewModel: container.makeProjectsViewModel(for: device),
+                                onSelect: { project in
+                                    path.append(AppRoute.projectDetail(device: device, project: project))
+                                }
+                            )
+                        case let .projectDetail(device, project):
+                            ProjectDetailView(viewModel: container.makeProjectDetailViewModel(for: project, device: device))
+                        }
+                    }
                 }
+                .onChange(of: path.count) { _, newCount in
+                    guard newCount == 0 else { return }
+                    Task { await container.connectionManager.disconnect() }
+                }
+            } else {
+                OnboardingView(
+                    onSkip: completeOnboarding,
+                    onPairDesktop: completeOnboardingAndPair
+                )
             }
-        }
-        .onChange(of: path.count) { _, newCount in
-            guard newCount == 0 else { return }
-            Task { await container.connectionManager.disconnect() }
         }
         .sheet(isPresented: $isAddingDevice, onDismiss: { devicesViewModel.load() }) {
             AddDeviceView(
@@ -46,6 +56,14 @@ struct RootView: View {
                 }
             )
         }
-        .tint(.primary)
+    }
+
+    private func completeOnboarding() {
+        hasCompletedOnboarding = true
+    }
+
+    private func completeOnboardingAndPair() {
+        hasCompletedOnboarding = true
+        isAddingDevice = true
     }
 }
