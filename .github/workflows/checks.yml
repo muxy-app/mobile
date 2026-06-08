@@ -1,40 +1,27 @@
-name: Checks
+name: iOS Checks
 
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
+    paths:
+      - "ios/**"
+  push:
+    branches: [main]
+    paths:
+      - "ios/**"
+
+concurrency:
+  group: ios-checks-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  checks:
-    name: Checks
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
+  ios:
+    name: iOS
+    runs-on: macos-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Test
-        run: npm test -- --ci
-
-      - name: Expo Doctor
-        run: npx --yes expo-doctor
-
-      - name: Prebuild dry run
-        run: npx expo prebuild --no-install --clean --non-interactive
+      - name: Run iOS unit tests
+        run: ios/scripts/run.sh test

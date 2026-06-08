@@ -14,13 +14,6 @@
 			remoteGlobalIDString = 30F745E82FD6C28A003FC767;
 			remoteInfo = Muxy;
 		};
-		30F746032FD6C28B003FC767 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 30F745E12FD6C28A003FC767 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 30F745E82FD6C28A003FC767;
-			remoteInfo = Muxy;
-		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXBuildFile section */
@@ -30,7 +23,6 @@
 /* Begin PBXFileReference section */
 		30F745E92FD6C28A003FC767 /* Muxy.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Muxy.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		30F745F82FD6C28B003FC767 /* MuxyTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MuxyTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		30F746022FD6C28B003FC767 /* MuxyUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MuxyUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -45,11 +37,6 @@
 		30F745FB2FD6C28B003FC767 /* MuxyTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = MuxyTests;
-			sourceTree = "<group>";
-		};
-		30F746052FD6C28B003FC767 /* MuxyUITests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = MuxyUITests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -80,13 +67,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		30F745FF2FD6C28B003FC767 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -95,7 +75,6 @@
 			children = (
 				30F745EB2FD6C28A003FC767 /* Muxy */,
 				30F745FB2FD6C28B003FC767 /* MuxyTests */,
-				30F746052FD6C28B003FC767 /* MuxyUITests */,
 				30F745EA2FD6C28A003FC767 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -105,7 +84,6 @@
 			children = (
 				30F745E92FD6C28A003FC767 /* Muxy.app */,
 				30F745F82FD6C28B003FC767 /* MuxyTests.xctest */,
-				30F746022FD6C28B003FC767 /* MuxyUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -159,29 +137,6 @@
 			productReference = 30F745F82FD6C28B003FC767 /* MuxyTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
-		30F746012FD6C28B003FC767 /* MuxyUITests */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 30F746122FD6C28B003FC767 /* Build configuration list for PBXNativeTarget "MuxyUITests" */;
-			buildPhases = (
-				30F745FE2FD6C28B003FC767 /* Sources */,
-				30F745FF2FD6C28B003FC767 /* Frameworks */,
-				30F746002FD6C28B003FC767 /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				30F746042FD6C28B003FC767 /* PBXTargetDependency */,
-			);
-			fileSystemSynchronizedGroups = (
-				30F746052FD6C28B003FC767 /* MuxyUITests */,
-			);
-			name = MuxyUITests;
-			packageProductDependencies = (
-			);
-			productName = MuxyUITests;
-			productReference = 30F746022FD6C28B003FC767 /* MuxyUITests.xctest */;
-			productType = "com.apple.product-type.bundle.ui-testing";
-		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -196,10 +151,6 @@
 						CreatedOnToolsVersion = 26.3;
 					};
 					30F745F72FD6C28B003FC767 = {
-						CreatedOnToolsVersion = 26.3;
-						TestTargetID = 30F745E82FD6C28A003FC767;
-					};
-					30F746012FD6C28B003FC767 = {
 						CreatedOnToolsVersion = 26.3;
 						TestTargetID = 30F745E82FD6C28A003FC767;
 					};
@@ -224,7 +175,6 @@
 			targets = (
 				30F745E82FD6C28A003FC767 /* Muxy */,
 				30F745F72FD6C28B003FC767 /* MuxyTests */,
-				30F746012FD6C28B003FC767 /* MuxyUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -238,13 +188,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		30F745F62FD6C28B003FC767 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		30F746002FD6C28B003FC767 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -268,13 +211,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		30F745FE2FD6C28B003FC767 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -282,11 +218,6 @@
 			isa = PBXTargetDependency;
 			target = 30F745E82FD6C28A003FC767 /* Muxy */;
 			targetProxy = 30F745F92FD6C28B003FC767 /* PBXContainerItemProxy */;
-		};
-		30F746042FD6C28B003FC767 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 30F745E82FD6C28A003FC767 /* Muxy */;
-			targetProxy = 30F746032FD6C28B003FC767 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -524,46 +455,6 @@
 			};
 			name = Release;
 		};
-		30F746132FD6C28B003FC767 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = NYSXATY4AA;
-				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.muxy.app.MuxyUITests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				STRING_CATALOG_GENERATE_SYMBOLS = NO;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_TARGET_NAME = Muxy;
-			};
-			name = Debug;
-		};
-		30F746142FD6C28B003FC767 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = NYSXATY4AA;
-				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.muxy.app.MuxyUITests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				STRING_CATALOG_GENERATE_SYMBOLS = NO;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_TARGET_NAME = Muxy;
-			};
-			name = Release;
-		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -590,15 +481,6 @@
 			buildConfigurations = (
 				30F746102FD6C28B003FC767 /* Debug */,
 				30F746112FD6C28B003FC767 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		30F746122FD6C28B003FC767 /* Build configuration list for PBXNativeTarget "MuxyUITests" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				30F746132FD6C28B003FC767 /* Debug */,
-				30F746142FD6C28B003FC767 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
