@@ -7,17 +7,17 @@
       "skillPath": "skills/apple-appstore-reviewer/SKILL.md",
       "computedHash": "848a1946f838e1b36f4af8b65caeea9e5bfa486d6059325520bb6124c05b0526"
     },
-    "react-native-best-practices": {
-      "source": "callstackincubator/agent-skills",
+    "caveman": {
+      "source": "juliusbrussee/caveman",
       "sourceType": "github",
-      "skillPath": "skills/react-native-best-practices/SKILL.md",
-      "computedHash": "bad5e73a1c3ddca2ed4bcd93b05ff913e8f9cc5495feacc3717c69e07fee540f"
+      "skillPath": "skills/caveman/SKILL.md",
+      "computedHash": "dfbf85749fd474feeb0bbe60c779795ecd5dbec0083299b56e68916bc3ddd8c9"
     },
-    "vercel-react-native-skills": {
-      "source": "vercel-labs/agent-skills",
+    "frontend-design": {
+      "source": "anthropics/skills",
       "sourceType": "github",
-      "skillPath": "skills/react-native-skills/SKILL.md",
-      "computedHash": "41d24eafa7c3d82e270439808f7cfbc4d51aeb2d14f2809a2267c16275784d06"
+      "skillPath": "skills/frontend-design/SKILL.md",
+      "computedHash": "063a0e6448123cd359ad0044cc46b0e490cc7964d45ef4bb9fd842bd2ffbca67"
     }
   }
 }

@@ -1,46 +1,39 @@
 # Muxy Mobile
 
-React Native + Expo companion app for **Muxy**, the desktop terminal multiplexer. Connects to Muxy's WebSocket server on the local network to control sessions remotely.
+## Desktop API Docs
 
-## Stack
+~/Projects/muxy/docs/remote-server
 
-- Expo, React Native, React
-- TypeScript
-
-## Commands
-
-- `npm run typecheck` — `tsc --noEmit`
-- `npm run lint` — `expo lint`
-
-Always run typecheck and lint before declaring a change done.
-
-## Top Level Rules
+## Top-level rules
 
 - Security first
-- Native Only
+- Native only
 - Maintainability
 - Scalability
-- Clean Code
-- Clean Architecture
-- Best Practices
-- No Hacky Solutions
+- Clean code
+- Clean architecture
+- Best practices
+- No hacky solutions
 
-## Main Rules
+## Working rules
 
-- No commenting allowed in the codebase
-- All code must be self-explanatory and cleanly structured
-- Use early returns instead of nested conditionals
-- Don't patch symptoms, fix root causes
-- For every task, Consider how it will impact the architecture and code quality, not just the immediate problem
+- No comments in the codebase — code must be self-explanatory and cleanly structured.
+- Use early returns instead of nested conditionals.
+- Don't patch symptoms, fix root causes.
+- For every task, consider the impact on architecture and code quality, not just the immediate problem.
 - Use logs for debugging.
-- If the feature is testable, then you must write tests.
-- Avoid long PR descriptions. It is for humans and keep it in 3 lines maximum.
-- Upload screenshots or recordings for the PRs.
-- Never answer any question without a proper investigation and exploring the codebase.
-- Prioritize problem comprehension over premature implementation. Validate the approach before execution to avoid rework
-- Plan properly before executing to not double work
+- If a feature is testable, write tests for it.
+- Never answer without first investigating and exploring the codebase.
 
-## Code Review
+## Code review
 
-- Review the PRs/Code against the purpose of the PR/Issue/Asked. If you find unrelated issues to the PR during the review, Report them in a separate section.
-- Apply review recommendations only after user's confirmation.
+- Review against the stated purpose of the PR/issue. Unrelated issues found during review go in a separate section.
+- Apply review recommendations only after the user confirms.
+
+## Repo layout
+
+## iOS (`ios/`)
+
+- SwiftUI
+- SwiftTerm
+- Native Design
