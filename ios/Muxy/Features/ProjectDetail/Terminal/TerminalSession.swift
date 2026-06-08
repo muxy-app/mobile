@@ -24,6 +24,7 @@ final class TerminalSession {
     private(set) var activeModifier: TerminalModifier = .ctrl
     private(set) var modifierArmed = false
 
+    @ObservationIgnored var onModifierStateChange: ((TerminalModifier, Bool) -> Void)?
     @ObservationIgnored private weak var view: TerminalView?
     @ObservationIgnored private let channel: TerminalChannel
     @ObservationIgnored private var clientID: UUID?
@@ -177,7 +178,7 @@ final class TerminalSession {
             transmit(Array(slice))
             return
         }
-        modifierArmed = false
+        setModifierState(activeModifier, armed: false)
         transmit(Array(transformed.utf8))
     }
 
@@ -186,12 +187,17 @@ final class TerminalSession {
     }
 
     func setModifierArmed(_ armed: Bool) {
-        modifierArmed = armed
+        setModifierState(activeModifier, armed: armed)
     }
 
     func selectModifier(_ modifier: TerminalModifier) {
+        setModifierState(modifier, armed: false)
+    }
+
+    private func setModifierState(_ modifier: TerminalModifier, armed: Bool) {
         activeModifier = modifier
-        modifierArmed = false
+        modifierArmed = armed
+        onModifierStateChange?(modifier, armed)
     }
 
     func useClientTheme(_ clientTheme: ClientTerminalTheme) {
@@ -234,6 +240,7 @@ final class TerminalSession {
 
     private func transmit(_ bytes: [UInt8]) {
         guard !bytes.isEmpty else { return }
+        guard ownership == .owned || ownership == .takingOver else { return }
         Log.terminal.debug("transmit \(bytes.count, privacy: .public) bytes for pane \(self.paneID.uuidString, privacy: .public) ownership=\(String(describing: self.ownership), privacy: .public)")
         Task { [channel, paneID] in
             let params = TerminalInputParams(paneID: paneID.uuidString, bytes: Data(bytes))

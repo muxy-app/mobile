@@ -2,7 +2,6 @@ import Foundation
 
 nonisolated struct Endpoint: Equatable, Sendable {
     static let defaultPort = 4865
-    static let portRange = 1024...65535
 
     let host: String
     let port: Int

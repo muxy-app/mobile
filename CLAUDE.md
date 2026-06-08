@@ -1,23 +1,37 @@
 # Muxy Mobile
 
-React Native + Expo companion app for **Muxy**, the desktop terminal multiplexer. Connects to Muxy's WebSocket server on the local network to control sessions remotely.
+Companion app for Muxy (github.com/muxy-app/muxy)
 
 ## Stack
+
+### Current
 
 - Expo, React Native, React
 - TypeScript
 
-## Commands
+### Commands
 
 - `npm run typecheck` — `tsc --noEmit`
 - `npm run lint` — `expo lint`
 
-Always run typecheck and lint before declaring a change done.
+### New
+
+- Swift, SwiftTerm for iOS (ios/)
+- Kotlin for Android (android/)
+
+### Commands
+
+- `ios/scripts/run.sh test`
+- `android/scripts/run.sh test`
+
+## API Docs
+
+- https://muxy.app/llms.txt
+- https://muxy.app/docs/remote-server/overview/plain
 
 ## Top Level Rules
 
 - Security first
-- Native Only
 - Maintainability
 - Scalability
 - Clean Code
@@ -35,10 +49,10 @@ Always run typecheck and lint before declaring a change done.
 - Use logs for debugging.
 - If the feature is testable, then you must write tests.
 - Avoid long PR descriptions. It is for humans and keep it in 3 lines maximum.
-- Upload screenshots or recordings for the PRs.
+- Upload screenshots or recordings for the PRs (Contributors)
 - Never answer any question without a proper investigation and exploring the codebase.
 - Prioritize problem comprehension over premature implementation. Validate the approach before execution to avoid rework
-- Plan properly before executing to not double work
+- Plan properly in the plan mode before executing to not double work
 
 ## Code Review
 

@@ -24,7 +24,6 @@ struct TerminalViewContainer: UIViewRepresentable {
         session.attach(view)
         context.coordinator.appliedFontSize = fontSize
         context.coordinator.appliedTheme = theme
-        context.coordinator.scheduleTakeover()
         return view
     }
 
@@ -57,15 +56,6 @@ struct TerminalViewContainer: UIViewRepresentable {
 
         init(session: TerminalSession) {
             self.session = session
-        }
-
-        func scheduleTakeover(attempt: Int = 0) {
-            guard attempt < 30 else { return }
-            DispatchQueue.main.async { [weak self] in
-                guard let self else { return }
-                self.session.takeOverIfReady()
-                self.scheduleTakeover(attempt: attempt + 1)
-            }
         }
 
         func sizeChanged(source: TerminalView, newCols: Int, newRows: Int) {
@@ -153,6 +143,10 @@ final class FollowAwareTerminalView: TerminalView {
         accessoryBar.onModifierToggle = { [weak self] armed in self?.session?.setModifierArmed(armed) }
         accessoryBar.onModifierChange = { [weak self] modifier in self?.session?.selectModifier(modifier) }
         accessoryBar.onKeyboardToggle = { [weak self] in self?.toggleKeyboard() }
+        session?.onModifierStateChange = { [weak self] modifier, armed in
+            self?.accessoryBar.syncActiveModifier(modifier)
+            self?.accessoryBar.syncModifierArmed(armed)
+        }
     }
 
     func refreshCopyAvailability() {
@@ -163,6 +157,11 @@ final class FollowAwareTerminalView: TerminalView {
         super.didMoveToWindow()
         guard window != nil else { return }
         _ = becomeFirstResponder()
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        session?.takeOverIfReady()
     }
 
     private func toggleKeyboard() {

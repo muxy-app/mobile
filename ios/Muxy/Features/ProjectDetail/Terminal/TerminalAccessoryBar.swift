@@ -32,6 +32,16 @@ final class TerminalAccessoryModel: ObservableObject {
         onModifierChange?(modifier)
         if modifierArmed { setModifierArmed(false) }
     }
+
+    func syncModifierArmed(_ armed: Bool) {
+        guard modifierArmed != armed else { return }
+        modifierArmed = armed
+    }
+
+    func syncActiveModifier(_ modifier: TerminalModifier) {
+        guard activeModifier != modifier else { return }
+        activeModifier = modifier
+    }
 }
 
 final class TerminalAccessoryBar: UIInputView {
@@ -77,8 +87,12 @@ final class TerminalAccessoryBar: UIInputView {
         model.canCopySelection = enabled
     }
 
-    func setModifierArmed(_ armed: Bool) {
-        model.setModifierArmed(armed)
+    func syncModifierArmed(_ armed: Bool) {
+        model.syncModifierArmed(armed)
+    }
+
+    func syncActiveModifier(_ modifier: TerminalModifier) {
+        model.syncActiveModifier(modifier)
     }
 
     private let model = TerminalAccessoryModel()

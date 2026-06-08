@@ -50,7 +50,7 @@ jobs:
       contents: write
     env:
       APP_SCHEME: Muxy
-      APP_WORKSPACE: ios/Muxy.xcworkspace
+      APP_PROJECT: ios/Muxy.xcodeproj
       APP_ARCHIVE_PATH: ios/build/Muxy.xcarchive
       APP_EXPORT_PATH: ios/build/export
       BUNDLE_ID: com.muxy.app
@@ -85,54 +85,13 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "build_number=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
 
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Set version in app.json
-        env:
-          VERSION: ${{ steps.validate.outputs.version }}
-          BUILD_NUMBER: ${{ steps.validate.outputs.build_number }}
-        run: |
-          node -e '
-            const fs = require("fs");
-            const path = "app.json";
-            const cfg = JSON.parse(fs.readFileSync(path, "utf8"));
-            cfg.expo.version = process.env.VERSION;
-            cfg.expo.ios = cfg.expo.ios || {};
-            cfg.expo.ios.buildNumber = process.env.BUILD_NUMBER;
-            fs.writeFileSync(path, JSON.stringify(cfg, null, 2) + "\n");
-          '
-
-      - name: Expo prebuild (iOS)
-        run: npx expo prebuild --platform ios --no-install --clean --non-interactive
-
-      - name: Ensure CocoaPods is installed
-        run: |
-          if ! command -v pod >/dev/null 2>&1; then
-            sudo gem install cocoapods --no-document
-          fi
-          pod --version
-
-      - name: Cache Pods
+      - name: Cache SwiftPM dependencies
         uses: actions/cache@v4
         with:
-          path: |
-            ios/Pods
-            ~/Library/Caches/CocoaPods
-            ~/.cocoapods
-          key: ${{ runner.os }}-pods-${{ hashFiles('ios/Podfile.lock') }}
+          path: ~/Library/Caches/org.swift.swiftpm
+          key: ${{ runner.os }}-spm-${{ hashFiles('ios/Muxy.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
           restore-keys: |
-            ${{ runner.os }}-pods-
-
-      - name: Install Pods
-        working-directory: ios
-        run: pod install
+            ${{ runner.os }}-spm-
 
       - name: Import distribution certificate
         env:
@@ -236,7 +195,7 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           xcodebuild \
-            -workspace "$APP_WORKSPACE" \
+            -project "$APP_PROJECT" \
             -scheme "$APP_SCHEME" \
             -configuration Release \
             -destination "generic/platform=iOS" \

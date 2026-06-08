@@ -11,7 +11,6 @@ final class AddDeviceViewModel {
     var isShowingScanner = false
 
     private(set) var status: PairingStatus = .idle
-    private(set) var validationError: String?
     private(set) var discoverySource: DiscoverySource = .manual
     private var serviceName: String?
 
@@ -83,13 +82,8 @@ final class AddDeviceViewModel {
     }
 
     func submit(onPaired: @escaping (Device) -> Void) async {
-        switch validator.validate(name: name, host: host, portText: portText) {
-        case let .failure(error):
-            validationError = message(for: error)
-        case let .success(input):
-            validationError = nil
-            await pair(input: input, onPaired: onPaired)
-        }
+        guard case let .success(input) = validator.validate(name: name, host: host, portText: portText) else { return }
+        await pair(input: input, onPaired: onPaired)
     }
 
     private func pair(input: ValidatedDeviceInput, onPaired: @escaping (Device) -> Void) async {
@@ -102,12 +96,12 @@ final class AddDeviceViewModel {
             serviceName: serviceName,
             discoverySource: discoverySource
         )
-        let token = tokenGenerator.generate()
-
+        let token: String
         do {
+            token = try tokenGenerator.generate()
             try keychain.setToken(token, for: device.id)
         } catch {
-            Log.pairing.error("Failed to store token: \(error.localizedDescription, privacy: .public)")
+            Log.pairing.error("Failed to prepare pairing token: \(error.localizedDescription, privacy: .public)")
             status = .failed(.connectionFailed)
             return
         }
@@ -121,20 +115,5 @@ final class AddDeviceViewModel {
         pairedDevice.pairingState = .paired
         store.upsert(pairedDevice)
         onPaired(pairedDevice)
-    }
-
-    private func message(for error: DeviceInputError) -> String {
-        switch error {
-        case .emptyName:
-            return "Enter a name for this device."
-        case .emptyHost:
-            return "Enter the Mac's host or IP address."
-        case .invalidHost:
-            return "The host contains invalid characters."
-        case .missingPort:
-            return "Enter a port number."
-        case .invalidPort:
-            return "Enter a port between 1 and 65535."
-        }
     }
 }

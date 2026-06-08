@@ -1,8 +1,12 @@
 import Foundation
 import Security
 
+enum TokenGenerationError: Error, Equatable, Sendable {
+    case randomUnavailable(status: OSStatus)
+}
+
 protocol TokenGenerating: Sendable {
-    func generate() -> String
+    func generate() throws -> String
 }
 
 struct TokenGenerator: TokenGenerating {
@@ -12,11 +16,11 @@ struct TokenGenerator: TokenGenerating {
         self.byteCount = byteCount
     }
 
-    func generate() -> String {
+    func generate() throws -> String {
         var bytes = [UInt8](repeating: 0, count: byteCount)
         let status = SecRandomCopyBytes(kSecRandomDefault, byteCount, &bytes)
         guard status == errSecSuccess else {
-            return UUID().uuidString
+            throw TokenGenerationError.randomUnavailable(status: status)
         }
         return Data(bytes).base64URLEncodedString()
     }

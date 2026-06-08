@@ -36,6 +36,16 @@ struct ProjectsView: View {
         switch viewModel.state {
         case .connecting, .authenticating:
             ProgressView()
+        case .connected where viewModel.loadFailed:
+            ContentUnavailableView {
+                Label("Couldn't Load Projects", systemImage: "exclamationmark.triangle")
+            } description: {
+                Text("Something went wrong loading projects from \(viewModel.device.name).")
+            } actions: {
+                Button("Retry") {
+                    Task { await viewModel.reconnect() }
+                }
+            }
         case .connected:
             ContentUnavailableView {
                 Label("No Projects", systemImage: "folder")

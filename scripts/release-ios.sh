@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Local iOS release script. Mirrors .github/workflows/ios-release.yml.
 #
+# Builds the native app in ios/ (Muxy.xcodeproj, SwiftPM).
+#
 # Usage:
 #   scripts/release-ios.sh [--upload] <version> [build_number]
 #   scripts/release-ios.sh --upload-only [path/to/file.ipa]
@@ -97,43 +99,18 @@ require_file APP_STORE_PROVISIONING_PROFILE_PATH
 require_var KEYCHAIN_PASSWORD
 
 APP_SCHEME="Muxy"
-APP_WORKSPACE="ios/Muxy.xcworkspace"
+APP_PROJECT="ios/Muxy.xcodeproj"
 APP_ARCHIVE_PATH="ios/build/Muxy.xcarchive"
 BUNDLE_ID="com.muxy.app"
 KEYCHAIN_PATH="$HOME/Library/Keychains/muxy-build.keychain-db"
-APP_JSON_BACKUP="$(mktemp)"
 
 cleanup() {
-  if [[ -f "$APP_JSON_BACKUP" ]]; then
-    cp "$APP_JSON_BACKUP" "$REPO_ROOT/app.json"
-    rm -f "$APP_JSON_BACKUP"
-  fi
   if security list-keychains -d user | grep -q "muxy-build.keychain"; then
     security delete-keychain "$KEYCHAIN_PATH" || true
   fi
 }
 trap cleanup EXIT
 run_started
-
-step "Installing JS deps"
-npm ci
-
-step "Writing version $VERSION ($BUILD_NUMBER) into app.json"
-cp "$REPO_ROOT/app.json" "$APP_JSON_BACKUP"
-node -e "
-  const fs = require('fs');
-  const cfg = JSON.parse(fs.readFileSync('app.json', 'utf8'));
-  cfg.expo.version = '$VERSION';
-  cfg.expo.ios = cfg.expo.ios || {};
-  cfg.expo.ios.buildNumber = '$BUILD_NUMBER';
-  fs.writeFileSync('app.json', JSON.stringify(cfg, null, 2) + '\n');
-"
-
-step "expo prebuild (iOS)"
-npx expo prebuild --platform ios --no-install --clean --non-interactive
-
-step "pod install"
-( cd ios && pod install )
 
 step "Creating temporary build keychain"
 cleanup
@@ -175,7 +152,7 @@ rm -f "$PROFILE_PLIST"
 
 step "Archiving"
 xcodebuild \
-  -workspace "$APP_WORKSPACE" \
+  -project "$APP_PROJECT" \
   -scheme "$APP_SCHEME" \
   -configuration Release \
   -destination "generic/platform=iOS" \
