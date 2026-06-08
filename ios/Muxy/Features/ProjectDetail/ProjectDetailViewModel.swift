@@ -57,7 +57,13 @@ final class ProjectDetailViewModel {
     }
 
     func reconnect() async {
-        await connect()
+        observeState()
+        subscribeToEvents()
+        guard let token = loadToken() else {
+            state = .failed(.missingToken)
+            return
+        }
+        await connectionManager.connect(to: device, token: token)
     }
 
     func disconnect() async {

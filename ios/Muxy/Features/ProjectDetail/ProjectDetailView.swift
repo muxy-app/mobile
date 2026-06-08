@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct ProjectDetailView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @State var viewModel: ProjectDetailViewModel
 
     var body: some View {
@@ -29,6 +30,10 @@ struct ProjectDetailView: View {
             }
         }
         .task { await viewModel.connect() }
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else { return }
+            Task { await viewModel.reconnect() }
+        }
         .onDisappear {
             Task { await viewModel.disconnect() }
         }

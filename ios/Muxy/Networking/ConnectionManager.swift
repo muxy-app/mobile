@@ -243,7 +243,19 @@ actor ConnectionManager {
             for await event in client.events {
                 await self?.broadcastEvent(event)
             }
+            await self?.clientDidEnd(client)
         }
+    }
+
+    private func clientDidEnd(_ endedClient: MuxyClient) async {
+        guard client === endedClient else { return }
+        eventPump = nil
+        await endedClient.stop()
+        client = nil
+        guard connectedDeviceID != nil else { return }
+        theme = nil
+        clientID = nil
+        state = .disconnected
     }
 
     private func broadcast(_ state: ConnectionState) {

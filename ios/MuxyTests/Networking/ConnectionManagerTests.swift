@@ -97,6 +97,21 @@ struct ConnectionManagerTests {
         #expect(count() == 1)
     }
 
+    @Test func ensureConnectedReconnectsAfterTransportReadFailure() async throws {
+        let holder = ConnectionManagerTransportHolder()
+        let manager = ConnectionManager(makeTransport: { _ in holder.make(autoReply: ConnectionManagerTests.authReply) })
+        let device = device()
+
+        await manager.connect(to: device, token: "t")
+        await holder.latest()?.failReaders()
+        try await waitUntil { await manager.currentState == .disconnected }
+        await manager.ensureConnected(device: device, token: "t")
+        let state = await manager.currentState
+
+        #expect(state == .connected)
+        #expect(holder.count() == 2)
+    }
+
     @Test func ensureConnectedReconnectsForDifferentDevice() async {
         let (factory, count) = successFactory()
         let manager = ConnectionManager(makeTransport: factory)
@@ -153,6 +168,20 @@ struct ConnectionManagerTests {
         let state = await manager.currentState
         #expect(state == .failed(.invalidEndpoint))
     }
+
+    private static func authReply(_ frame: String) -> [String] {
+        let id = id(from: frame)
+        return [pairingFrame(id: id)]
+    }
+
+    private func waitUntil(timeout: Duration = .seconds(2), _ condition: @escaping () async -> Bool) async throws {
+        let deadline = ContinuousClock.now + timeout
+        while ContinuousClock.now < deadline {
+            if await condition() { return }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        Issue.record("Condition not met within \(timeout)")
+    }
 }
 
 private final class Counter: @unchecked Sendable {
@@ -169,5 +198,30 @@ private final class Counter: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         return count
+    }
+}
+
+private final class ConnectionManagerTransportHolder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var transports: [MockTransport] = []
+
+    func make(autoReply: @escaping @Sendable (String) -> [String]) -> MockTransport {
+        let transport = MockTransport(autoReply: autoReply)
+        lock.lock()
+        transports.append(transport)
+        lock.unlock()
+        return transport
+    }
+
+    func latest() -> MockTransport? {
+        lock.lock()
+        defer { lock.unlock() }
+        return transports.last
+    }
+
+    func count() -> Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return transports.count
     }
 }

@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct ProjectsView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @State var viewModel: ProjectsViewModel
     let onSelect: (Project) -> Void
 
@@ -9,6 +10,10 @@ struct ProjectsView: View {
             .navigationTitle(viewModel.device.name)
             .navigationBarTitleDisplayMode(.inline)
             .task { await viewModel.connect() }
+            .onChange(of: scenePhase) { _, phase in
+                guard phase == .active else { return }
+                Task { await viewModel.reconnect() }
+            }
     }
 
     @ViewBuilder
