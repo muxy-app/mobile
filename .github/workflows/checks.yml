@@ -23,5 +23,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Run iOS unit tests
-        run: ios/scripts/run.sh test
+      - name: Install SwiftLint
+        run: |
+          if ! command -v swiftlint >/dev/null 2>&1; then
+            brew install swiftlint
+          fi
+
+      - name: Run iOS checks
+        run: ios/scripts/checks.sh
