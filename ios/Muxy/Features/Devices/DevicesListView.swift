@@ -4,6 +4,7 @@ struct DevicesListView: View {
     let viewModel: DevicesListViewModel
     let onSelect: (Device) -> Void
     let onAddDevice: () -> Void
+    let onSettings: () -> Void
 
     var body: some View {
         Group {
@@ -15,6 +16,12 @@ struct DevicesListView: View {
         }
         .navigationTitle("Devices")
         .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button(action: onSettings) {
+                    Label("Settings", systemImage: "gearshape")
+                }
+            }
+
             ToolbarItem(placement: .primaryAction) {
                 Button(action: onAddDevice) {
                     Label("Add Device", systemImage: "plus")

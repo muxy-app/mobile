@@ -8,6 +8,7 @@ final class AppContainer {
     let pairingService: PairingService
     let validator: DeviceInputValidator
     let tokenGenerator: TokenGenerating
+    let settings: AppSettings
 
     private let makeBrowser: @MainActor () -> any BonjourBrowsing
 
@@ -17,6 +18,7 @@ final class AppContainer {
         pairingService: PairingService = LivePairingService(),
         validator: DeviceInputValidator = DeviceInputValidator(),
         tokenGenerator: TokenGenerating = TokenGenerator(),
+        settings: AppSettings? = nil,
         makeBrowser: @escaping @MainActor () -> any BonjourBrowsing = { BonjourBrowser() }
     ) {
         self.deviceStore = deviceStore
@@ -24,6 +26,7 @@ final class AppContainer {
         self.pairingService = pairingService
         self.validator = validator
         self.tokenGenerator = tokenGenerator
+        self.settings = settings ?? AppSettings()
         self.makeBrowser = makeBrowser
         self.connectionManager = ConnectionManager(
             makeTransport: { url in WebSocketTransport(url: url) },

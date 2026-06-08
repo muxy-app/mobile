@@ -4,6 +4,8 @@ struct TerminalTabView: View {
     @Bindable var session: TerminalSession
 
     @Environment(\.colorScheme) private var colorScheme
+    @AppStorage(AppSettingKey.useNerdFont) private var useNerdFont = true
+    @AppStorage(AppSettingKey.autoFocusTerminal) private var autoFocusTerminal = false
     @State private var fontSize = TerminalFont.defaultSize
 
     var body: some View {
@@ -17,7 +19,13 @@ struct TerminalTabView: View {
 
     private var terminalSurface: some View {
         ZStack(alignment: .bottomTrailing) {
-            TerminalViewContainer(session: session, theme: session.theme, fontSize: fontSize)
+            TerminalViewContainer(
+                session: session,
+                theme: session.theme,
+                fontSize: fontSize,
+                useNerdFont: useNerdFont,
+                autoFocusTerminal: autoFocusTerminal
+            )
                 .ignoresSafeArea(.keyboard)
 
             overlay

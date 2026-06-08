@@ -6,13 +6,16 @@ struct TerminalViewContainer: UIViewRepresentable {
     let session: TerminalSession
     let theme: TerminalTheme
     let fontSize: CGFloat
+    let useNerdFont: Bool
+    let autoFocusTerminal: Bool
 
     func makeCoordinator() -> Coordinator {
         Coordinator(session: session)
     }
 
     func makeUIView(context: Context) -> TerminalView {
-        let view = FollowAwareTerminalView(frame: .zero, font: TerminalFont.mono(size: fontSize))
+        let view = FollowAwareTerminalView(frame: .zero, font: TerminalFont.mono(size: fontSize, useNerdFont: useNerdFont))
+        view.autoFocusTerminal = autoFocusTerminal
         view.onUserScroll = { [weak coordinator = context.coordinator] position in
             coordinator?.userScrolled(toPosition: position)
         }
@@ -23,16 +26,19 @@ struct TerminalViewContainer: UIViewRepresentable {
         apply(theme: theme, to: view)
         session.attach(view)
         context.coordinator.appliedFontSize = fontSize
+        context.coordinator.appliedUseNerdFont = useNerdFont
         context.coordinator.appliedTheme = theme
         return view
     }
 
     func updateUIView(_ view: TerminalView, context: Context) {
         session.takeOverIfReady()
-        if context.coordinator.appliedFontSize != fontSize {
-            view.font = TerminalFont.mono(size: fontSize)
+        if context.coordinator.appliedFontSize != fontSize || context.coordinator.appliedUseNerdFont != useNerdFont {
+            view.font = TerminalFont.mono(size: fontSize, useNerdFont: useNerdFont)
             context.coordinator.appliedFontSize = fontSize
+            context.coordinator.appliedUseNerdFont = useNerdFont
         }
+        (view as? FollowAwareTerminalView)?.autoFocusTerminal = autoFocusTerminal
         if context.coordinator.appliedTheme != theme {
             apply(theme: theme, to: view)
             context.coordinator.appliedTheme = theme
@@ -52,6 +58,7 @@ struct TerminalViewContainer: UIViewRepresentable {
     final class Coordinator: NSObject, TerminalViewDelegate {
         private let session: TerminalSession
         var appliedFontSize: CGFloat?
+        var appliedUseNerdFont: Bool?
         var appliedTheme: TerminalTheme?
 
         init(session: TerminalSession) {
@@ -101,6 +108,7 @@ struct TerminalViewContainer: UIViewRepresentable {
 
 final class FollowAwareTerminalView: TerminalView {
     var onUserScroll: ((Double) -> Void)?
+    var autoFocusTerminal = true
 
     weak var session: TerminalSession?
 
@@ -156,6 +164,7 @@ final class FollowAwareTerminalView: TerminalView {
     override func didMoveToWindow() {
         super.didMoveToWindow()
         guard window != nil else { return }
+        guard autoFocusTerminal else { return }
         _ = becomeFirstResponder()
     }
 

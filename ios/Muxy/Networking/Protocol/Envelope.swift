@@ -26,6 +26,13 @@ nonisolated struct RawTagged: Decodable, Sendable {
     }
 }
 
+nonisolated extension RawTagged {
+    init<T: Encodable & Sendable>(type: String, value: T) throws {
+        self.type = type
+        valueData = try JSONEncoder().encode(value)
+    }
+}
+
 nonisolated struct RequestEnvelope<Params: Codable & Sendable>: Encodable, Sendable {
     let id: String
     let method: String

@@ -18,7 +18,7 @@ enum Method: String, Sendable {
     case terminalScroll
 }
 
-enum ResultType {
+nonisolated enum ResultType {
     static let pairing = "pairing"
     static let projects = "projects"
     static let workspace = "workspace"
@@ -27,7 +27,7 @@ enum ResultType {
     static let projectLogo = "projectLogo"
 }
 
-enum EventName {
+nonisolated enum EventName {
     static let workspaceChanged = "workspaceChanged"
     static let projectsChanged = "projectsChanged"
     static let terminalOutput = "terminalOutput"
@@ -36,7 +36,7 @@ enum EventName {
     static let themeChanged = "themeChanged"
 }
 
-enum EventType {
+nonisolated enum EventType {
     static let workspace = "workspace"
     static let projects = "projects"
     static let terminalOutput = "terminalOutput"

@@ -6,6 +6,7 @@ actor ConnectionManager {
 
     private let makeTransport: TransportFactory
     private let pairingService: PairingService
+    private let demoBackend = DemoBackend()
 
     private var client: MuxyClient?
     private var connectedDeviceID: Device.ID?
@@ -29,11 +30,23 @@ actor ConnectionManager {
     }
 
     var currentTheme: DeviceThemeEvent? {
-        theme
+        get async {
+            if connectedDeviceID == DemoDevice.id {
+                await demoBackend.currentTheme
+            } else {
+                theme
+            }
+        }
     }
 
     var currentClientID: UUID? {
-        clientID
+        get async {
+            if connectedDeviceID == DemoDevice.id {
+                await demoBackend.currentClientID
+            } else {
+                clientID
+            }
+        }
     }
 
     func stateUpdates() -> AsyncStream<ConnectionState> {
@@ -58,6 +71,9 @@ actor ConnectionManager {
     }
 
     func request<P: Codable & Sendable>(_ method: Method, params: P?) async throws -> RawTagged {
+        if connectedDeviceID == DemoDevice.id {
+            return try await demoRequest(method, params: params)
+        }
         guard let client else { throw ConnectionError.notConnected }
         return try await client.request(method, params: params)
     }
@@ -67,6 +83,10 @@ actor ConnectionManager {
     }
 
     func notify<P: Codable & Sendable>(_ method: Method, params: P?) async throws {
+        if connectedDeviceID == DemoDevice.id {
+            try await demoNotify(method, params: params)
+            return
+        }
         guard let client else { throw ConnectionError.notConnected }
         try await client.notify(method, params: params)
     }
@@ -119,6 +139,18 @@ actor ConnectionManager {
         await teardownClient()
         state = .connecting
 
+        if device.id == DemoDevice.id {
+            do {
+                let result = try await demoBackend.authenticate()
+                captureAuthResult(result)
+                connectedDeviceID = device.id
+                state = .connected
+            } catch {
+                state = .failed(.authenticationFailed)
+            }
+            return
+        }
+
         guard let url = device.endpoint.webSocketURL else {
             state = .failed(.invalidEndpoint)
             return
@@ -167,6 +199,34 @@ actor ConnectionManager {
         self.client = client
         startEventPump(for: client)
         return client
+    }
+
+    private func demoRequest<P: Codable & Sendable>(_ method: Method, params: P?) async throws -> RawTagged {
+        do {
+            let result = try await demoBackend.request(method, params: params)
+            let events = try await demoBackend.events(for: method, params: params)
+            for event in events {
+                broadcastEvent(event)
+            }
+            return result
+        } catch DemoError.notFound {
+            throw ProtocolError(ProtocolErrorBody(code: ErrorCode.notFound.rawValue, message: "Not available in demo mode"))
+        } catch DemoError.invalidParams {
+            throw ProtocolError(ProtocolErrorBody(code: ErrorCode.invalidParams.rawValue, message: "Invalid demo request"))
+        }
+    }
+
+    private func demoNotify<P: Codable & Sendable>(_ method: Method, params: P?) async throws {
+        do {
+            let events = try await demoBackend.events(for: method, params: params)
+            for event in events {
+                broadcastEvent(event)
+            }
+        } catch DemoError.notFound {
+            throw ProtocolError(ProtocolErrorBody(code: ErrorCode.notFound.rawValue, message: "Not available in demo mode"))
+        } catch DemoError.invalidParams {
+            throw ProtocolError(ProtocolErrorBody(code: ErrorCode.invalidParams.rawValue, message: "Invalid demo request"))
+        }
     }
 
     private func teardownClient() async {

@@ -19,18 +19,25 @@ nonisolated enum TerminalFont {
         static let boldItalic = "CaskaydiaMonoNFM-BoldItalic"
     }
 
-    static func faces(size: CGFloat) -> Faces {
-        let normal = font(PostScriptName.normal, size: size)
-            ?? UIFont.monospacedSystemFont(ofSize: size, weight: .regular)
-        let bold = font(PostScriptName.bold, size: size)
-            ?? UIFont.monospacedSystemFont(ofSize: size, weight: .bold)
+    static func faces(size: CGFloat, useNerdFont: Bool = true) -> Faces {
+        guard useNerdFont else {
+            return Faces(
+                normal: UIFont.monospacedSystemFont(ofSize: size, weight: .regular),
+                bold: UIFont.monospacedSystemFont(ofSize: size, weight: .bold),
+                italic: UIFont.monospacedSystemFont(ofSize: size, weight: .regular),
+                boldItalic: UIFont.monospacedSystemFont(ofSize: size, weight: .bold)
+            )
+        }
+
+        let normal = font(PostScriptName.normal, size: size) ?? UIFont.monospacedSystemFont(ofSize: size, weight: .regular)
+        let bold = font(PostScriptName.bold, size: size) ?? UIFont.monospacedSystemFont(ofSize: size, weight: .bold)
         let italic = font(PostScriptName.italic, size: size) ?? normal
         let boldItalic = font(PostScriptName.boldItalic, size: size) ?? bold
         return Faces(normal: normal, bold: bold, italic: italic, boldItalic: boldItalic)
     }
 
-    static func mono(size: CGFloat) -> UIFont {
-        faces(size: size).normal
+    static func mono(size: CGFloat, useNerdFont: Bool = true) -> UIFont {
+        faces(size: size, useNerdFont: useNerdFont).normal
     }
 
     private static func font(_ name: String, size: CGFloat) -> UIFont? {

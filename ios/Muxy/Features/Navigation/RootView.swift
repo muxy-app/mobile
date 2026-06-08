@@ -7,6 +7,7 @@ struct RootView: View {
     @State private var devicesViewModel: DevicesListViewModel
     @State private var path = NavigationPath()
     @State private var isAddingDevice = false
+    @State private var isShowingSettings = false
 
     init(container: AppContainer) {
         self.container = container
@@ -20,7 +21,8 @@ struct RootView: View {
                     DevicesListView(
                         viewModel: devicesViewModel,
                         onSelect: { device in path.append(AppRoute.projects(device)) },
-                        onAddDevice: { isAddingDevice = true }
+                        onAddDevice: { isAddingDevice = true },
+                        onSettings: { isShowingSettings = true }
                     )
                     .navigationDestination(for: AppRoute.self) { route in
                         switch route {
@@ -47,6 +49,8 @@ struct RootView: View {
                 )
             }
         }
+        .onAppear { applyDemoMode() }
+        .onChange(of: container.settings.demoMode) { _, _ in applyDemoMode() }
         .sheet(isPresented: $isAddingDevice, onDismiss: { devicesViewModel.load() }) {
             AddDeviceView(
                 viewModel: container.makeAddDeviceViewModel(),
@@ -55,6 +59,11 @@ struct RootView: View {
                     path.append(AppRoute.projects(device))
                 }
             )
+        }
+        .sheet(isPresented: $isShowingSettings) {
+            SettingsView(settings: container.settings) {
+                isShowingSettings = false
+            }
         }
     }
 
@@ -65,5 +74,10 @@ struct RootView: View {
     private func completeOnboardingAndPair() {
         hasCompletedOnboarding = true
         isAddingDevice = true
+    }
+
+    private func applyDemoMode() {
+        DemoDevice.apply(enabled: container.settings.demoMode, store: container.deviceStore, keychain: container.keychain)
+        devicesViewModel.load()
     }
 }
