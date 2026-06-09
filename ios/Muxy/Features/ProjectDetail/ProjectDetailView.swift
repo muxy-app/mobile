@@ -3,6 +3,7 @@ import SwiftUI
 struct ProjectDetailView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State var viewModel: ProjectDetailViewModel
+    @State private var isGitPresented = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -26,8 +27,16 @@ struct ProjectDetailView: View {
                     .font(.headline)
             }
             ToolbarItem(placement: .primaryAction) {
-                Image(systemName: "arrow.triangle.branch")
+                Button {
+                    isGitPresented = true
+                } label: {
+                    Image(systemName: "arrow.triangle.branch")
+                }
+                .accessibilityLabel("Git")
             }
+        }
+        .sheet(isPresented: $isGitPresented) {
+            GitSheetView(viewModel: viewModel.makeGitViewModel())
         }
         .task { await viewModel.connect() }
         .onChange(of: scenePhase) { _, phase in

@@ -5,6 +5,8 @@ enum Method: String, Sendable {
     case pairDevice
     case listProjects
     case selectProject
+    case listWorktrees
+    case selectWorktree
     case getWorkspace
     case createTab
     case closeTab
@@ -16,6 +18,18 @@ enum Method: String, Sendable {
     case terminalInput
     case terminalResize
     case terminalScroll
+    case vcsRefresh
+    case vcsCommit
+    case vcsPush
+    case vcsPull
+    case vcsListBranches
+    case vcsSwitchBranch
+    case vcsCreateBranch
+    case vcsCreatePR
+    case vcsMergePullRequest
+    case vcsAddWorktree
+    case vcsRemoveWorktree
+    case vcsGetDiff
 }
 
 nonisolated enum ResultType {
@@ -25,6 +39,11 @@ nonisolated enum ResultType {
     static let tab = "tab"
     static let ok = "ok"
     static let projectLogo = "projectLogo"
+    static let worktrees = "worktrees"
+    static let vcsStatus = "vcsStatus"
+    static let vcsBranches = "vcsBranches"
+    static let vcsPRCreated = "vcsPRCreated"
+    static let vcsDiff = "vcsDiff"
 }
 
 nonisolated enum EventName {
@@ -82,6 +101,15 @@ nonisolated struct EmptyRequestParams: Codable, Sendable {}
 
 nonisolated struct SelectProjectParams: Codable, Sendable {
     let projectID: String
+}
+
+nonisolated struct ListWorktreesParams: Codable, Sendable {
+    let projectID: String
+}
+
+nonisolated struct SelectWorktreeParams: Codable, Sendable {
+    let projectID: String
+    let worktreeID: String
 }
 
 nonisolated struct GetWorkspaceParams: Codable, Sendable {
@@ -155,6 +183,59 @@ nonisolated struct TerminalScrollParams: Codable, Sendable {
     let deltaX: Double
     let deltaY: Double
     let precise: Bool
+}
+
+nonisolated struct VCSProjectParams: Codable, Sendable {
+    let projectID: String
+}
+
+nonisolated struct VCSCommitParams: Codable, Sendable {
+    let projectID: String
+    let message: String
+    let stageAll: Bool
+}
+
+nonisolated struct VCSBranchParams: Codable, Sendable {
+    let projectID: String
+    let branch: String
+}
+
+nonisolated struct VCSCreateBranchParams: Codable, Sendable {
+    let projectID: String
+    let name: String
+}
+
+nonisolated struct VCSCreatePRParams: Codable, Sendable {
+    let projectID: String
+    let title: String
+    let body: String
+    let baseBranch: String?
+    let draft: Bool
+}
+
+nonisolated struct VCSMergePullRequestParams: Codable, Sendable {
+    let projectID: String
+    let number: Int
+    let method: VCSMergeMethod
+    let deleteBranch: Bool
+}
+
+nonisolated struct VCSAddWorktreeParams: Codable, Sendable {
+    let projectID: String
+    let name: String
+    let branch: String
+    let createBranch: Bool
+}
+
+nonisolated struct VCSRemoveWorktreeParams: Codable, Sendable {
+    let projectID: String
+    let worktreeID: String
+}
+
+nonisolated struct VCSGetDiffParams: Codable, Sendable {
+    let projectID: String
+    let filePath: String
+    let forceFull: Bool
 }
 
 nonisolated struct TerminalBytesEvent: Codable, Sendable {

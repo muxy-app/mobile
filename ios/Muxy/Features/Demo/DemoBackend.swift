@@ -13,6 +13,7 @@ actor DemoBackend {
     private let muxyPaneID = UUID(uuidString: "00000000-0000-4000-8000-000000000601")!
     private let webPaneID = UUID(uuidString: "00000000-0000-4000-8000-000000000602")!
     private var workspaces: [UUID: Workspace] = [:]
+    private var gitStatuses: [UUID: VCSStatus] = [:]
     private var tabCounter = 2
 
     init() {
@@ -31,6 +32,10 @@ actor DemoBackend {
                 path: "/Users/demo/Projects/web-app",
                 tab: Tab(id: webTabID, kind: .terminal, title: "dev", isPinned: false, paneID: webPaneID)
             )
+        ]
+        gitStatuses = [
+            muxyProjectID: Self.makeStatus(branch: "main", hasChanges: true),
+            webProjectID: Self.makeStatus(branch: "feature/native-git", hasChanges: false)
         ]
     }
 
@@ -70,6 +75,11 @@ actor DemoBackend {
             return try tagged(ResultType.projects, ProjectsResult(projects: projects))
         case .selectProject:
             return try tagged(ResultType.ok, EmptyDemoResult())
+        case .listWorktrees:
+            let params = try decode(ListWorktreesParams.self, from: params)
+            return try tagged(ResultType.worktrees, worktrees(for: projectID(from: params.projectID)))
+        case .selectWorktree:
+            return try tagged(ResultType.ok, EmptyDemoResult())
         case .getWorkspace:
             let params = try decode(GetWorkspaceParams.self, from: params)
             let id = try projectID(from: params.projectID)
@@ -94,6 +104,40 @@ actor DemoBackend {
             throw DemoError.notFound
         case .terminalInput:
             return try tagged(ResultType.ok, EmptyDemoResult())
+        case .vcsRefresh:
+            let params = try decode(VCSProjectParams.self, from: params)
+            return try tagged(ResultType.vcsStatus, gitStatus(for: projectID(from: params.projectID)))
+        case .vcsCommit:
+            let params = try decode(VCSCommitParams.self, from: params)
+            let projectID = try projectID(from: params.projectID)
+            gitStatuses[projectID] = Self.makeStatus(branch: gitStatus(for: projectID).branch, hasChanges: false)
+            return try tagged(ResultType.ok, EmptyDemoResult())
+        case .vcsPush, .vcsPull:
+            return try tagged(ResultType.ok, EmptyDemoResult())
+        case .vcsListBranches:
+            let params = try decode(VCSProjectParams.self, from: params)
+            let status = gitStatus(for: try projectID(from: params.projectID))
+            return try tagged(ResultType.vcsBranches, VCSBranches(current: status.branch, locals: ["main", "feature/native-git"], defaultBranch: "main"))
+        case .vcsSwitchBranch:
+            let params = try decode(VCSBranchParams.self, from: params)
+            let projectID = try projectID(from: params.projectID)
+            gitStatuses[projectID] = Self.makeStatus(branch: params.branch, hasChanges: gitStatus(for: projectID).changedFiles.isEmpty == false)
+            return try tagged(ResultType.ok, EmptyDemoResult())
+        case .vcsCreateBranch:
+            let params = try decode(VCSCreateBranchParams.self, from: params)
+            let projectID = try projectID(from: params.projectID)
+            gitStatuses[projectID] = Self.makeStatus(branch: params.name, hasChanges: gitStatus(for: projectID).changedFiles.isEmpty == false)
+            return try tagged(ResultType.ok, EmptyDemoResult())
+        case .vcsCreatePR:
+            return try tagged(ResultType.vcsPRCreated, VCSPRCreated(url: "https://github.com/muxy-app/demo/pull/42", number: 42))
+        case .vcsMergePullRequest, .vcsRemoveWorktree:
+            return try tagged(ResultType.ok, EmptyDemoResult())
+        case .vcsAddWorktree:
+            let params = try decode(VCSAddWorktreeParams.self, from: params)
+            return try tagged(ResultType.worktrees, worktrees(for: projectID(from: params.projectID)))
+        case .vcsGetDiff:
+            let params = try decode(VCSGetDiffParams.self, from: params)
+            return try tagged(ResultType.vcsDiff, Self.makeDiff(filePath: params.filePath, truncated: !params.forceFull))
         case .pairDevice:
             throw DemoError.notFound
         }
@@ -136,6 +180,37 @@ actor DemoBackend {
         default:
             return []
         }
+    }
+
+    private func gitStatus(for projectID: UUID) -> VCSStatus {
+        gitStatuses[projectID] ?? Self.makeStatus(branch: "main", hasChanges: false)
+    }
+
+    private func worktrees(for projectID: UUID) -> [Worktree] {
+        if projectID == webProjectID {
+            return [
+                Worktree(
+                    id: webWorktreeID,
+                    name: "Web App",
+                    path: "/Users/demo/Projects/web-app",
+                    branch: "feature/native-git",
+                    isPrimary: true,
+                    canBeRemoved: false,
+                    createdAt: "2026-06-08T00:00:00.000Z"
+                )
+            ]
+        }
+        return [
+            Worktree(
+                id: muxyWorktreeID,
+                name: "Muxy",
+                path: "/Users/demo/Projects/muxy",
+                branch: "main",
+                isPrimary: true,
+                canBeRemoved: false,
+                createdAt: "2026-06-08T00:00:00.000Z"
+            )
+        ]
     }
 
     private var projects: [Project] {
@@ -229,6 +304,46 @@ actor DemoBackend {
     private static func makeWorkspace(projectID: UUID, worktreeID: UUID, areaID: UUID, path: String, tab: Tab) -> Workspace {
         let area = TabArea(id: areaID, projectPath: path, tabs: [tab], activeTabID: tab.id)
         return Workspace(projectID: projectID, worktreeID: worktreeID, focusedAreaID: areaID, root: .tabArea(area))
+    }
+
+    private static func makeStatus(branch: String, hasChanges: Bool) -> VCSStatus {
+        VCSStatus(
+            branch: branch,
+            aheadCount: branch == "main" ? 0 : 2,
+            behindCount: 0,
+            hasUpstream: true,
+            stagedFiles: hasChanges ? [GitFile(path: "ios/Muxy/Features/Git/GitSheetView.swift", status: .added, isUntracked: false)] : [],
+            changedFiles: hasChanges ? [GitFile(path: "ios/Muxy/Networking/Protocol/Methods.swift", status: .modified, isUntracked: false)] : [],
+            defaultBranch: "main",
+            pullRequest: branch == "main" ? nil : VCSPullRequest(
+                url: "https://github.com/muxy-app/demo/pull/42",
+                number: 42,
+                state: "OPEN",
+                isDraft: false,
+                baseBranch: "main",
+                mergeable: true,
+                mergeStateStatus: .clean,
+                checks: VCSPRChecks(status: .success, passing: 4, failing: 0, pending: 0, total: 4)
+            )
+        )
+    }
+
+    private static func makeDiff(filePath: String, truncated: Bool) -> VCSDiff {
+        VCSDiff(
+            filePath: filePath,
+            rows: [
+                VCSDiffRow(kind: .hunk, oldLineNumber: nil, newLineNumber: nil, text: "@@ -1,3 +1,4 @@"),
+                VCSDiffRow(kind: .context, oldLineNumber: 1, newLineNumber: 1, text: " import SwiftUI"),
+                VCSDiffRow(kind: .addition, oldLineNumber: nil, newLineNumber: 2, text: "+struct GitOverviewView: View {"),
+                VCSDiffRow(kind: .addition, oldLineNumber: nil, newLineNumber: 3, text: "+    let viewModel: GitViewModel"),
+                VCSDiffRow(kind: .deletion, oldLineNumber: 2, newLineNumber: nil, text: "-struct PlaceholderView: View {"),
+                VCSDiffRow(kind: .context, oldLineNumber: 3, newLineNumber: 4, text: " }")
+            ],
+            additions: 2,
+            deletions: 1,
+            truncated: truncated,
+            isBinary: false
+        )
     }
 
     private func tagged<T: Encodable & Sendable>(_ type: String, _ value: T) throws -> RawTagged {

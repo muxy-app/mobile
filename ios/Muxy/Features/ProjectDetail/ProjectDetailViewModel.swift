@@ -46,6 +46,10 @@ final class ProjectDetailViewModel {
         project.name
     }
 
+    func makeGitViewModel() -> GitViewModel {
+        GitViewModel(project: project, connectionManager: connectionManager)
+    }
+
     func connect() async {
         observeState()
         subscribeToEvents()
