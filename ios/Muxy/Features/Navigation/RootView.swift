@@ -5,6 +5,7 @@ struct RootView: View {
 
     @AppStorage("muxy.hasCompletedOnboarding") private var hasCompletedOnboarding = false
     @State private var devicesViewModel: DevicesListViewModel
+    @State private var themeStore: ThemeStore
     @State private var path = NavigationPath()
     @State private var isAddingDevice = false
     @State private var isShowingSettings = false
@@ -12,9 +13,22 @@ struct RootView: View {
     init(container: AppContainer) {
         self.container = container
         _devicesViewModel = State(initialValue: container.makeDevicesListViewModel())
+        _themeStore = State(initialValue: container.themeStore)
     }
 
+    private var theme: AppTheme { themeStore.theme }
+
     var body: some View {
+        themedContent
+            .environment(\.appTheme, theme)
+            .preferredColorScheme(theme.isDark ? .dark : .light)
+            .tint(theme.accent)
+            .onAppear { themeStore.start() }
+            .onChange(of: theme) { _, newTheme in NavigationBarAppearance.apply(newTheme) }
+            .task { NavigationBarAppearance.apply(theme) }
+    }
+
+    private var themedContent: some View {
         Group {
             if hasCompletedOnboarding {
                 NavigationStack(path: $path) {

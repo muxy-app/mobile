@@ -2,11 +2,14 @@ import SwiftUI
 
 struct ProjectsView: View {
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.appTheme) private var theme
     @State var viewModel: ProjectsViewModel
     let onSelect: (Project) -> Void
 
     var body: some View {
         content
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(theme.background)
             .navigationTitle(viewModel.device.name)
             .navigationBarTitleDisplayMode(.inline)
             .task { await viewModel.connect() }
@@ -34,6 +37,7 @@ struct ProjectsView: View {
             }
             .buttonStyle(.plain)
         }
+        .themedSurface()
     }
 
     @ViewBuilder
@@ -41,32 +45,38 @@ struct ProjectsView: View {
         switch viewModel.state {
         case .connecting, .authenticating:
             ProgressView()
+                .tint(theme.accent)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(theme.background)
         case .connected where viewModel.loadFailed:
-            ContentUnavailableView {
-                Label("Couldn't Load Projects", systemImage: "exclamationmark.triangle")
-            } description: {
-                Text("Something went wrong loading projects from \(viewModel.device.name).")
-            } actions: {
-                Button("Retry") {
-                    Task { await viewModel.reconnect() }
-                }
+            ThemedEmptyState(
+                title: "Couldn't Load Projects",
+                systemImage: "exclamationmark.triangle",
+                message: "Something went wrong loading projects from \(viewModel.device.name)."
+            ) {
+                retryButton
             }
         case .connected:
-            ContentUnavailableView {
-                Label("No Projects", systemImage: "folder")
-            } description: {
-                Text("Projects on \(viewModel.device.name) will appear here.")
-            }
+            ThemedEmptyState(
+                title: "No Projects",
+                systemImage: "folder",
+                message: "Projects on \(viewModel.device.name) will appear here."
+            )
         default:
-            ContentUnavailableView {
-                Label("Not Connected", systemImage: "wifi.slash")
-            } description: {
-                Text("Connect to \(viewModel.device.name) to see its projects.")
-            } actions: {
-                Button("Retry") {
-                    Task { await viewModel.reconnect() }
-                }
+            ThemedEmptyState(
+                title: "Not Connected",
+                systemImage: "wifi.slash",
+                message: "Connect to \(viewModel.device.name) to see its projects."
+            ) {
+                retryButton
             }
         }
+    }
+
+    private var retryButton: some View {
+        Button("Retry") {
+            Task { await viewModel.reconnect() }
+        }
+        .buttonStyle(ThemedBorderedButtonStyle())
     }
 }

@@ -3,16 +3,16 @@ import SwiftUI
 struct TerminalTabView: View {
     @Bindable var session: TerminalSession
 
-    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.appTheme) private var appTheme
     @AppStorage(AppSettingKey.useNerdFont) private var useNerdFont = true
     @AppStorage(AppSettingKey.autoFocusTerminal) private var autoFocusTerminal = false
     @State private var fontSize = TerminalFont.defaultSize
 
     var body: some View {
         terminalSurface
-            .onAppear { session.useClientTheme(colorScheme.clientTerminalTheme) }
-            .onChange(of: colorScheme) { _, newValue in
-                session.useClientTheme(newValue.clientTerminalTheme)
+            .onAppear { session.useClientTheme(ClientTerminalTheme(event: appTheme.event)) }
+            .onChange(of: appTheme) { _, newValue in
+                session.useClientTheme(ClientTerminalTheme(event: newValue.event))
             }
             .onDisappear { session.dismissKeyboard() }
     }
@@ -43,12 +43,11 @@ struct TerminalTabView: View {
         case let .controlledElsewhere(deviceName):
             controlledElsewhere(deviceName: deviceName)
         case .disconnected:
-            ContentUnavailableView {
-                Label("Disconnected", systemImage: "wifi.slash")
-            } description: {
-                Text("Reconnect to continue using this terminal.")
-            }
-            .background(.background)
+            ThemedEmptyState(
+                title: "Disconnected",
+                systemImage: "wifi.slash",
+                message: "Reconnect to continue using this terminal."
+            )
         case .idle, .takingOver, .owned:
             EmptyView()
         }
@@ -58,14 +57,15 @@ struct TerminalTabView: View {
         VStack(spacing: 16) {
             Image(systemName: "desktopcomputer")
                 .font(.system(size: 44))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(appTheme.secondaryForeground)
 
             VStack(spacing: 6) {
                 Text("Controlled on \(deviceName)")
                     .font(.headline)
+                    .foregroundStyle(appTheme.foreground)
                 Text("This terminal is active on your Mac.")
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(appTheme.secondaryForeground)
                     .multilineTextAlignment(.center)
             }
 
@@ -74,17 +74,17 @@ struct TerminalTabView: View {
             } label: {
                 Text("Take Control")
                     .font(.body.weight(.semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(appTheme.onAccent)
                     .padding(.horizontal, 24)
                     .padding(.vertical, 12)
-                    .background(Capsule().fill(Color.terminalAccent))
+                    .background(Capsule().fill(appTheme.accent))
             }
             .buttonStyle(.plain)
             .padding(.top, 4)
         }
         .padding(32)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(.background)
+        .background(appTheme.background)
     }
 
     private var jumpToBottomButton: some View {
@@ -110,21 +110,4 @@ struct TerminalTabView: View {
 
 private extension UIColor {
     var asColor: Color { Color(self) }
-}
-
-extension Color {
-    static let terminalAccent = Color.muxyBrand
-}
-
-private extension ColorScheme {
-    var clientTerminalTheme: ClientTerminalTheme {
-        switch self {
-        case .light:
-            return .light
-        case .dark:
-            return .dark
-        @unknown default:
-            return .dark
-        }
-    }
 }

@@ -9,6 +9,7 @@ final class AppContainer {
     let validator: DeviceInputValidator
     let tokenGenerator: TokenGenerating
     let settings: AppSettings
+    let themeStore: ThemeStore
 
     private let makeBrowser: @MainActor () -> any BonjourBrowsing
 
@@ -28,10 +29,12 @@ final class AppContainer {
         self.tokenGenerator = tokenGenerator
         self.settings = settings ?? AppSettings()
         self.makeBrowser = makeBrowser
-        self.connectionManager = ConnectionManager(
+        let connectionManager = ConnectionManager(
             makeTransport: { url in WebSocketTransport(url: url) },
             pairingService: pairingService
         )
+        self.connectionManager = connectionManager
+        themeStore = ThemeStore(connectionManager: connectionManager)
     }
 
     func makeDevicesListViewModel() -> DevicesListViewModel {

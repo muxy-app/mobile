@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ProjectDetailView: View {
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.appTheme) private var theme
     @State var viewModel: ProjectDetailViewModel
     @State private var isGitPresented = false
 
@@ -19,12 +20,15 @@ struct ProjectDetailView: View {
 
             content
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(theme.background)
         .navigationTitle(viewModel.projectName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .principal) {
                 Text(viewModel.projectName)
                     .font(.headline)
+                    .foregroundStyle(theme.foreground)
             }
             ToolbarItem(placement: .primaryAction) {
                 Button {
@@ -32,6 +36,7 @@ struct ProjectDetailView: View {
                 } label: {
                     Image(systemName: "arrow.triangle.branch")
                 }
+                .tint(theme.foreground)
                 .accessibilityLabel("Git")
             }
         }
@@ -80,26 +85,32 @@ struct ProjectDetailView: View {
     private var emptyState: some View {
         switch viewModel.state {
         case .connecting, .authenticating:
-            ProgressView()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            loadingState
         case .connected where viewModel.hasLoaded:
-            ContentUnavailableView {
-                Label("No Tabs", systemImage: "macwindow")
-            } description: {
-                Text("Create a tab to get started.")
-            } actions: {
+            ThemedEmptyState(
+                title: "No Tabs",
+                systemImage: "macwindow",
+                message: "Create a tab to get started."
+            ) {
                 Button("New Tab") { viewModel.createTab() }
+                    .buttonStyle(ThemedProminentButtonStyle())
             }
         case .connected:
-            ProgressView()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            loadingState
         default:
-            ContentUnavailableView {
-                Label("Not Connected", systemImage: "wifi.slash")
-            } description: {
-                Text("Reconnect to \(viewModel.device.name) to see this project.")
-            }
+            ThemedEmptyState(
+                title: "Not Connected",
+                systemImage: "wifi.slash",
+                message: "Reconnect to \(viewModel.device.name) to see this project."
+            )
         }
+    }
+
+    private var loadingState: some View {
+        ProgressView()
+            .tint(theme.accent)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(theme.background)
     }
 
     private var selectionBinding: Binding<UUID?> {

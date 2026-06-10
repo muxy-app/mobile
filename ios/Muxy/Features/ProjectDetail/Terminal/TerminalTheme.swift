@@ -20,7 +20,7 @@ nonisolated struct TerminalTheme: Equatable {
 
     init(event: DeviceThemeEvent) {
         foreground = TerminalTheme.uiColor(fromRGB: event.fg)
-        background = .systemBackground
+        background = TerminalTheme.uiColor(fromRGB: event.bg)
         palette = (event.palette ?? []).map(TerminalTheme.terminalColor(fromRGB:))
     }
 
@@ -53,6 +53,21 @@ nonisolated struct TerminalTheme: Equatable {
 }
 
 extension ClientTerminalTheme {
+    init(event: DeviceThemeEvent) {
+        let palette = event.palette ?? []
+        let accent = palette.indices.contains(4) ? palette[4] : event.fg
+        let surface = palette.indices.contains(8) ? palette[8] : event.bg
+        self.init(
+            fg: event.fg,
+            bg: event.bg,
+            palette: palette,
+            cursorColor: accent,
+            cursorText: event.bg,
+            selectionBackground: surface,
+            selectionForeground: event.fg
+        )
+    }
+
     static let dark = ClientTerminalTheme(
         fg: 0xF2F2F7,
         bg: 0x000000,

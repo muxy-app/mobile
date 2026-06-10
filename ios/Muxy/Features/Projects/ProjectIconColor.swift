@@ -1,10 +1,10 @@
 import SwiftUI
 
 nonisolated enum ProjectIconColor {
-    static func color(for token: String?) -> Color {
-        guard let token, !token.isEmpty else { return .primary }
-        if token.hasPrefix("#") { return hexColor(token) ?? .primary }
-        return palette[token.lowercased()] ?? .primary
+    static func color(for token: String?, fallback: Color) -> Color {
+        guard let token, !token.isEmpty else { return fallback }
+        if token.hasPrefix("#") { return hexColor(token) ?? fallback }
+        return palette[token.lowercased()] ?? fallback
     }
 
     private static let palette: [String: Color] = [

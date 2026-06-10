@@ -44,6 +44,7 @@ struct GitOverviewView: View {
                 }
             }
         }
+        .themedSurface()
         .refreshable { await viewModel.refreshStatus() }
     }
 
@@ -198,6 +199,7 @@ struct GitCommitView: View {
                 }
             }
         }
+        .themedSurface()
         .navigationTitle("Commit")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -270,6 +272,7 @@ struct GitBranchesView: View {
                 }
             }
         }
+        .themedSurface()
         .navigationTitle("Branches")
         .navigationBarTitleDisplayMode(.inline)
         .task {
@@ -316,6 +319,7 @@ struct GitNewBranchView: View {
                 .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSubmitting)
             }
         }
+        .themedSurface()
         .navigationTitle("New Branch")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -392,6 +396,7 @@ struct GitWorktreesView: View {
                 ProgressView()
             }
         }
+        .themedSurface()
         .navigationTitle("Worktrees")
         .navigationBarTitleDisplayMode(.inline)
         .task {
@@ -464,6 +469,7 @@ struct GitPullRequestView: View {
                 }
             }
         }
+        .themedSurface()
         .navigationTitle("Pull Request")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -527,6 +533,7 @@ struct GitCreatePullRequestView: View {
                 }
             }
         }
+        .themedSurface()
         .navigationTitle("New Pull Request")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -582,6 +589,7 @@ struct GitNewWorktreeView: View {
                 .disabled(!canSubmit || isSubmitting)
             }
         }
+        .themedSurface()
         .navigationTitle("New Worktree")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -606,6 +614,7 @@ struct GitNewWorktreeView: View {
 struct GitDiffView: View {
     let viewModel: GitViewModel
     let filePath: String
+    @Environment(\.appTheme) private var theme
     @State private var wrapsLines = false
 
     var body: some View {
@@ -630,6 +639,7 @@ struct GitDiffView: View {
                     } label: {
                         Image(systemName: wrapsLines ? "arrow.left.and.right.text.vertical" : "arrow.left.and.right")
                     }
+                    .tint(theme.foreground)
                     .accessibilityLabel(wrapsLines ? "Disable line wrap" : "Enable line wrap")
                 }
             }
@@ -668,6 +678,8 @@ struct GitCodeDiffViewer: View {
     let isLoading: Bool
     let onLoadFull: () -> Void
 
+    @Environment(\.appTheme) private var theme
+
     var body: some View {
         VStack(spacing: 0) {
             header
@@ -689,24 +701,25 @@ struct GitCodeDiffViewer: View {
                             .frame(minWidth: wrapsLines ? proxy.size.width : max(proxy.size.width, 760), alignment: .leading)
                         }
                     }
-                    .background(Color(.systemBackground))
+                    .background(theme.background)
                 }
             }
         }
-        .background(Color(.systemBackground))
+        .background(theme.background)
     }
 
     private var header: some View {
         HStack(spacing: 12) {
             Image(systemName: "doc.text")
-                .foregroundStyle(.secondary)
+                .foregroundStyle(theme.secondaryForeground)
             VStack(alignment: .leading, spacing: 3) {
                 Text(fileName(filePath))
                     .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(theme.foreground)
                     .lineLimit(1)
                 Text(filePath)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.secondaryForeground)
                     .lineLimit(1)
             }
             Spacer()
@@ -734,7 +747,7 @@ struct GitCodeDiffViewer: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
-        .background(Color(.secondarySystemBackground))
+        .background(theme.surface)
     }
 }
 
@@ -742,13 +755,16 @@ struct GitFileRow: View {
     let file: GitFile
     let isStaged: Bool
 
+    @Environment(\.appTheme) private var theme
+
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
                 Text(fileName(file.path))
+                    .foregroundStyle(theme.foreground)
                 Text(file.path)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.secondaryForeground)
                     .lineLimit(1)
             }
             Spacer()
@@ -762,7 +778,7 @@ struct GitFileRow: View {
                 if !isStaged {
                     Text("unstaged")
                         .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(theme.secondaryForeground)
                 }
             }
         }
@@ -772,6 +788,8 @@ struct GitFileRow: View {
 struct GitDiffRowView: View {
     let row: VCSDiffRow
     let wrapsLine: Bool
+
+    @Environment(\.appTheme) private var theme
 
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
@@ -784,15 +802,15 @@ struct GitDiffRowView: View {
             Text(lineNumber(row.oldLineNumber))
                 .frame(width: 42, alignment: .trailing)
                 .padding(.trailing, 8)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(theme.secondaryForeground)
                 .textSelection(.enabled)
             Text(lineNumber(row.newLineNumber))
                 .frame(width: 42, alignment: .trailing)
                 .padding(.trailing, 10)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(theme.secondaryForeground)
                 .textSelection(.enabled)
             Text(row.text)
-                .foregroundStyle(rowForeground(row.kind))
+                .foregroundStyle(rowForeground(row.kind, base: theme.foreground))
                 .lineLimit(wrapsLine ? nil : 1)
                 .fixedSize(horizontal: !wrapsLine, vertical: true)
                 .textSelection(.enabled)
@@ -803,7 +821,7 @@ struct GitDiffRowView: View {
         }
         .font(.system(size: 12, weight: row.kind == .hunk ? .semibold : .regular, design: .monospaced))
         .padding(.vertical, row.kind == .hunk ? 7 : 4)
-        .background(rowBackground(row.kind))
+        .background(rowBackground(row.kind, base: theme.background))
     }
 }
 
@@ -877,18 +895,18 @@ private func rowAccent(_ kind: VCSDiffRowKind) -> Color {
     }
 }
 
-private func rowForeground(_ kind: VCSDiffRowKind) -> Color {
+private func rowForeground(_ kind: VCSDiffRowKind, base: Color) -> Color {
     switch kind {
     case .hunk:
         return .blue
     case .collapsed:
         return .secondary
     default:
-        return .primary
+        return base
     }
 }
 
-private func rowBackground(_ kind: VCSDiffRowKind) -> Color {
+private func rowBackground(_ kind: VCSDiffRowKind, base: Color) -> Color {
     switch kind {
     case .addition:
         return Color.green.opacity(0.10)
@@ -899,7 +917,7 @@ private func rowBackground(_ kind: VCSDiffRowKind) -> Color {
     case .collapsed:
         return Color.secondary.opacity(0.10)
     case .context:
-        return Color(.systemBackground)
+        return base
     }
 }
 

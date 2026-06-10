@@ -5,6 +5,7 @@ struct AddDeviceView: View {
     let onPaired: (Device) -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.appTheme) private var theme
     @State private var scanError: String?
 
     var body: some View {
@@ -17,15 +18,19 @@ struct AddDeviceView: View {
                     statusSection
                 }
             }
+            .themedSurface()
+            .tint(theme.accent)
             .navigationTitle("Add Device")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
+                        .tint(theme.foreground)
                         .disabled(viewModel.isPairing)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     submitButton
+                        .tint(theme.foreground)
                 }
             }
             .sheet(isPresented: $viewModel.isShowingScanner) {
@@ -45,12 +50,12 @@ struct AddDeviceView: View {
     }
 
     private var nearbySection: some View {
-        Section("Nearby") {
+        Section {
             if viewModel.discoveredServices.isEmpty {
                 HStack(spacing: 8) {
                     ProgressView()
                     Text("Searching for Macs…")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(theme.secondaryForeground)
                 }
             } else {
                 ForEach(viewModel.discoveredServices) { service in
@@ -60,22 +65,23 @@ struct AddDeviceView: View {
                         discoveredRow(service)
                     }
                     .buttonStyle(.plain)
-                    .foregroundStyle(.primary)
                 }
             }
+        } header: {
+            sectionHeader("Nearby")
         }
     }
 
     private func discoveredRow(_ service: DiscoveredService) -> some View {
         HStack(spacing: 12) {
             Image(systemName: "desktopcomputer")
-                .foregroundStyle(.primary)
+                .foregroundStyle(theme.foreground)
             VStack(alignment: .leading) {
                 Text(service.name)
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(theme.foreground)
                 Text("\(service.host):\(String(service.port))")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.secondaryForeground)
             }
         }
     }
@@ -86,14 +92,14 @@ struct AddDeviceView: View {
                 viewModel.isShowingScanner = true
             } label: {
                 Label("Scan QR Code", systemImage: "qrcode.viewfinder")
+                    .foregroundStyle(theme.foreground)
             }
             .buttonStyle(.plain)
-            .foregroundStyle(.primary)
         }
     }
 
     private var manualSection: some View {
-        Section("Device") {
+        Section {
             TextField("Name", text: $viewModel.name)
                 .textInputAutocapitalization(.words)
             TextField("Host", text: $viewModel.host)
@@ -102,8 +108,16 @@ struct AddDeviceView: View {
                 .keyboardType(.URL)
             TextField("Port", text: $viewModel.portText)
                 .keyboardType(.numberPad)
+        } header: {
+            sectionHeader("Device")
         }
+        .foregroundStyle(theme.foreground)
         .disabled(viewModel.isPairing)
+    }
+
+    private func sectionHeader(_ title: String) -> some View {
+        Text(title)
+            .foregroundStyle(theme.secondaryForeground)
     }
 
     private var statusSection: some View {
@@ -140,6 +154,8 @@ struct AddDeviceView: View {
 private struct StatusRow: View {
     let status: PairingStatus
 
+    @Environment(\.appTheme) private var theme
+
     var body: some View {
         switch status {
         case .idle:
@@ -153,6 +169,7 @@ private struct StatusRow: View {
                 Image(systemName: "hand.raised.fill")
                     .foregroundStyle(.orange)
                 Text("Approve this device on your Mac.")
+                    .foregroundStyle(theme.foreground)
             }
         case .paired:
             Label("Paired", systemImage: "checkmark.circle.fill")
@@ -167,6 +184,7 @@ private struct StatusRow: View {
         HStack(spacing: 8) {
             ProgressView()
             Text(text)
+                .foregroundStyle(theme.foreground)
         }
     }
 

@@ -48,11 +48,23 @@ struct TerminalThemeTests {
         #expect(theme.palette[1] == SwiftTerm.Color(red: 0, green: 65535, blue: 0))
     }
 
-    @Test func themeFromEventUsesAppBackground() {
+    @Test func themeFromEventUsesDeviceBackground() {
         let event = DeviceThemeEvent(fg: 0xFFFFFF, bg: 0x123456, palette: nil)
         let theme = TerminalTheme(event: event)
-        assertEqual(theme.background, .systemBackground, style: .light)
-        assertEqual(theme.background, .systemBackground, style: .dark)
+        assertEqual(theme.background, TerminalTheme.uiColor(fromRGB: 0x123456), style: .light)
+        assertEqual(theme.background, TerminalTheme.uiColor(fromRGB: 0x123456), style: .dark)
+    }
+
+    @Test func clientThemeFromEventDerivesCursorAndSelection() {
+        let event = DeviceThemeEvent.muxy
+        let clientTheme = ClientTerminalTheme(event: event)
+        #expect(clientTheme.fg == event.fg)
+        #expect(clientTheme.bg == event.bg)
+        #expect(clientTheme.palette.count == 16)
+        #expect(clientTheme.cursorColor == event.palette?[4])
+        #expect(clientTheme.cursorText == event.bg)
+        #expect(clientTheme.selectionBackground == event.palette?[8])
+        #expect(clientTheme.selectionForeground == event.fg)
     }
 
     @Test func themeWithoutPaletteIsEmpty() {

@@ -4,6 +4,7 @@ struct OnboardingView: View {
     let onSkip: () -> Void
     let onPairDesktop: () -> Void
 
+    @Environment(\.appTheme) private var theme
     @State private var selection = 0
 
     private let slides = OnboardingSlide.all
@@ -23,7 +24,7 @@ struct OnboardingView: View {
 
             footer
         }
-        .background(Color(.systemBackground))
+        .background(theme.background)
     }
 
     private var topBar: some View {
@@ -31,7 +32,7 @@ struct OnboardingView: View {
             Spacer()
             Button("Skip", action: onSkip)
                 .font(.subheadline.weight(.medium))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(theme.secondaryForeground)
                 .padding(.horizontal, 20)
                 .padding(.vertical, 12)
         }
@@ -43,7 +44,7 @@ struct OnboardingView: View {
             HStack(spacing: 8) {
                 ForEach(slides.indices, id: \.self) { index in
                     Capsule()
-                        .fill(index == selection ? Color.muxyBrand : Color(.tertiaryLabel))
+                        .fill(index == selection ? theme.accent : theme.separator)
                         .frame(width: index == selection ? 22 : 6, height: 6)
                         .animation(.snappy(duration: 0.2), value: selection)
                 }
@@ -53,12 +54,12 @@ struct OnboardingView: View {
             Button(action: advance) {
                 Text(isLastSlide ? "Pair your desktop" : "Continue")
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(theme.onAccent)
                     .lineLimit(1)
                     .padding(.horizontal, 24)
                     .frame(height: 40)
                     .frame(minWidth: isLastSlide ? 190 : 144)
-                    .background(Color.muxyBrand, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .background(theme.accent, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                     .overlay {
                         RoundedRectangle(cornerRadius: 11, style: .continuous)
                             .stroke(
@@ -98,6 +99,8 @@ struct OnboardingView: View {
 private struct OnboardingSlideView: View {
     let slide: OnboardingSlide
 
+    @Environment(\.appTheme) private var theme
+
     var body: some View {
         Group {
             switch slide.content {
@@ -106,9 +109,9 @@ private struct OnboardingSlideView: View {
                     if let symbolName {
                         Image(systemName: symbolName)
                             .font(.system(size: 46, weight: .semibold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(theme.onAccent)
                             .frame(width: 96, height: 96)
-                            .background(Color.muxyBrand, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+                            .background(theme.accent, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
                     } else {
                         Image("LaunchLogo")
                             .resizable()
@@ -123,7 +126,7 @@ private struct OnboardingSlideView: View {
                         .font(.body)
                         .lineSpacing(2)
                         .multilineTextAlignment(.center)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(theme.secondaryForeground)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -147,7 +150,7 @@ private struct OnboardingSlideView: View {
         Text(slide.title)
             .font(.system(size: 28, weight: .bold))
             .multilineTextAlignment(.center)
-            .foregroundStyle(.primary)
+            .foregroundStyle(theme.foreground)
             .fixedSize(horizontal: false, vertical: true)
     }
 }
@@ -155,27 +158,29 @@ private struct OnboardingSlideView: View {
 private struct OnboardingRowView: View {
     let row: OnboardingRow
 
+    @Environment(\.appTheme) private var theme
+
     var body: some View {
         HStack(alignment: .top, spacing: 14) {
             Image(systemName: row.symbolName)
                 .font(.system(size: 21, weight: .medium))
-                .foregroundStyle(Color.muxyBrand)
+                .foregroundStyle(theme.accent)
                 .frame(width: 44, height: 44)
-                .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .background(theme.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .overlay {
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(Color(.separator), lineWidth: 0.5)
+                        .stroke(theme.separator, lineWidth: 0.5)
                 }
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(row.title)
                     .font(.body.weight(.semibold))
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(theme.foreground)
 
                 Text(row.body)
                     .font(.subheadline)
                     .lineSpacing(2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.secondaryForeground)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .frame(maxWidth: .infinity, alignment: .leading)

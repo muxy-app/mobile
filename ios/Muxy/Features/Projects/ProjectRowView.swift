@@ -4,6 +4,8 @@ struct ProjectRowView: View {
     let project: Project
     let logoData: Data?
 
+    @Environment(\.appTheme) private var theme
+
     var body: some View {
         HStack(spacing: 12) {
             icon
@@ -12,9 +14,10 @@ struct ProjectRowView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(project.name)
                     .font(.headline)
+                    .foregroundStyle(theme.foreground)
                 Text(project.path)
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.secondaryForeground)
                     .lineLimit(1)
                     .truncationMode(.middle)
             }
@@ -36,7 +39,7 @@ struct ProjectRowView: View {
         } else {
             Image(systemName: project.icon ?? "folder")
                 .font(.title2)
-                .foregroundStyle(ProjectIconColor.color(for: project.iconColor))
+                .foregroundStyle(ProjectIconColor.color(for: project.iconColor, fallback: theme.foreground))
         }
     }
 }

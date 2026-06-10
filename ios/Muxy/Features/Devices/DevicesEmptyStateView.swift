@@ -4,15 +4,15 @@ struct DevicesEmptyStateView: View {
     let onAddDevice: () -> Void
 
     var body: some View {
-        ContentUnavailableView {
-            Label("No Devices", systemImage: "desktopcomputer")
-        } description: {
-            Text("Add a Mac running Muxy to control it from here.")
-        } actions: {
+        ThemedEmptyState(
+            title: "No Devices",
+            systemImage: "desktopcomputer",
+            message: "Add a Mac running Muxy to control it from here."
+        ) {
             Button(action: onAddDevice) {
                 Text("Add Device")
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(ThemedProminentButtonStyle())
         }
     }
 }

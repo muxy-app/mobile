@@ -7,6 +7,8 @@ struct TabStripView: View {
     let onClose: (Tab) -> Void
     let onCreate: () -> Void
 
+    @Environment(\.appTheme) private var theme
+
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             ScrollViewReader { proxy in
@@ -24,8 +26,9 @@ struct TabStripView: View {
                     Button(action: onCreate) {
                         Image(systemName: "plus")
                             .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(theme.foreground)
                             .frame(width: 32, height: 32)
-                            .background(Circle().fill(Color(.quaternarySystemFill)))
+                            .background(Circle().fill(theme.surface))
                     }
                     .buttonStyle(.plain)
                 }
@@ -37,5 +40,6 @@ struct TabStripView: View {
                 }
             }
         }
+        .background(theme.background)
     }
 }
