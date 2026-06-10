@@ -116,6 +116,8 @@ final class FollowAwareTerminalView: TerminalView {
     private var keyboardHidden = false
     private var protectedContentOffset: CGPoint?
     private var isRestoringProtectedOffset = false
+    private var wheelScrollGesture: UIPanGestureRecognizer?
+    private var wheelScrollAccumulatedY: CGFloat = 0
 
     private let hiddenKeyboardPlaceholder: UIView = {
         let view = UIView(frame: .zero)
@@ -185,5 +187,66 @@ final class FollowAwareTerminalView: TerminalView {
         let maxOffset = max(0, contentSize.height - bounds.height)
         guard maxOffset > 0 else { return 1 }
         return Double(min(max(contentOffset.y, 0), maxOffset) / maxOffset)
+    }
+
+    override func mouseModeChanged(source: Terminal) {
+        super.mouseModeChanged(source: source)
+        source.mouseMode == .off ? disableWheelScrollGesture() : enableWheelScrollGesture()
+    }
+
+    private func enableWheelScrollGesture() {
+        guard wheelScrollGesture == nil else { return }
+        let gesture = UIPanGestureRecognizer(target: self, action: #selector(handleWheelScroll))
+        gesture.delegate = self
+        addGestureRecognizer(gesture)
+        wheelScrollGesture = gesture
+    }
+
+    private func disableWheelScrollGesture() {
+        guard let gesture = wheelScrollGesture else { return }
+        removeGestureRecognizer(gesture)
+        wheelScrollGesture = nil
+    }
+
+    @objc private func handleWheelScroll(_ gesture: UIPanGestureRecognizer) {
+        let terminal = getTerminal()
+        guard terminal.mouseMode != .off else { return }
+        switch gesture.state {
+        case .began:
+            wheelScrollAccumulatedY = 0
+        case .changed:
+            wheelScrollAccumulatedY += gesture.translation(in: self).y
+            gesture.setTranslation(.zero, in: self)
+            sendWheelEvents(for: gesture, terminal: terminal)
+        default:
+            break
+        }
+    }
+
+    private func sendWheelEvents(for gesture: UIPanGestureRecognizer, terminal: Terminal) {
+        let rowHeight = bounds.height / CGFloat(max(terminal.rows, 1))
+        let columnWidth = bounds.width / CGFloat(max(terminal.cols, 1))
+        guard rowHeight > 0, columnWidth > 0 else { return }
+        let steps = Int(wheelScrollAccumulatedY / rowHeight)
+        guard steps != 0 else { return }
+        wheelScrollAccumulatedY -= CGFloat(steps) * rowHeight
+        let location = gesture.location(in: self)
+        let column = max(0, min(terminal.cols - 1, Int(location.x / columnWidth)))
+        let row = max(0, min(terminal.rows - 1, Int(location.y / rowHeight)))
+        let button = steps < 0 ? 5 : 4
+        let buttonFlags = terminal.encodeButton(button: button, release: false, shift: false, meta: false, control: false)
+        for _ in 0 ..< abs(steps) {
+            terminal.sendEvent(buttonFlags: buttonFlags, x: column, y: row)
+        }
+    }
+}
+
+extension FollowAwareTerminalView: UIGestureRecognizerDelegate {
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool {
+        false
+    }
+
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldBeRequiredToFailBy other: UIGestureRecognizer) -> Bool {
+        gestureRecognizer === wheelScrollGesture && other is UIPanGestureRecognizer
     }
 }
