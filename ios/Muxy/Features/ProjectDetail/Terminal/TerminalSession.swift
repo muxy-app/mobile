@@ -30,17 +30,22 @@ final class TerminalSession {
     @ObservationIgnored private var clientID: UUID?
     @ObservationIgnored private var eventsTask: Task<Void, Never>?
     @ObservationIgnored private var resizeTask: Task<Void, Never>?
+    @ObservationIgnored private var takeoverTask: Task<Void, Never>?
     @ObservationIgnored private var scrollRestoreTask: Task<Void, Never>?
     @ObservationIgnored private var hasTakenOver = false
     @ObservationIgnored private var isActive = false
     @ObservationIgnored private var lastTakeOverAt: Date?
     @ObservationIgnored private var lastReportedSize: (cols: Int, rows: Int)?
+    @ObservationIgnored private var pendingTakeoverSize: (cols: Int, rows: Int)?
     @ObservationIgnored private var clientTheme: ClientTerminalTheme = .dark
     @ObservationIgnored private var lastSentClientTheme: ClientTerminalTheme?
 
     private static let followEpsilon = 0.001
     private static let resizeDebounce = Duration.milliseconds(120)
     private static let takeOverGraceSeconds: TimeInterval = 2
+    private static let takeoverSettle = Duration.milliseconds(80)
+    private static let minimumUsableCols = 20
+    private static let minimumUsableRows = 4
 
     init(paneID: UUID, channel: TerminalChannel) {
         self.paneID = paneID
@@ -79,6 +84,9 @@ final class TerminalSession {
         eventsTask = nil
         resizeTask?.cancel()
         resizeTask = nil
+        takeoverTask?.cancel()
+        takeoverTask = nil
+        pendingTakeoverSize = nil
         scrollRestoreTask?.cancel()
         scrollRestoreTask = nil
         hasTakenOver = false
@@ -90,9 +98,41 @@ final class TerminalSession {
     }
 
     func takeOverIfReady() {
-        guard isActive, !hasTakenOver, let view, view.bounds.width > 0, view.bounds.height > 0 else { return }
+        guard isActive, !hasTakenOver, let size = laidOutTerminalSize() else { return }
+        guard pendingTakeoverSize == nil else {
+            pendingTakeoverSize = size
+            return
+        }
+        pendingTakeoverSize = size
+        takeoverTask?.cancel()
+        takeoverTask = Task { [weak self] in
+            try? await Task.sleep(for: TerminalSession.takeoverSettle)
+            guard !Task.isCancelled else { return }
+            self?.commitTakeoverIfSizeStable()
+        }
+    }
+
+    private func commitTakeoverIfSizeStable() {
+        guard isActive, !hasTakenOver, let size = laidOutTerminalSize() else {
+            pendingTakeoverSize = nil
+            return
+        }
+        guard let pending = pendingTakeoverSize, pending == size else {
+            pendingTakeoverSize = nil
+            takeOverIfReady()
+            return
+        }
+        pendingTakeoverSize = nil
+        bootstrapTakeover(cols: size.cols, rows: size.rows)
+    }
+
+    private func laidOutTerminalSize() -> (cols: Int, rows: Int)? {
+        guard let view, view.bounds.width > 0, view.bounds.height > 0 else { return nil }
         let terminal = view.getTerminal()
-        bootstrapTakeover(cols: terminal.cols, rows: terminal.rows)
+        let cols = terminal.cols
+        let rows = terminal.rows
+        guard cols >= TerminalSession.minimumUsableCols, rows >= TerminalSession.minimumUsableRows else { return nil }
+        return (cols, rows)
     }
 
     func handleConnectionState(_ state: ConnectionState) {
@@ -107,6 +147,9 @@ final class TerminalSession {
             ownership = .disconnected
             hasTakenOver = false
             lastReportedSize = nil
+            takeoverTask?.cancel()
+            takeoverTask = nil
+            pendingTakeoverSize = nil
         }
     }
 
@@ -155,6 +198,7 @@ final class TerminalSession {
 
     func reportResize(cols: Int, rows: Int) {
         guard hasTakenOver else { return }
+        guard cols >= TerminalSession.minimumUsableCols, rows >= TerminalSession.minimumUsableRows else { return }
         guard lastReportedSize?.cols != cols || lastReportedSize?.rows != rows else { return }
         resizeTask?.cancel()
         resizeTask = Task { [weak self, channel, paneID] in
@@ -281,9 +325,9 @@ final class TerminalSession {
     private func handle(_ event: EventEnvelope) {
         switch event.event {
         case EventName.terminalOutput:
-            handleBytes(event, expectedType: EventType.terminalOutput)
+            handleBytes(event, expectedType: EventType.terminalOutput, isSnapshot: false)
         case EventName.terminalSnapshot:
-            handleBytes(event, expectedType: EventType.terminalSnapshot)
+            handleBytes(event, expectedType: EventType.terminalSnapshot, isSnapshot: true)
         case EventName.paneOwnershipChanged:
             handleOwnership(event)
         case EventName.themeChanged:
@@ -293,11 +337,16 @@ final class TerminalSession {
         }
     }
 
-    private func handleBytes(_ event: EventEnvelope, expectedType: String) {
+    private func handleBytes(_ event: EventEnvelope, expectedType: String, isSnapshot: Bool) {
         guard let data = event.data, data.type == expectedType else { return }
         guard let payload = try? data.decode(TerminalBytesEvent.self) else { return }
         guard payload.paneID == paneID else { return }
         guard let view else { return }
+
+        if isSnapshot {
+            applySnapshot(payload.bytes, into: view)
+            return
+        }
 
         let shouldFollowBottom = isFollowingBottom && TerminalScrollOffset.isAtBottom(view)
         if shouldFollowBottom {
@@ -323,6 +372,13 @@ final class TerminalSession {
             self?.isFollowingBottom = false
         }
         isFollowingBottom = false
+    }
+
+    private func applySnapshot(_ bytes: Data, into view: TerminalView) {
+        view.getTerminal().resetToInitialState()
+        feed(bytes, into: view)
+        view.scroll(toPosition: 1)
+        isFollowingBottom = true
     }
 
     private func feed(_ bytes: Data, into view: TerminalView) {
