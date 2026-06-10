@@ -68,23 +68,36 @@ actor DemoBackend {
     }
 
     func request<P: Codable & Sendable>(_ method: Method, params: P?) throws -> RawTagged {
+        if let result = try handleProject(method, params: params) { return result }
+        if let result = try handleTab(method, params: params) { return result }
+        if let result = try handleTerminal(method) { return result }
+        if let result = try handleVCS(method, params: params) { return result }
+        throw DemoError.notFound
+    }
+
+    private func handleProject<P: Codable & Sendable>(_ method: Method, params: P?) throws -> RawTagged? {
         switch method {
         case .authenticateDevice:
             return try authenticate()
         case .listProjects:
             return try tagged(ResultType.projects, ProjectsResult(projects: projects))
-        case .selectProject:
+        case .selectProject, .selectWorktree:
             return try tagged(ResultType.ok, EmptyDemoResult())
         case .listWorktrees:
             let params = try decode(ListWorktreesParams.self, from: params)
             return try tagged(ResultType.worktrees, worktrees(for: projectID(from: params.projectID)))
-        case .selectWorktree:
-            return try tagged(ResultType.ok, EmptyDemoResult())
         case .getWorkspace:
             let params = try decode(GetWorkspaceParams.self, from: params)
             let id = try projectID(from: params.projectID)
             guard let workspace = workspaces[id] else { throw DemoError.notFound }
             return try tagged(ResultType.workspace, workspace)
+        default:
+            return nil
+        }
+    }
+
+    private func handleTab<P: Codable & Sendable>(_ method: Method, params: P?) throws -> RawTagged? {
+        switch method {
         case .createTab:
             let params = try decode(CreateTabParams.self, from: params)
             let projectID = try projectID(from: params.projectID)
@@ -98,12 +111,24 @@ actor DemoBackend {
             let params = try decode(SelectTabParams.self, from: params)
             try selectTab(projectID: projectID(from: params.projectID), areaID: areaID(from: params.areaID), tabID: tabID(from: params.tabID))
             return try tagged(ResultType.ok, EmptyDemoResult())
-        case .takeOverPane, .terminalResize, .terminalScroll, .setClientTheme, .releasePane:
+        default:
+            return nil
+        }
+    }
+
+    private func handleTerminal(_ method: Method) throws -> RawTagged? {
+        switch method {
+        case .takeOverPane, .terminalResize, .terminalScroll, .setClientTheme, .releasePane, .terminalInput:
             return try tagged(ResultType.ok, EmptyDemoResult())
         case .getProjectLogo:
             throw DemoError.notFound
-        case .terminalInput:
-            return try tagged(ResultType.ok, EmptyDemoResult())
+        default:
+            return nil
+        }
+    }
+
+    private func handleVCS<P: Codable & Sendable>(_ method: Method, params: P?) throws -> RawTagged? {
+        switch method {
         case .vcsRefresh:
             let params = try decode(VCSProjectParams.self, from: params)
             return try tagged(ResultType.vcsStatus, gitStatus(for: projectID(from: params.projectID)))
@@ -112,7 +137,7 @@ actor DemoBackend {
             let projectID = try projectID(from: params.projectID)
             gitStatuses[projectID] = Self.makeStatus(branch: gitStatus(for: projectID).branch, hasChanges: false)
             return try tagged(ResultType.ok, EmptyDemoResult())
-        case .vcsPush, .vcsPull:
+        case .vcsPush, .vcsPull, .vcsMergePullRequest, .vcsRemoveWorktree:
             return try tagged(ResultType.ok, EmptyDemoResult())
         case .vcsListBranches:
             let params = try decode(VCSProjectParams.self, from: params)
@@ -130,16 +155,14 @@ actor DemoBackend {
             return try tagged(ResultType.ok, EmptyDemoResult())
         case .vcsCreatePR:
             return try tagged(ResultType.vcsPRCreated, VCSPRCreated(url: "https://github.com/muxy-app/demo/pull/42", number: 42))
-        case .vcsMergePullRequest, .vcsRemoveWorktree:
-            return try tagged(ResultType.ok, EmptyDemoResult())
         case .vcsAddWorktree:
             let params = try decode(VCSAddWorktreeParams.self, from: params)
             return try tagged(ResultType.worktrees, worktrees(for: projectID(from: params.projectID)))
         case .vcsGetDiff:
             let params = try decode(VCSGetDiffParams.self, from: params)
             return try tagged(ResultType.vcsDiff, Self.makeDiff(filePath: params.filePath, truncated: !params.forceFull))
-        case .pairDevice:
-            throw DemoError.notFound
+        default:
+            return nil
         }
     }
 

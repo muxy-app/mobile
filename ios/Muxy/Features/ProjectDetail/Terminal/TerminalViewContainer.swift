@@ -191,7 +191,11 @@ final class FollowAwareTerminalView: TerminalView {
 
     override func mouseModeChanged(source: Terminal) {
         super.mouseModeChanged(source: source)
-        source.mouseMode == .off ? disableWheelScrollGesture() : enableWheelScrollGesture()
+        if source.mouseMode == .off {
+            disableWheelScrollGesture()
+            return
+        }
+        enableWheelScrollGesture()
     }
 
     private func enableWheelScrollGesture() {
