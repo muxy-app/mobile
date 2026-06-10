@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		574700012FD7000000000001 /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = 574700002FD7000000000001 /* SwiftTerm */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		30F745F92FD6C28B003FC767 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -16,20 +20,26 @@
 		};
 /* End PBXContainerItemProxy section */
 
-/* Begin PBXBuildFile section */
-		574700012FD7000000000001 /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = 574700002FD7000000000001 /* SwiftTerm */; };
-/* End PBXBuildFile section */
-
 /* Begin PBXFileReference section */
 		30F745E92FD6C28A003FC767 /* Muxy.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Muxy.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		30F745F82FD6C28B003FC767 /* MuxyTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MuxyTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		30F747002FD6C28A003FC767 /* Exceptions for "Muxy" folder in "Muxy" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 30F745E82FD6C28A003FC767 /* Muxy */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		30F745EB2FD6C28A003FC767 /* Muxy */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				30F747002FD6C28A003FC767 /* PBXFileSystemSynchronizedBuildFileExceptionSet */,
+				30F747002FD6C28A003FC767 /* Exceptions for "Muxy" folder in "Muxy" target */,
 			);
 			path = Muxy;
 			sourceTree = "<group>";
@@ -40,16 +50,6 @@
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
-
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		30F747002FD6C28A003FC767 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Info.plist,
-			);
-			target = 30F745E82FD6C28A003FC767 /* Muxy */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		30F745E62FD6C28A003FC767 /* Frameworks */ = {

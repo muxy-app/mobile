@@ -23,6 +23,7 @@ struct RootView: View {
             .environment(\.appTheme, theme)
             .preferredColorScheme(theme.isDark ? .dark : .light)
             .tint(theme.accent)
+            .themedWindowBackground(theme.background)
             .onAppear { themeStore.start() }
             .onChange(of: theme) { _, newTheme in NavigationBarAppearance.apply(newTheme) }
             .task { NavigationBarAppearance.apply(theme) }

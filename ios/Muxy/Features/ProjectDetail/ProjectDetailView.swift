@@ -70,6 +70,7 @@ struct ProjectDetailView: View {
             }
         }
         .tabViewStyle(.page(indexDisplayMode: .never))
+        .background(theme.background.ignoresSafeArea())
     }
 
     @ViewBuilder

@@ -8,6 +8,7 @@ final class TerminalAccessoryModel: ObservableObject {
     @Published var activeModifier: TerminalModifier = .ctrl
     @Published var keyboardVisible: Bool = true
     @Published var canCopySelection: Bool = false
+    @Published var foreground: SwiftUI.Color = .primary
 
     var onKey: ((String) -> Void)?
     var onModifierToggle: ((Bool) -> Void)?
@@ -87,6 +88,12 @@ final class TerminalAccessoryBar: UIInputView {
         model.canCopySelection = enabled
     }
 
+    func applyTheme(background: UIColor, foreground: UIColor) {
+        backgroundColor = background
+        backdrop.backgroundColor = background
+        model.foreground = SwiftUI.Color(foreground)
+    }
+
     func syncModifierArmed(_ armed: Bool) {
         model.syncModifierArmed(armed)
     }
@@ -97,12 +104,13 @@ final class TerminalAccessoryBar: UIInputView {
 
     private let model = TerminalAccessoryModel()
     private let hostingController: UIHostingController<TerminalAccessoryView>
+    private let backdrop = UIView()
 
     init() {
         hostingController = UIHostingController(rootView: TerminalAccessoryView(model: model))
         super.init(
             frame: CGRect(x: 0, y: 0, width: 0, height: 72),
-            inputViewStyle: .keyboard
+            inputViewStyle: .default
         )
         autoresizingMask = [.flexibleWidth]
         allowsSelfSizing = true
@@ -115,6 +123,11 @@ final class TerminalAccessoryBar: UIInputView {
     }
 
     private func setupHostingView() {
+        backdrop.frame = bounds
+        backdrop.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        backdrop.isUserInteractionEnabled = false
+        addSubview(backdrop)
+
         hostingController.view.translatesAutoresizingMaskIntoConstraints = false
         hostingController.view.backgroundColor = .clear
         hostingController.sizingOptions = .preferredContentSize
@@ -132,7 +145,7 @@ final class TerminalAccessoryBar: UIInputView {
 struct TerminalAccessoryView: View {
     @ObservedObject var model: TerminalAccessoryModel
 
-    private var fg: SwiftUI.Color { .primary }
+    private var fg: SwiftUI.Color { model.foreground }
 
     var body: some View {
         HStack(spacing: 10) {
