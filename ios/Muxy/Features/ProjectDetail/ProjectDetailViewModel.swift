@@ -10,7 +10,6 @@ final class ProjectDetailViewModel {
 
     private(set) var state: ConnectionState = .idle
     private(set) var workspace: Workspace?
-    private(set) var area: TabArea?
     private(set) var hasLoaded = false
     var selectedTabID: UUID?
 
@@ -45,7 +44,16 @@ final class ProjectDetailViewModel {
     }
 
     var tabs: [Tab] {
-        area?.tabs ?? []
+        guard let workspace else { return [] }
+        return WorkspaceFlattening.tabAreas(in: workspace).flatMap(\.tabs)
+    }
+
+    private var focusedArea: TabArea? {
+        workspace.flatMap(WorkspaceFlattening.focusedTabArea(in:))
+    }
+
+    private func area(containing tabID: UUID) -> TabArea? {
+        workspace.flatMap { WorkspaceFlattening.area(containing: tabID, in: $0) }
     }
 
     var projectName: String {
@@ -88,14 +96,14 @@ final class ProjectDetailViewModel {
         guard selectedTabID != tab.id else { return }
         selectedTabID = tab.id
         sessionStore.selectionChanged(to: selectedTabID, tabs: tabs)
-        guard let areaID = area?.id else { return }
+        guard let areaID = area(containing: tab.id)?.id else { return }
         sendSelectTab(areaID: areaID, tabID: tab.id)
     }
 
     func createTab() {
         let params = CreateTabParams(
             projectID: project.id.uuidString,
-            areaID: area?.id.uuidString,
+            areaID: focusedArea?.id.uuidString,
             kind: TabKind.terminal.rawValue
         )
         Task { [connectionManager] in
@@ -111,7 +119,7 @@ final class ProjectDetailViewModel {
     }
 
     func closeTab(_ tab: Tab) {
-        guard let areaID = area?.id else { return }
+        guard let areaID = area(containing: tab.id)?.id else { return }
         applyOptimisticClose(of: tab.id)
         let params = CloseTabParams(
             projectID: project.id.uuidString,
@@ -166,7 +174,6 @@ final class ProjectDetailViewModel {
             hasLoaded = true
         } catch let error as ProtocolError where error.code == .notFound {
             workspace = nil
-            area = nil
             hasLoaded = true
         } catch {
             Log.client.error("Failed to load workspace: \(String(describing: error), privacy: .public)")
@@ -187,7 +194,6 @@ final class ProjectDetailViewModel {
         guard workspace.projectID == project.id else { return }
         self.workspace = workspace
         gitViewModel.setActiveWorktreeID(workspace.worktreeID)
-        area = WorkspaceFlattening.focusedTabArea(in: workspace)
         reconcileSelection()
         sessionStore.tabsChanged(tabs)
         sessionStore.selectionChanged(to: selectedTabID, tabs: tabs)
@@ -198,17 +204,26 @@ final class ProjectDetailViewModel {
     }
 
     private func applyOptimisticClose(of tabID: UUID) {
-        guard let current = area else { return }
-        let remaining = current.tabs.filter { $0.id != tabID }
-        let nextActive = current.activeTabID == tabID ? remaining.first?.id : current.activeTabID
-        area = TabArea(
-            id: current.id,
-            projectPath: current.projectPath,
-            tabs: remaining,
-            activeTabID: nextActive
+        guard let workspace, let owning = area(containing: tabID) else { return }
+        let remaining = owning.tabs.filter { $0.id != tabID }
+        let nextActive = owning.activeTabID == tabID ? remaining.first?.id : owning.activeTabID
+        let root = WorkspaceFlattening.mapAreas(in: workspace.root) { area in
+            guard area.id == owning.id else { return area }
+            return TabArea(
+                id: area.id,
+                projectPath: area.projectPath,
+                tabs: remaining,
+                activeTabID: nextActive
+            )
+        }
+        self.workspace = Workspace(
+            projectID: workspace.projectID,
+            worktreeID: workspace.worktreeID,
+            focusedAreaID: workspace.focusedAreaID,
+            root: root
         )
         if selectedTabID == tabID {
-            selectedTabID = remaining.first?.id
+            selectedTabID = remaining.first?.id ?? tabs.first?.id
         }
         sessionStore.tabsChanged(tabs)
         sessionStore.selectionChanged(to: selectedTabID, tabs: tabs)
@@ -217,7 +232,7 @@ final class ProjectDetailViewModel {
     private func reconcileSelection() {
         let ids = tabs.map(\.id)
         if let selectedTabID, ids.contains(selectedTabID) { return }
-        selectedTabID = area?.activeTabID ?? tabs.first?.id
+        selectedTabID = focusedArea?.activeTabID ?? tabs.first?.id
     }
 
     private func sendSelectTab(areaID: UUID, tabID: UUID) {
