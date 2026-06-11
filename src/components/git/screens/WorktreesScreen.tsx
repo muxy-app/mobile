@@ -1,9 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
 import { useTokens } from '@/theme';
-import { useWorkspaceStore } from '@/state';
 import type { Worktree } from '@/transport';
 
 import { useGitStore, useGitWorktrees } from '../gitStore';
@@ -20,7 +19,7 @@ export function WorktreesScreen({ projectId, setRoute, onClose }: Props) {
   const tokens = useTokens();
   const { worktrees, loading, error: loadError, reload } = useGitWorktrees(projectId);
   const selectWorktree = useGitStore((s) => s.selectWorktree);
-  const activeWorktreeId = useWorkspaceStore((s) => s.workspace?.worktreeID);
+  const removeWorktree = useGitStore((s) => s.removeWorktree);
 
   const [busyId, setBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -36,6 +35,27 @@ export function WorktreesScreen({ projectId, setRoute, onClose }: Props) {
     } finally {
       setBusyId(null);
     }
+  };
+
+  const onRemove = (wt: Worktree) => {
+    Alert.alert('Remove worktree', `Remove "${wt.name}"?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: async () => {
+          setBusyId(wt.id);
+          setActionError(null);
+          try {
+            await removeWorktree(projectId, wt.id);
+          } catch (err) {
+            setActionError(err instanceof Error ? err.message : 'Failed to remove worktree');
+          } finally {
+            setBusyId(null);
+          }
+        },
+      },
+    ]);
   };
 
   const error = actionError ?? loadError;
@@ -57,26 +77,6 @@ export function WorktreesScreen({ projectId, setRoute, onClose }: Props) {
       }
       showsVerticalScrollIndicator={false}>
       <PrimaryButton label="New worktree" onPress={() => setRoute({ name: 'newWorktree' })} />
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Sync worktrees with desktop"
-        onPress={reload}
-        disabled={loading}
-        style={({ pressed }) => [
-          styles.syncButton,
-          {
-            backgroundColor: tokens.surface.secondary,
-            borderColor: tokens.border.subtle,
-            opacity: loading ? 0.5 : pressed ? 0.75 : 1,
-          },
-        ]}>
-        {loading ? (
-          <ActivityIndicator color={tokens.text.primary} size="small" />
-        ) : (
-          <Ionicons name="sync-outline" size={18} color={tokens.text.primary} />
-        )}
-        <MutedText>Sync from desktop</MutedText>
-      </Pressable>
 
       {worktrees && worktrees.length > 0 ? (
         <Section>
@@ -84,13 +84,24 @@ export function WorktreesScreen({ projectId, setRoute, onClose }: Props) {
             <View key={wt.id}>
               {i > 0 ? <Divider /> : null}
               <Row
-                title={wt.name}
+                icon={wt.isPrimary ? 'star' : 'git-branch-outline'}
+                iconColor={wt.isPrimary ? tokens.accent.primary : tokens.text.muted}
+                title={wt.branch || wt.name}
+                subtitle={wt.path}
                 trailing={
                   busyId === wt.id ? (
                     <ActivityIndicator color={tokens.text.muted} size="small" />
-                  ) : wt.id === activeWorktreeId ? (
-                    <Ionicons name="checkmark" size={18} color={tokens.accent.primary} />
-                  ) : null
+                  ) : wt.canBeRemoved ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Remove worktree"
+                      hitSlop={10}
+                      onPress={() => onRemove(wt)}>
+                      <Ionicons name="trash-outline" size={18} color={tokens.status.danger} />
+                    </Pressable>
+                  ) : (
+                    <Ionicons name="chevron-forward" size={18} color={tokens.text.muted} />
+                  )
                 }
                 onPress={() => onSelect(wt)}
                 disabled={Boolean(busyId) && busyId !== wt.id}
@@ -111,13 +122,4 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   content: { padding: 16, gap: 16, paddingBottom: 32 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  syncButton: {
-    minHeight: 44,
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
 });

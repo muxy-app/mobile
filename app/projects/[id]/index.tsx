@@ -6,7 +6,6 @@ import { ActivityIndicator, NativeEventEmitter, NativeModules, Platform, Pressab
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 
 import { GitSheet } from '@/components/git/GitSheet';
-import { WorktreePickerSheet } from '@/components/git/WorktreePickerSheet';
 import { HeaderIconButton } from '@/components/HeaderIconButton';
 import { SwipeArrowOverlay, type SwipeArrowOverlayHandle } from '@/components/SwipeArrowOverlay';
 import { TabKindPlaceholder } from '@/components/TabKindPlaceholder';
@@ -39,7 +38,6 @@ export default function WorkspaceScreen() {
   const tokens = useTokens();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [gitOpen, setGitOpen] = useState(false);
-  const [worktreeOpen, setWorktreeOpen] = useState(false);
   const [creatingTerminal, setCreatingTerminal] = useState(false);
   const creatingTerminalRef = useRef(false);
   const [tabActionError, setTabActionError] = useState<string | null>(null);
@@ -170,19 +168,12 @@ export default function WorkspaceScreen() {
     return () => sub.remove();
   }, [handleCreateTerminal, selectTabShortcut]);
 
-  const headerButtons = () => (
-    <View style={styles.headerActions}>
-      <HeaderIconButton
-        icon="git-network-outline"
-        accessibilityLabel="Worktrees"
-        onPress={() => id && setWorktreeOpen(true)}
-      />
-      <HeaderIconButton
-        icon="git-branch-outline"
-        accessibilityLabel="Git"
-        onPress={() => id && setGitOpen(true)}
-      />
-    </View>
+  const headerGitButton = () => (
+    <HeaderIconButton
+      icon="git-branch-outline"
+      accessibilityLabel="Git"
+      onPress={() => id && setGitOpen(true)}
+    />
   );
 
   const swipeGesture = useMemo(() => {
@@ -231,15 +222,8 @@ export default function WorkspaceScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: tokens.surface.primary }]}>
-      <Stack.Screen options={{ title: headerTitle, headerRight: headerButtons }} />
+      <Stack.Screen options={{ title: headerTitle, headerRight: headerGitButton }} />
       {id ? <GitSheet visible={gitOpen} onClose={() => setGitOpen(false)} projectId={id} /> : null}
-      {id ? (
-        <WorktreePickerSheet
-          visible={worktreeOpen}
-          onClose={() => setWorktreeOpen(false)}
-          projectId={id}
-        />
-      ) : null}
 
       {!workspace ? (
         <Centered tokens={tokens}>
@@ -336,7 +320,6 @@ function Centered({ children, tokens }: { children: React.ReactNode; tokens: Ret
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  headerActions: { flexDirection: 'row', alignItems: 'center' },
   body: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, gap: 10 },
   title: { fontSize: 20, fontWeight: '600' },
