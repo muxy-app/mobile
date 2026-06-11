@@ -17,6 +17,7 @@ final class ProjectDetailViewModel {
     private let keychain: KeychainStore
     private let connectionManager: ConnectionManager
     private let sessionStore: TerminalSessionStore
+    private let gitViewModel: GitViewModel
     private var observationTask: Task<Void, Never>?
     private var eventsTask: Task<Void, Never>?
 
@@ -32,6 +33,11 @@ final class ProjectDetailViewModel {
         self.keychain = keychain
         self.connectionManager = connectionManager
         self.sessionStore = sessionStore
+        gitViewModel = GitViewModel(
+            project: project,
+            connectionManager: connectionManager,
+            connectionID: connection.id
+        )
     }
 
     func terminalSession(for tab: Tab) -> TerminalSession? {
@@ -47,7 +53,7 @@ final class ProjectDetailViewModel {
     }
 
     func makeGitViewModel() -> GitViewModel {
-        GitViewModel(project: project, connectionManager: connectionManager)
+        gitViewModel
     }
 
     func connect() async {
@@ -180,6 +186,7 @@ final class ProjectDetailViewModel {
     private func apply(_ workspace: Workspace) {
         guard workspace.projectID == project.id else { return }
         self.workspace = workspace
+        gitViewModel.setActiveWorktreeID(workspace.worktreeID)
         area = WorkspaceFlattening.focusedTabArea(in: workspace)
         reconcileSelection()
         sessionStore.tabsChanged(tabs)

@@ -1,5 +1,7 @@
 import { useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
+import { createJSONStorage, persist } from 'zustand/middleware';
 
 import { client, useDevicesStore } from '@/state';
 import type {
@@ -25,10 +27,12 @@ type ProjectGitState = {
 };
 
 type State = {
+  hasHydrated: boolean;
   byProject: Record<string, ProjectGitState>;
 };
 
 type Actions = {
+  setHasHydrated: (value: boolean) => void;
   refreshStatus: (projectId: string) => Promise<void>;
   refreshBranches: (projectId: string) => Promise<void>;
   refreshWorktrees: (projectId: string) => Promise<void>;
@@ -57,6 +61,8 @@ type Actions = {
 
 export type GitStore = State & Actions;
 
+type PersistedGitState = Pick<State, 'byProject'>;
+
 const EMPTY_SLICE: Slice<never> = { data: null, loading: false, error: null };
 
 const emptySlice = <T>(): Slice<T> => EMPTY_SLICE as Slice<T>;
@@ -80,6 +86,7 @@ function patchSlice(
 ): State {
   const project = state.byProject[projectId] ?? emptyProject();
   return {
+    hasHydrated: state.hasHydrated,
     byProject: {
       ...state.byProject,
       [projectId]: {
@@ -101,6 +108,7 @@ function patchDiffSlice(
   const project = state.byProject[projectId] ?? emptyProject();
   const existing = project.diffsByPath[filePath] ?? emptySlice<VCSDiff>();
   return {
+    hasHydrated: state.hasHydrated,
     byProject: {
       ...state.byProject,
       [projectId]: {
@@ -118,6 +126,7 @@ function clearDiffs(state: State, projectId: string): State {
   const project = state.byProject[projectId];
   if (!project || Object.keys(project.diffsByPath).length === 0) return state;
   return {
+    hasHydrated: state.hasHydrated,
     byProject: {
       ...state.byProject,
       [projectId]: { ...project, diffsByPath: {} },
@@ -125,177 +134,236 @@ function clearDiffs(state: State, projectId: string): State {
   };
 }
 
-export const useGitStore = create<GitStore>((set) => {
-  const runFetch = async <T>(
-    projectId: string,
-    key: SliceKey,
-    fetcher: () => Promise<T>,
-  ): Promise<void> => {
-    set((s) => patchSlice(s, projectId, key, { loading: true, error: null }));
-    try {
-      const data = await fetcher();
-      set((s) => patchSlice(s, projectId, key, { data, loading: false }));
-    } catch (err) {
-      const message = err instanceof Error ? err.message : `Failed to load ${key}`;
-      set((s) => patchSlice(s, projectId, key, { loading: false, error: message }));
-    }
-  };
-
-  const refreshStatus = (projectId: string) =>
-    runFetch(projectId, 'status', async () => {
-      const res = await client.request('vcsRefresh', {
-        type: 'vcsRefresh',
-        value: { projectID: projectId },
-      });
-      return res.value;
-    });
-
-  const refreshBranches = (projectId: string) =>
-    runFetch(projectId, 'branches', async () => {
-      const res = await client.request('vcsListBranches', {
-        type: 'vcsListBranches',
-        value: { projectID: projectId },
-      });
-      return res.value;
-    });
-
-  const refreshWorktrees = (projectId: string) =>
-    runFetch(projectId, 'worktrees', async () => {
-      const res = await client.request('listWorktrees', {
-        type: 'listWorktrees',
-        value: { projectID: projectId },
-      });
-      return res.value;
-    });
-
-  return {
-    byProject: {},
-
-    refreshStatus,
-    refreshBranches,
-    refreshWorktrees,
-
-    commit: async (projectId, message, stageAll) => {
-      await client.request('vcsCommit', {
-        type: 'vcsCommit',
-        value: { projectID: projectId, message, stageAll },
-      });
-      set((s) => clearDiffs(s, projectId));
-      await refreshStatus(projectId);
-    },
-
-    push: async (projectId) => {
-      await client.request('vcsPush', {
-        type: 'vcsPush',
-        value: { projectID: projectId },
-      });
-      await refreshStatus(projectId);
-    },
-
-    pull: async (projectId) => {
-      await client.request('vcsPull', {
-        type: 'vcsPull',
-        value: { projectID: projectId },
-      });
-      set((s) => clearDiffs(s, projectId));
-      await refreshStatus(projectId);
-    },
-
-    switchBranch: async (projectId, branch) => {
-      await client.request('vcsSwitchBranch', {
-        type: 'vcsSwitchBranch',
-        value: { projectID: projectId, branch },
-      });
-      set((s) => clearDiffs(s, projectId));
-      await refreshStatus(projectId);
-      await refreshBranches(projectId);
-    },
-
-    createBranch: async (projectId, name) => {
-      await client.request('vcsCreateBranch', {
-        type: 'vcsCreateBranch',
-        value: { projectID: projectId, name },
-      });
-      await refreshStatus(projectId);
-      await refreshBranches(projectId);
-    },
-
-    createPR: async (projectId, input) => {
-      const res = await client.request('vcsCreatePR', {
-        type: 'vcsCreatePR',
-        value: {
-          projectID: projectId,
-          title: input.title,
-          body: input.body,
-          baseBranch: input.baseBranch,
-          draft: input.draft,
+function cachedWorktreeProjects(byProject: Record<string, ProjectGitState>): Record<string, ProjectGitState> {
+  return Object.fromEntries(
+    Object.entries(byProject)
+      .filter(([, project]) => project.worktrees.data !== null)
+      .map(([projectId, project]) => [
+        projectId,
+        {
+          ...emptyProject(),
+          worktrees: {
+            data: project.worktrees.data,
+            loading: false,
+            error: null,
+          },
         },
-      });
-      await refreshStatus(projectId);
-      return res.value;
-    },
+      ]),
+  );
+}
 
-    mergePullRequest: async (projectId, input) => {
-      await client.request('vcsMergePullRequest', {
-        type: 'vcsMergePullRequest',
-        value: {
-          projectID: projectId,
-          number: input.number,
-          method: input.method,
-          deleteBranch: input.deleteBranch,
-        },
-      });
-      await refreshStatus(projectId);
-    },
+function mergeCachedWorktreeProjects(
+  cached: Record<string, ProjectGitState>,
+  current: Record<string, ProjectGitState>,
+): Record<string, ProjectGitState> {
+  return Object.entries(cached).reduce<Record<string, ProjectGitState>>((next, [projectId, project]) => {
+    const currentProject = next[projectId] ?? emptyProject();
+    next[projectId] = {
+      ...currentProject,
+      worktrees: {
+        ...currentProject.worktrees,
+        data: project.worktrees.data,
+        loading: false,
+        error: null,
+      },
+    };
+    return next;
+  }, { ...current });
+}
 
-    addWorktree: async (projectId, input) => {
-      const res = await client.request('vcsAddWorktree', {
-        type: 'vcsAddWorktree',
-        value: {
-          projectID: projectId,
-          name: input.name,
-          branch: input.branch,
-          createBranch: input.createBranch,
-        },
-      });
-      set((s) =>
-        patchSlice(s, projectId, 'worktrees', { data: res.value, loading: false, error: null }),
-      );
-      await refreshStatus(projectId);
-      await refreshBranches(projectId);
-    },
+export const useGitStore = create<GitStore>()(
+  persist<GitStore, [], [], PersistedGitState>(
+    (set) => {
+      const runFetch = async <T>(
+        projectId: string,
+        key: SliceKey,
+        fetcher: () => Promise<T>,
+      ): Promise<void> => {
+        set((s) => patchSlice(s, projectId, key, { loading: true, error: null }));
+        try {
+          const data = await fetcher();
+          set((s) => patchSlice(s, projectId, key, { data, loading: false }));
+        } catch (err) {
+          const message = err instanceof Error ? err.message : `Failed to load ${key}`;
+          set((s) => patchSlice(s, projectId, key, { loading: false, error: message }));
+        }
+      };
 
-    removeWorktree: async (projectId, worktreeId) => {
-      await client.request('vcsRemoveWorktree', {
-        type: 'vcsRemoveWorktree',
-        value: { projectID: projectId, worktreeID: worktreeId },
-      });
-      await refreshWorktrees(projectId);
-    },
-
-    selectWorktree: async (projectId, worktreeId) => {
-      await client.request('selectWorktree', {
-        type: 'selectWorktree',
-        value: { projectID: projectId, worktreeID: worktreeId },
-      });
-      set((s) => clearDiffs(s, projectId));
-    },
-
-    loadDiff: async (projectId, filePath, forceFull) => {
-      set((s) => patchDiffSlice(s, projectId, filePath, { loading: true, error: null }));
-      try {
-        const res = await client.request('vcsGetDiff', {
-          type: 'vcsGetDiff',
-          value: { projectID: projectId, filePath, forceFull },
+      const refreshStatus = (projectId: string) =>
+        runFetch(projectId, 'status', async () => {
+          const res = await client.request('vcsRefresh', {
+            type: 'vcsRefresh',
+            value: { projectID: projectId },
+          });
+          return res.value;
         });
-        set((s) => patchDiffSlice(s, projectId, filePath, { data: res.value, loading: false }));
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to load diff';
-        set((s) => patchDiffSlice(s, projectId, filePath, { loading: false, error: message }));
-      }
+
+      const refreshBranches = (projectId: string) =>
+        runFetch(projectId, 'branches', async () => {
+          const res = await client.request('vcsListBranches', {
+            type: 'vcsListBranches',
+            value: { projectID: projectId },
+          });
+          return res.value;
+        });
+
+      const refreshWorktrees = (projectId: string) =>
+        runFetch(projectId, 'worktrees', async () => {
+          const res = await client.request('listWorktrees', {
+            type: 'listWorktrees',
+            value: { projectID: projectId },
+          });
+          return res.value;
+        });
+
+      return {
+        hasHydrated: false,
+        byProject: {},
+
+        setHasHydrated: (value) => set({ hasHydrated: value }),
+
+        refreshStatus,
+        refreshBranches,
+        refreshWorktrees,
+
+        commit: async (projectId, message, stageAll) => {
+          await client.request('vcsCommit', {
+            type: 'vcsCommit',
+            value: { projectID: projectId, message, stageAll },
+          });
+          set((s) => clearDiffs(s, projectId));
+          await refreshStatus(projectId);
+        },
+
+        push: async (projectId) => {
+          await client.request('vcsPush', {
+            type: 'vcsPush',
+            value: { projectID: projectId },
+          });
+          await refreshStatus(projectId);
+        },
+
+        pull: async (projectId) => {
+          await client.request('vcsPull', {
+            type: 'vcsPull',
+            value: { projectID: projectId },
+          });
+          set((s) => clearDiffs(s, projectId));
+          await refreshStatus(projectId);
+        },
+
+        switchBranch: async (projectId, branch) => {
+          await client.request('vcsSwitchBranch', {
+            type: 'vcsSwitchBranch',
+            value: { projectID: projectId, branch },
+          });
+          set((s) => clearDiffs(s, projectId));
+          await refreshStatus(projectId);
+          await refreshBranches(projectId);
+        },
+
+        createBranch: async (projectId, name) => {
+          await client.request('vcsCreateBranch', {
+            type: 'vcsCreateBranch',
+            value: { projectID: projectId, name },
+          });
+          await refreshStatus(projectId);
+          await refreshBranches(projectId);
+        },
+
+        createPR: async (projectId, input) => {
+          const res = await client.request('vcsCreatePR', {
+            type: 'vcsCreatePR',
+            value: {
+              projectID: projectId,
+              title: input.title,
+              body: input.body,
+              baseBranch: input.baseBranch,
+              draft: input.draft,
+            },
+          });
+          await refreshStatus(projectId);
+          return res.value;
+        },
+
+        mergePullRequest: async (projectId, input) => {
+          await client.request('vcsMergePullRequest', {
+            type: 'vcsMergePullRequest',
+            value: {
+              projectID: projectId,
+              number: input.number,
+              method: input.method,
+              deleteBranch: input.deleteBranch,
+            },
+          });
+          await refreshStatus(projectId);
+        },
+
+        addWorktree: async (projectId, input) => {
+          const res = await client.request('vcsAddWorktree', {
+            type: 'vcsAddWorktree',
+            value: {
+              projectID: projectId,
+              name: input.name,
+              branch: input.branch,
+              createBranch: input.createBranch,
+            },
+          });
+          set((s) =>
+            patchSlice(s, projectId, 'worktrees', { data: res.value, loading: false, error: null }),
+          );
+          await refreshStatus(projectId);
+          await refreshBranches(projectId);
+        },
+
+        removeWorktree: async (projectId, worktreeId) => {
+          await client.request('vcsRemoveWorktree', {
+            type: 'vcsRemoveWorktree',
+            value: { projectID: projectId, worktreeID: worktreeId },
+          });
+          await refreshWorktrees(projectId);
+        },
+
+        selectWorktree: async (projectId, worktreeId) => {
+          await client.request('selectWorktree', {
+            type: 'selectWorktree',
+            value: { projectID: projectId, worktreeID: worktreeId },
+          });
+          set((s) => clearDiffs(s, projectId));
+        },
+
+        loadDiff: async (projectId, filePath, forceFull) => {
+          set((s) => patchDiffSlice(s, projectId, filePath, { loading: true, error: null }));
+          try {
+            const res = await client.request('vcsGetDiff', {
+              type: 'vcsGetDiff',
+              value: { projectID: projectId, filePath, forceFull },
+            });
+            set((s) => patchDiffSlice(s, projectId, filePath, { data: res.value, loading: false }));
+          } catch (err) {
+            const message = err instanceof Error ? err.message : 'Failed to load diff';
+            set((s) => patchDiffSlice(s, projectId, filePath, { loading: false, error: message }));
+          }
+        },
+      };
     },
-  };
-});
+    {
+      name: 'muxy.git.worktrees.v1',
+      storage: createJSONStorage(() => AsyncStorage),
+      partialize: (state) => ({ byProject: cachedWorktreeProjects(state.byProject) }),
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
+      merge: (persisted, current) => ({
+        ...current,
+        byProject: mergeCachedWorktreeProjects(
+          (persisted as PersistedGitState | undefined)?.byProject ?? {},
+          current.byProject,
+        ),
+      }),
+    },
+  ),
+);
 
 export function selectStatus(projectId: string) {
   return (s: GitStore): Slice<VCSStatus> => s.byProject[projectId]?.status ?? emptySlice();
@@ -378,14 +446,16 @@ export function useGitDiff(projectId: string, filePath: string) {
 export function useGitWorktrees(projectId: string) {
   const slice = useGitStore(selectWorktrees(projectId));
   const refresh = useGitStore((s) => s.refreshWorktrees);
+  const hasHydrated = useGitStore((s) => s.hasHydrated);
   const connectionPhase = useDevicesStore((s) => s.connectionPhase);
 
   useEffect(() => {
+    if (!hasHydrated) return;
     if (!projectId || connectionPhase !== 'connected') return;
     if (slice.data === null && !slice.loading && slice.error === null) {
       refresh(projectId);
     }
-  }, [projectId, connectionPhase, refresh, slice.data, slice.loading, slice.error]);
+  }, [projectId, connectionPhase, refresh, hasHydrated, slice.data, slice.loading, slice.error]);
 
   return {
     worktrees: slice.data,

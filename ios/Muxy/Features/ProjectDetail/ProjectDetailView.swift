@@ -5,6 +5,7 @@ struct ProjectDetailView: View {
     @Environment(\.appTheme) private var theme
     @State var viewModel: ProjectDetailViewModel
     @State private var isGitPresented = false
+    @State private var isWorktreesPresented = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -30,7 +31,15 @@ struct ProjectDetailView: View {
                     .font(.headline)
                     .foregroundStyle(theme.foreground)
             }
-            ToolbarItem(placement: .primaryAction) {
+            ToolbarItemGroup(placement: .primaryAction) {
+                Button {
+                    isWorktreesPresented = true
+                } label: {
+                    Image(systemName: "folder")
+                }
+                .tint(theme.foreground)
+                .accessibilityLabel("Worktrees")
+
                 Button {
                     isGitPresented = true
                 } label: {
@@ -42,6 +51,9 @@ struct ProjectDetailView: View {
         }
         .sheet(isPresented: $isGitPresented) {
             GitSheetView(viewModel: viewModel.makeGitViewModel())
+        }
+        .sheet(isPresented: $isWorktreesPresented) {
+            WorktreesSheetView(viewModel: viewModel.makeGitViewModel())
         }
         .task { await viewModel.connect() }
         .onChange(of: scenePhase) { _, phase in
@@ -122,5 +134,15 @@ struct ProjectDetailView: View {
                 viewModel.select(tab)
             }
         )
+    }
+}
+
+struct WorktreesSheetView: View {
+    @State var viewModel: GitViewModel
+
+    var body: some View {
+        NavigationStack {
+            GitWorktreesView(viewModel: viewModel)
+        }
     }
 }

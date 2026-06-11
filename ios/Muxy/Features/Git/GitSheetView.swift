@@ -338,6 +338,7 @@ struct GitNewBranchView: View {
 
 struct GitWorktreesView: View {
     let viewModel: GitViewModel
+    @Environment(\.appTheme) private var theme
     @State private var selectedWorktreeID: UUID?
     @State private var removingWorktreeID: UUID?
 
@@ -358,29 +359,23 @@ struct GitWorktreesView: View {
                             select(worktree)
                         } label: {
                             HStack {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    HStack {
-                                        Text(worktree.name)
-                                            .font(.headline)
-                                        if worktree.isPrimary {
-                                            Image(systemName: "star.fill")
-                                                .foregroundStyle(.yellow)
-                                        }
-                                    }
-                                    Text(worktree.branch)
-                                        .font(.subheadline)
-                                        .foregroundStyle(.secondary)
-                                    Text(worktree.path)
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
+                                Text(worktree.name)
+                                    .font(.headline)
+                                    .foregroundStyle(theme.foreground)
                                 Spacer()
                                 if selectedWorktreeID == worktree.id || removingWorktreeID == worktree.id {
                                     ProgressView()
+                                } else if worktree.id == viewModel.activeWorktreeID {
+                                    Image(systemName: "checkmark")
+                                        .font(.body.weight(.semibold))
+                                        .foregroundStyle(theme.accent)
                                 }
                             }
+                            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                            .contentShape(Rectangle())
                         }
                         .disabled(selectedWorktreeID != nil || removingWorktreeID != nil)
+                        .buttonStyle(.plain)
                         .swipeActions {
                             if worktree.canBeRemoved {
                                 Button(role: .destructive) {
@@ -399,6 +394,22 @@ struct GitWorktreesView: View {
         .themedSurface()
         .navigationTitle("Worktrees")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    Task { await viewModel.refreshWorktrees() }
+                } label: {
+                    if viewModel.isLoadingWorktrees {
+                        ProgressView()
+                    } else {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                }
+                .disabled(viewModel.isLoadingWorktrees)
+                .tint(theme.foreground)
+                .accessibilityLabel("Sync Worktrees with Desktop")
+            }
+        }
         .task {
             if viewModel.worktrees == nil {
                 await viewModel.refreshWorktrees()

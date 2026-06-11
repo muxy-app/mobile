@@ -15,17 +15,33 @@ final class GitViewModel {
     private(set) var isLoadingBranches = false
     private(set) var isLoadingWorktrees = false
     private(set) var loadingDiffPaths: Set<String> = []
+    private(set) var activeWorktreeID: UUID?
     private(set) var errorMessage: String?
 
+    private let connectionID: UUID?
     private let connectionManager: ConnectionManager
+    private let worktreeCache: WorktreeCache
 
-    init(project: Project, connectionManager: ConnectionManager) {
+    init(
+        project: Project,
+        connectionManager: ConnectionManager,
+        connectionID: UUID? = nil,
+        worktreeCache: WorktreeCache? = nil
+    ) {
         self.project = project
+        self.connectionID = connectionID
         self.connectionManager = connectionManager
+        let resolvedWorktreeCache = worktreeCache ?? UserDefaultsWorktreeCache()
+        self.worktreeCache = resolvedWorktreeCache
+        worktrees = resolvedWorktreeCache.load(connectionID: connectionID, projectID: project.id)
     }
 
     var totalChanges: Int {
         (status?.stagedFiles.count ?? 0) + (status?.changedFiles.count ?? 0)
+    }
+
+    func setActiveWorktreeID(_ worktreeID: UUID?) {
+        activeWorktreeID = worktreeID
     }
 
     func refreshStatus() async {
@@ -66,7 +82,9 @@ final class GitViewModel {
         do {
             let result = try await connectionManager.request(.listWorktrees, params: ListWorktreesParams(projectID: project.id.uuidString))
             guard result.type == ResultType.worktrees else { return }
-            worktrees = try result.decode([Worktree].self)
+            let loaded = try result.decode([Worktree].self)
+            worktrees = loaded
+            worktreeCache.save(loaded, connectionID: connectionID, projectID: project.id)
         } catch {
             errorMessage = error.localizedDescription
             Log.client.error("Failed to refresh git worktrees: \(error.localizedDescription, privacy: .public)")
@@ -214,7 +232,9 @@ final class GitViewModel {
                 )
             )
             guard result.type == ResultType.worktrees else { return false }
-            worktrees = try result.decode([Worktree].self)
+            let loaded = try result.decode([Worktree].self)
+            worktrees = loaded
+            worktreeCache.save(loaded, connectionID: connectionID, projectID: project.id)
             await refreshStatus()
             await refreshBranches()
             return true
@@ -244,6 +264,7 @@ final class GitViewModel {
                 .selectWorktree,
                 params: SelectWorktreeParams(projectID: project.id.uuidString, worktreeID: worktree.id.uuidString)
             )
+            activeWorktreeID = worktree.id
             diffsByPath.removeAll()
             await refreshStatus()
             await refreshWorktrees()
