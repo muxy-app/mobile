@@ -53,7 +53,7 @@ struct ConnectionInputValidator: Sendable {
 
         switch authMethod {
         case .password:
-            guard !secret.isEmpty else { return .failure(.emptyPassword) }
+            guard !secret.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return .failure(.emptyPassword) }
         case .privateKey:
             guard !secret.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return .failure(.emptyPrivateKey) }
         }
