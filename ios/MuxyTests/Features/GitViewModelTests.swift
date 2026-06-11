@@ -6,7 +6,7 @@ import Testing
 struct GitViewModelTests {
     @Test func demoRefreshLoadsStatusBranchesWorktreesAndDiff() async throws {
         let manager = ConnectionManager(makeTransport: { _ in MockTransport() })
-        await manager.connect(to: DemoDevice.device, token: "demo")
+        await manager.connect(to: DemoConnection.connection, token: "demo")
         let viewModel = GitViewModel(project: muxyProject(), connectionManager: manager)
 
         await viewModel.refreshStatus()
@@ -23,7 +23,7 @@ struct GitViewModelTests {
 
     @Test func commitClearsDemoChangesAndDiffCache() async throws {
         let manager = ConnectionManager(makeTransport: { _ in MockTransport() })
-        await manager.connect(to: DemoDevice.device, token: "demo")
+        await manager.connect(to: DemoConnection.connection, token: "demo")
         let viewModel = GitViewModel(project: muxyProject(), connectionManager: manager)
 
         await viewModel.refreshStatus()
@@ -37,7 +37,7 @@ struct GitViewModelTests {
 
     @Test func demoCreatesPullRequestAndWorktree() async throws {
         let manager = ConnectionManager(makeTransport: { _ in MockTransport() })
-        await manager.connect(to: DemoDevice.device, token: "demo")
+        await manager.connect(to: DemoConnection.connection, token: "demo")
         let viewModel = GitViewModel(project: muxyProject(), connectionManager: manager)
 
         let pullRequest = await viewModel.createPullRequest(title: "Native git", body: "", baseBranch: "main", draft: false)

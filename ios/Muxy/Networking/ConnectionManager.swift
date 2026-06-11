@@ -9,7 +9,7 @@ actor ConnectionManager {
     private let demoBackend = DemoBackend()
 
     private var client: MuxyClient?
-    private var connectedDeviceID: Device.ID?
+    private var connectedDeviceID: Connection.ID?
     private var theme: DeviceThemeEvent?
     private var clientID: UUID?
     private var state: ConnectionState = .idle {
@@ -31,7 +31,7 @@ actor ConnectionManager {
 
     var currentTheme: DeviceThemeEvent? {
         get async {
-            if connectedDeviceID == DemoDevice.id {
+            if connectedDeviceID == DemoConnection.id {
                 await demoBackend.currentTheme
             } else {
                 theme
@@ -41,7 +41,7 @@ actor ConnectionManager {
 
     var currentClientID: UUID? {
         get async {
-            if connectedDeviceID == DemoDevice.id {
+            if connectedDeviceID == DemoConnection.id {
                 await demoBackend.currentClientID
             } else {
                 clientID
@@ -71,7 +71,7 @@ actor ConnectionManager {
     }
 
     func request<P: Codable & Sendable>(_ method: Method, params: P?) async throws -> RawTagged {
-        if connectedDeviceID == DemoDevice.id {
+        if connectedDeviceID == DemoConnection.id {
             return try await demoRequest(method, params: params)
         }
         guard let client else { throw ConnectionError.notConnected }
@@ -83,7 +83,7 @@ actor ConnectionManager {
     }
 
     func notify<P: Codable & Sendable>(_ method: Method, params: P?) async throws {
-        if connectedDeviceID == DemoDevice.id {
+        if connectedDeviceID == DemoConnection.id {
             try await demoNotify(method, params: params)
             return
         }
@@ -92,7 +92,7 @@ actor ConnectionManager {
     }
 
     func beginPairing(
-        device: Device,
+        connection: Connection,
         token: String,
         onStatus: @escaping @Sendable (PairingStatus) -> Void
     ) async -> PairingStatus {
@@ -100,7 +100,7 @@ actor ConnectionManager {
         state = .connecting
         onStatus(.connecting)
 
-        guard let url = device.endpoint.webSocketURL else {
+        guard let url = connection.endpoint.webSocketURL else {
             onStatus(.failed(.connectionFailed))
             state = .failed(.invalidEndpoint)
             return .failed(.connectionFailed)
@@ -116,7 +116,7 @@ actor ConnectionManager {
         }
         await client.start()
 
-        let params = AuthParams(deviceID: device.id.uuidString, deviceName: device.name, token: token)
+        let params = AuthParams(deviceID: connection.id.uuidString, deviceName: connection.name, token: token)
         let status = await pairingService.pair(using: client, params: params, onStatus: onStatus)
 
         guard case .paired = status else {
@@ -125,25 +125,25 @@ actor ConnectionManager {
             return status
         }
 
-        connectedDeviceID = device.id
+        connectedDeviceID = connection.id
         state = .connected
         return status
     }
 
-    func ensureConnected(device: Device, token: String) async {
-        if connectedDeviceID == device.id, case .connected = state { return }
-        await connect(to: device, token: token)
+    func ensureConnected(connection: Connection, token: String) async {
+        if connectedDeviceID == connection.id, case .connected = state { return }
+        await connect(to: connection, token: token)
     }
 
-    func connect(to device: Device, token: String) async {
+    func connect(to connection: Connection, token: String) async {
         await teardownClient()
         state = .connecting
 
-        if device.id == DemoDevice.id {
+        if connection.id == DemoConnection.id {
             do {
                 let result = try await demoBackend.authenticate()
                 captureAuthResult(result)
-                connectedDeviceID = device.id
+                connectedDeviceID = connection.id
                 state = .connected
             } catch {
                 state = .failed(.authenticationFailed)
@@ -151,7 +151,7 @@ actor ConnectionManager {
             return
         }
 
-        guard let url = device.endpoint.webSocketURL else {
+        guard let url = connection.endpoint.webSocketURL else {
             state = .failed(.invalidEndpoint)
             return
         }
@@ -166,11 +166,11 @@ actor ConnectionManager {
         await client.start()
         state = .authenticating
 
-        let params = AuthParams(deviceID: device.id.uuidString, deviceName: device.name, token: token)
+        let params = AuthParams(deviceID: connection.id.uuidString, deviceName: connection.name, token: token)
         do {
             let result = try await client.request(.authenticateDevice, params: params)
             captureAuthResult(result)
-            connectedDeviceID = device.id
+            connectedDeviceID = connection.id
             state = .connected
         } catch {
             await teardownClient()

@@ -1,24 +1,24 @@
 import SwiftUI
 
-struct DevicesListView: View {
-    let viewModel: DevicesListViewModel
-    let onSelect: (Device) -> Void
-    let onAddDevice: () -> Void
+struct ConnectionsListView: View {
+    let viewModel: ConnectionsListViewModel
+    let onSelect: (Connection) -> Void
+    let onAddConnection: () -> Void
     let onSettings: () -> Void
 
     @Environment(\.appTheme) private var theme
 
     var body: some View {
         Group {
-            if viewModel.devices.isEmpty {
-                DevicesEmptyStateView(onAddDevice: onAddDevice)
+            if viewModel.connections.isEmpty {
+                ConnectionsEmptyStateView(onAddConnection: onAddConnection)
             } else {
-                deviceList
+                connectionList
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(theme.background)
-        .navigationTitle("Devices")
+        .navigationTitle("Connections")
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 Button(action: onSettings) {
@@ -28,8 +28,8 @@ struct DevicesListView: View {
             }
 
             ToolbarItem(placement: .primaryAction) {
-                Button(action: onAddDevice) {
-                    Label("Add Device", systemImage: "plus")
+                Button(action: onAddConnection) {
+                    Label("Add Connection", systemImage: "plus")
                 }
                 .tint(theme.foreground)
             }
@@ -37,13 +37,13 @@ struct DevicesListView: View {
         .onAppear { viewModel.load() }
     }
 
-    private var deviceList: some View {
+    private var connectionList: some View {
         List {
-            ForEach(viewModel.devices) { device in
+            ForEach(viewModel.connections) { connection in
                 Button {
-                    onSelect(device)
+                    onSelect(connection)
                 } label: {
-                    DeviceRowView(device: device)
+                    ConnectionRowView(connection: connection)
                 }
                 .buttonStyle(.plain)
             }

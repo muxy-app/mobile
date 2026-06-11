@@ -102,7 +102,7 @@ struct ProjectDetailView: View {
             ThemedEmptyState(
                 title: "Not Connected",
                 systemImage: "wifi.slash",
-                message: "Reconnect to \(viewModel.device.name) to see this project."
+                message: "Reconnect to \(viewModel.connection.name) to see this project."
             )
         }
     }

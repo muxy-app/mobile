@@ -5,7 +5,7 @@ import OSLog
 @MainActor
 @Observable
 final class ProjectsViewModel {
-    let device: Device
+    let connection: Connection
     private(set) var state: ConnectionState = .idle
     private(set) var projects: [Project] = []
     private(set) var logos: [Project.ID: Data] = [:]
@@ -16,8 +16,8 @@ final class ProjectsViewModel {
     private var observationTask: Task<Void, Never>?
     private var eventsTask: Task<Void, Never>?
 
-    init(device: Device, keychain: KeychainStore, connectionManager: ConnectionManager) {
-        self.device = device
+    init(connection: Connection, keychain: KeychainStore, connectionManager: ConnectionManager) {
+        self.connection = connection
         self.keychain = keychain
         self.connectionManager = connectionManager
     }
@@ -29,7 +29,7 @@ final class ProjectsViewModel {
             state = .failed(.missingToken)
             return
         }
-        await connectionManager.ensureConnected(device: device, token: token)
+        await connectionManager.ensureConnected(connection: connection, token: token)
     }
 
     func reconnect() async {
@@ -39,7 +39,7 @@ final class ProjectsViewModel {
             state = .failed(.missingToken)
             return
         }
-        await connectionManager.connect(to: device, token: token)
+        await connectionManager.connect(to: connection, token: token)
     }
 
     func disconnect() async {
@@ -126,7 +126,7 @@ final class ProjectsViewModel {
 
     private func loadToken() -> String? {
         do {
-            return try keychain.token(for: device.id)
+            return try keychain.token(for: connection.id)
         } catch {
             Log.connection.error("Failed to load token: \(error.localizedDescription, privacy: .public)")
             return nil

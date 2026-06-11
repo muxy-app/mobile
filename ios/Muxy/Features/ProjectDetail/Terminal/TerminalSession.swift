@@ -6,7 +6,7 @@ import UIKit
 
 @MainActor
 @Observable
-final class TerminalSession {
+final class TerminalSession: TerminalIO {
     enum Ownership: Equatable {
         case idle
         case takingOver
@@ -54,6 +54,15 @@ final class TerminalSession {
 
     func attach(_ view: TerminalView) {
         self.view = view
+    }
+
+    func terminalDidLayout() {
+        takeOverIfReady()
+    }
+
+    func terminalDidResize(cols: Int, rows: Int) {
+        takeOverIfReady()
+        reportResize(cols: cols, rows: rows)
     }
 
     @discardableResult
@@ -273,7 +282,7 @@ final class TerminalSession {
         scrollRestoreTask?.cancel()
         scrollRestoreTask = nil
         if let view {
-            TerminalScrollOffset.scrollToBottom(view)
+            TerminalOutputFeeder.scrollToBottom(view)
         }
         isFollowingBottom = true
     }
@@ -344,22 +353,16 @@ final class TerminalSession {
         guard let view else { return }
 
         if isSnapshot {
-            applySnapshot(payload.bytes, into: view)
-            return
-        }
-
-        let shouldFollowBottom = isFollowingBottom && TerminalScrollOffset.isAtBottom(view)
-        if shouldFollowBottom {
-            feed(payload.bytes, into: view)
-            view.scroll(toPosition: 1)
+            TerminalOutputFeeder.applySnapshot(payload.bytes, into: view)
             isFollowingBottom = true
             return
         }
 
         let scrollOffset = TerminalScrollOffset.capture(from: view)
-        feed(payload.bytes, into: view)
-        if !TerminalScrollOffset.isInteracting(with: view) {
-            scrollOffset.restore(on: view)
+        let followedBottom = TerminalOutputFeeder.feedFollowingBottom(payload.bytes, into: view, isFollowingBottom: isFollowingBottom)
+        if followedBottom {
+            isFollowingBottom = true
+            return
         }
         scrollRestoreTask?.cancel()
         scrollRestoreTask = Task { @MainActor [weak self, weak view] in
@@ -372,23 +375,6 @@ final class TerminalSession {
             self?.isFollowingBottom = false
         }
         isFollowingBottom = false
-    }
-
-    private func applySnapshot(_ bytes: Data, into view: TerminalView) {
-        view.getTerminal().resetToInitialState()
-        feed(bytes, into: view)
-        view.scroll(toPosition: 1)
-        isFollowingBottom = true
-    }
-
-    private func feed(_ bytes: Data, into view: TerminalView) {
-        if let view = view as? FollowAwareTerminalView {
-            view.preserveInteractiveOffsetDuringTerminalUpdate {
-                view.feed(byteArray: ArraySlice(bytes))
-            }
-            return
-        }
-        view.feed(byteArray: ArraySlice(bytes))
     }
 
     private func handleOwnership(_ event: EventEnvelope) {
@@ -451,42 +437,5 @@ final class TerminalSession {
                 Log.terminal.error("setClientTheme failed: \(String(describing: error), privacy: .public)")
             }
         }
-    }
-}
-
-private struct TerminalScrollOffset {
-    private static let bottomTolerance: CGFloat = 2
-    private static let minimumDetachedDistance: CGFloat = 0
-
-    let y: CGFloat
-
-    static func capture(from view: TerminalView) -> TerminalScrollOffset {
-        let maxOffset = max(0, view.contentSize.height - view.bounds.height)
-        let detachedY = min(view.contentOffset.y, max(0, maxOffset - minimumDetachedDistance))
-        return TerminalScrollOffset(y: max(0, detachedY))
-    }
-
-    static func isAtBottom(_ view: TerminalView) -> Bool {
-        let maxOffset = max(0, view.contentSize.height - view.bounds.height)
-        return view.contentOffset.y >= maxOffset - bottomTolerance
-    }
-
-    static func scrollToBottom(_ view: TerminalView) {
-        view.scroll(toPosition: 1)
-        let maxOffset = max(0, view.contentSize.height - view.bounds.height)
-        view.contentOffset = CGPoint(x: view.contentOffset.x, y: maxOffset)
-    }
-
-    static func isInteracting(with view: TerminalView) -> Bool {
-        view.isTracking || view.isDragging || view.isDecelerating
-    }
-
-    func restore(on view: TerminalView) {
-        let maxOffset = max(0, view.contentSize.height - view.bounds.height)
-        guard maxOffset > 0 else { return }
-        let y = min(y, maxOffset)
-        let position = Double(y / maxOffset)
-        view.scroll(toPosition: position)
-        view.contentOffset = CGPoint(x: view.contentOffset.x, y: y)
     }
 }

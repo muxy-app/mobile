@@ -59,7 +59,7 @@ actor DemoBackend {
             ResultType.pairing,
             PairingResult(
                 clientID: clientID.uuidString,
-                deviceName: DemoDevice.device.name,
+                deviceName: DemoConnection.connection.name,
                 themeFg: Int(currentTheme.fg),
                 themeBg: Int(currentTheme.bg),
                 themePalette: currentTheme.palette?.map(Int.init)

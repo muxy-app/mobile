@@ -56,18 +56,18 @@ struct DemoBackendTests {
     }
 
     @MainActor
-    @Test func demoDeviceApplyAddsAndRemovesDeviceAndToken() throws {
-        let store = InMemoryDeviceStore()
+    @Test func demoConnectionApplyAddsAndRemovesConnectionAndToken() throws {
+        let store = InMemoryConnectionStore()
         let keychain = InMemoryKeychainStore()
 
-        DemoDevice.apply(enabled: true, store: store, keychain: keychain)
+        DemoConnection.apply(enabled: true, store: store, keychain: keychain)
 
-        #expect(store.load() == [DemoDevice.device])
-        #expect(try keychain.token(for: DemoDevice.id) == DemoDevice.token)
+        #expect(store.load() == [DemoConnection.connection])
+        #expect(try keychain.token(for: DemoConnection.id) == DemoConnection.token)
 
-        DemoDevice.apply(enabled: false, store: store, keychain: keychain)
+        DemoConnection.apply(enabled: false, store: store, keychain: keychain)
 
         #expect(store.load().isEmpty)
-        #expect(try keychain.token(for: DemoDevice.id) == nil)
+        #expect(try keychain.token(for: DemoConnection.id) == nil)
     }
 }

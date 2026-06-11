@@ -43,8 +43,8 @@ struct ProjectsViewModelTests {
         }
     }
 
-    private func device() -> Device {
-        Device(
+    private func device() -> Connection {
+        Connection(
             id: UUID(),
             name: "Studio",
             host: "studio.local",
@@ -60,7 +60,7 @@ struct ProjectsViewModelTests {
         let keychain = InMemoryKeychainStore()
         try keychain.setToken("token", for: device.id)
         let manager = ConnectionManager(makeTransport: { _ in MockTransport(autoReply: ProjectsViewModelTests.reply) })
-        let viewModel = ProjectsViewModel(device: device, keychain: keychain, connectionManager: manager)
+        let viewModel = ProjectsViewModel(connection: device, keychain: keychain, connectionManager: manager)
 
         await viewModel.connect()
         try await waitUntil { !viewModel.projects.isEmpty }
@@ -72,7 +72,7 @@ struct ProjectsViewModelTests {
     @Test func reportsMissingTokenWithoutCredentials() async {
         let device = device()
         let manager = ConnectionManager(makeTransport: { _ in MockTransport() })
-        let viewModel = ProjectsViewModel(device: device, keychain: InMemoryKeychainStore(), connectionManager: manager)
+        let viewModel = ProjectsViewModel(connection: device, keychain: InMemoryKeychainStore(), connectionManager: manager)
 
         await viewModel.connect()
 

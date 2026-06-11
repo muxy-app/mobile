@@ -1,8 +1,8 @@
 import Testing
 @testable import Muxy
 
-struct DeviceInputValidatorTests {
-    private let validator = DeviceInputValidator()
+struct ConnectionInputValidatorTests {
+    private let validator = ConnectionInputValidator()
 
     @Test func acceptsValidInput() throws {
         let result = validator.validate(name: "Studio", host: "studio.local", portText: "4865")

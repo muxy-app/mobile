@@ -1,8 +1,8 @@
 import SwiftUI
 
-struct AddDeviceView: View {
-    @State var viewModel: AddDeviceViewModel
-    let onPaired: (Device) -> Void
+struct AddConnectionView: View {
+    @State var viewModel: AddConnectionViewModel
+    let onAdded: (Connection) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.appTheme) private var theme
@@ -11,22 +11,25 @@ struct AddDeviceView: View {
     var body: some View {
         NavigationStack {
             Form {
-                nearbySection
-                scanSection
-                manualSection
+                kindSection
+                if viewModel.kind == .device {
+                    deviceSections
+                } else {
+                    sshSections
+                }
                 if viewModel.status != .idle {
                     statusSection
                 }
             }
             .themedSurface()
             .tint(theme.accent)
-            .navigationTitle("Add Device")
+            .navigationTitle("Add Connection")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                         .tint(theme.foreground)
-                        .disabled(viewModel.isPairing)
+                        .disabled(viewModel.isWorking)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     submitButton
@@ -47,6 +50,65 @@ struct AddDeviceView: View {
             .task { viewModel.startDiscovery() }
             .onDisappear { viewModel.stopDiscovery() }
         }
+    }
+
+    private var kindSection: some View {
+        Section {
+            Picker("Type", selection: kindBinding) {
+                Text("Mac").tag(ConnectionKind.device)
+                Text("SSH Server").tag(ConnectionKind.ssh)
+            }
+            .pickerStyle(.segmented)
+            .disabled(viewModel.isWorking)
+        }
+    }
+
+    @ViewBuilder
+    private var deviceSections: some View {
+        nearbySection
+        scanSection
+        manualSection
+    }
+
+    @ViewBuilder
+    private var sshSections: some View {
+        Section {
+            TextField("Name", text: $viewModel.name)
+                .textInputAutocapitalization(.words)
+            TextField("Host", text: $viewModel.host)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .keyboardType(.URL)
+            TextField("Port", text: $viewModel.portText)
+                .keyboardType(.numberPad)
+            TextField("Username", text: $viewModel.username)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+        } header: {
+            sectionHeader("Server")
+        }
+        .foregroundStyle(theme.foreground)
+        .disabled(viewModel.isWorking)
+
+        Section {
+            Picker("Authentication", selection: $viewModel.authMethod) {
+                Text("Password").tag(SSHAuthMethod.password)
+                Text("Private Key").tag(SSHAuthMethod.privateKey)
+            }
+            if viewModel.authMethod == .password {
+                SecureField("Password", text: $viewModel.password)
+            } else {
+                TextField("Private Key", text: $viewModel.privateKey, axis: .vertical)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .lineLimit(4...8)
+                SecureField("Passphrase (optional)", text: $viewModel.passphrase)
+            }
+        } header: {
+            sectionHeader("Authentication")
+        }
+        .foregroundStyle(theme.foreground)
+        .disabled(viewModel.isWorking)
     }
 
     private var nearbySection: some View {
@@ -109,10 +171,10 @@ struct AddDeviceView: View {
             TextField("Port", text: $viewModel.portText)
                 .keyboardType(.numberPad)
         } header: {
-            sectionHeader("Device")
+            sectionHeader("Mac")
         }
         .foregroundStyle(theme.foreground)
-        .disabled(viewModel.isPairing)
+        .disabled(viewModel.isWorking)
     }
 
     private func sectionHeader(_ title: String) -> some View {
@@ -128,9 +190,16 @@ struct AddDeviceView: View {
 
     private var submitButton: some View {
         Button("Add") {
-            Task { await viewModel.submit(onPaired: onPaired) }
+            Task { await viewModel.submit(onAdded: onAdded) }
         }
         .disabled(!viewModel.canSubmit)
+    }
+
+    private var kindBinding: Binding<ConnectionKind> {
+        Binding(
+            get: { viewModel.kind },
+            set: { viewModel.selectKind($0) }
+        )
     }
 
     private func handleScan(_ result: Result<PairingURI, PairingURIError>) {
@@ -152,7 +221,7 @@ struct AddDeviceView: View {
 }
 
 private struct StatusRow: View {
-    let status: PairingStatus
+    let status: AddConnectionViewModel.Status
 
     @Environment(\.appTheme) private var theme
 
@@ -171,11 +240,11 @@ private struct StatusRow: View {
                 Text("Approve this device on your Mac.")
                     .foregroundStyle(theme.foreground)
             }
-        case .paired:
-            Label("Paired", systemImage: "checkmark.circle.fill")
+        case .succeeded:
+            Label("Connected", systemImage: "checkmark.circle.fill")
                 .foregroundStyle(.green)
-        case let .failed(error):
-            Label(message(for: error), systemImage: "exclamationmark.triangle.fill")
+        case let .failed(message):
+            Label(message, systemImage: "exclamationmark.triangle.fill")
                 .foregroundStyle(.red)
         }
     }
@@ -185,23 +254,6 @@ private struct StatusRow: View {
             ProgressView()
             Text(text)
                 .foregroundStyle(theme.foreground)
-        }
-    }
-
-    private func message(for error: PairingError) -> String {
-        switch error {
-        case .connectionFailed:
-            return "Couldn't connect. Check the host and port."
-        case .approvalDenied:
-            return "The Mac denied this device."
-        case .approvalTimedOut:
-            return "Approval timed out. Try again."
-        case .wrongToken:
-            return "This device's credentials are invalid. Remove it and add it again."
-        case .invalidResponse:
-            return "The Mac sent an unexpected response."
-        case let .server(code, message):
-            return "Server error \(code): \(message)"
         }
     }
 }

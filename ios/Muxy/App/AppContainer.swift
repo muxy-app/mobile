@@ -2,11 +2,11 @@ import Foundation
 
 @MainActor
 final class AppContainer {
-    let deviceStore: DeviceStore
+    let connectionStore: ConnectionStore
     let keychain: KeychainStore
     let connectionManager: ConnectionManager
     let pairingService: PairingService
-    let validator: DeviceInputValidator
+    let validator: ConnectionInputValidator
     let tokenGenerator: TokenGenerating
     let settings: AppSettings
     let themeStore: ThemeStore
@@ -14,15 +14,15 @@ final class AppContainer {
     private let makeBrowser: @MainActor () -> any BonjourBrowsing
 
     init(
-        deviceStore: DeviceStore = UserDefaultsDeviceStore(),
+        connectionStore: ConnectionStore = UserDefaultsConnectionStore(),
         keychain: KeychainStore = KeychainTokenStore(),
         pairingService: PairingService = LivePairingService(),
-        validator: DeviceInputValidator = DeviceInputValidator(),
+        validator: ConnectionInputValidator = ConnectionInputValidator(),
         tokenGenerator: TokenGenerating = TokenGenerator(),
         settings: AppSettings? = nil,
         makeBrowser: @escaping @MainActor () -> any BonjourBrowsing = { BonjourBrowser() }
     ) {
-        self.deviceStore = deviceStore
+        self.connectionStore = connectionStore
         self.keychain = keychain
         self.pairingService = pairingService
         self.validator = validator
@@ -37,13 +37,13 @@ final class AppContainer {
         themeStore = ThemeStore(connectionManager: connectionManager)
     }
 
-    func makeDevicesListViewModel() -> DevicesListViewModel {
-        DevicesListViewModel(store: deviceStore, keychain: keychain)
+    func makeConnectionsListViewModel() -> ConnectionsListViewModel {
+        ConnectionsListViewModel(store: connectionStore, keychain: keychain)
     }
 
-    func makeAddDeviceViewModel() -> AddDeviceViewModel {
-        AddDeviceViewModel(
-            store: deviceStore,
+    func makeAddConnectionViewModel() -> AddConnectionViewModel {
+        AddConnectionViewModel(
+            store: connectionStore,
             keychain: keychain,
             connectionManager: connectionManager,
             validator: validator,
@@ -52,18 +52,22 @@ final class AppContainer {
         )
     }
 
-    func makeProjectsViewModel(for device: Device) -> ProjectsViewModel {
-        ProjectsViewModel(device: device, keychain: keychain, connectionManager: connectionManager)
+    func makeProjectsViewModel(for connection: Connection) -> ProjectsViewModel {
+        ProjectsViewModel(connection: connection, keychain: keychain, connectionManager: connectionManager)
     }
 
-    func makeProjectDetailViewModel(for project: Project, device: Device) -> ProjectDetailViewModel {
+    func makeProjectDetailViewModel(for project: Project, connection: Connection) -> ProjectDetailViewModel {
         let sessionStore = TerminalSessionStore(channel: connectionManager)
         return ProjectDetailViewModel(
-            device: device,
+            connection: connection,
             project: project,
             keychain: keychain,
             connectionManager: connectionManager,
             sessionStore: sessionStore
         )
+    }
+
+    func makeSSHTerminalViewModel(for connection: Connection) -> SSHTerminalViewModel {
+        SSHTerminalViewModel(connection: connection, keychain: keychain)
     }
 }

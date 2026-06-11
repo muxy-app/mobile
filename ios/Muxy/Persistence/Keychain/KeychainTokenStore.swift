@@ -8,10 +8,10 @@ struct KeychainTokenStore: KeychainStore {
         self.service = service
     }
 
-    func setToken(_ token: String, for deviceID: Device.ID) throws {
-        guard let data = token.data(using: .utf8) else { throw KeychainError.encodingFailed }
+    func setSecret(_ value: String, _ secret: KeychainSecret, for connectionID: Connection.ID) throws {
+        guard let data = value.data(using: .utf8) else { throw KeychainError.encodingFailed }
 
-        let query = baseQuery(for: deviceID)
+        let query = baseQuery(secret, for: connectionID)
         let attributes: [String: Any] = [
             kSecValueData as String: data,
             kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
@@ -20,14 +20,14 @@ struct KeychainTokenStore: KeychainStore {
         let status = SecItemAdd(query.merging(attributes) { _, new in new } as CFDictionary, nil)
         if status == errSecSuccess { return }
         if status == errSecDuplicateItem {
-            try update(data: data, for: deviceID)
+            try update(data: data, secret, for: connectionID)
             return
         }
         throw KeychainError.unexpectedStatus(status)
     }
 
-    func token(for deviceID: Device.ID) throws -> String? {
-        var query = baseQuery(for: deviceID)
+    func secret(_ secret: KeychainSecret, for connectionID: Connection.ID) throws -> String? {
+        var query = baseQuery(secret, for: connectionID)
         query[kSecReturnData as String] = true
         query[kSecMatchLimit as String] = kSecMatchLimitOne
 
@@ -35,27 +35,34 @@ struct KeychainTokenStore: KeychainStore {
         let status = SecItemCopyMatching(query as CFDictionary, &item)
         if status == errSecItemNotFound { return nil }
         guard status == errSecSuccess else { throw KeychainError.unexpectedStatus(status) }
-        guard let data = item as? Data, let token = String(data: data, encoding: .utf8) else { return nil }
-        return token
+        guard let data = item as? Data, let value = String(data: data, encoding: .utf8) else { return nil }
+        return value
     }
 
-    func deleteToken(for deviceID: Device.ID) throws {
-        let status = SecItemDelete(baseQuery(for: deviceID) as CFDictionary)
-        if status == errSecSuccess || status == errSecItemNotFound { return }
-        throw KeychainError.unexpectedStatus(status)
+    func deleteSecrets(for connectionID: Connection.ID) throws {
+        for secret in KeychainSecret.allCases {
+            let status = SecItemDelete(baseQuery(secret, for: connectionID) as CFDictionary)
+            guard status == errSecSuccess || status == errSecItemNotFound else {
+                throw KeychainError.unexpectedStatus(status)
+            }
+        }
     }
 
-    private func update(data: Data, for deviceID: Device.ID) throws {
+    private func update(data: Data, _ secret: KeychainSecret, for connectionID: Connection.ID) throws {
         let attributes: [String: Any] = [kSecValueData as String: data]
-        let status = SecItemUpdate(baseQuery(for: deviceID) as CFDictionary, attributes as CFDictionary)
+        let status = SecItemUpdate(baseQuery(secret, for: connectionID) as CFDictionary, attributes as CFDictionary)
         guard status == errSecSuccess else { throw KeychainError.unexpectedStatus(status) }
     }
 
-    private func baseQuery(for deviceID: Device.ID) -> [String: Any] {
+    private func baseQuery(_ secret: KeychainSecret, for connectionID: Connection.ID) -> [String: Any] {
         [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
-            kSecAttrAccount as String: deviceID.uuidString,
+            kSecAttrAccount as String: account(secret, for: connectionID),
         ]
+    }
+
+    private func account(_ secret: KeychainSecret, for connectionID: Connection.ID) -> String {
+        secret == .token ? connectionID.uuidString : "\(connectionID.uuidString).\(secret.rawValue)"
     }
 }

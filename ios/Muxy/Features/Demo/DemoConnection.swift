@@ -1,15 +1,16 @@
 import Foundation
 
-nonisolated enum DemoDevice {
+nonisolated enum DemoConnection {
     static let id = UUID(uuidString: "00000000-0000-4000-8000-000000000001")!
     static let token = "demo-token"
 
-    static var device: Device {
-        Device(
+    static var connection: Connection {
+        Connection(
             id: id,
             name: "Demo Desktop",
             host: "demo.local",
             port: 4865,
+            kind: .device,
             pairingState: .paired,
             serviceName: "Demo Desktop",
             discoverySource: .manual
@@ -17,9 +18,9 @@ nonisolated enum DemoDevice {
     }
 
     @MainActor
-    static func apply(enabled: Bool, store: DeviceStore, keychain: KeychainStore) {
+    static func apply(enabled: Bool, store: ConnectionStore, keychain: KeychainStore) {
         if enabled {
-            store.upsert(device)
+            store.upsert(connection)
             try? keychain.setToken(token, for: id)
             return
         }

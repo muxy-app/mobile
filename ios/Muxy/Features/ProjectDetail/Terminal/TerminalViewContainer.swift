@@ -3,7 +3,7 @@ import SwiftTerm
 import SwiftUI
 
 struct TerminalViewContainer: UIViewRepresentable {
-    let session: TerminalSession
+    let session: any TerminalIO
     let theme: TerminalTheme
     let fontSize: CGFloat
     let useNerdFont: Bool
@@ -32,7 +32,7 @@ struct TerminalViewContainer: UIViewRepresentable {
     }
 
     func updateUIView(_ view: TerminalView, context: Context) {
-        session.takeOverIfReady()
+        session.terminalDidLayout()
         if context.coordinator.appliedFontSize != fontSize || context.coordinator.appliedUseNerdFont != useNerdFont {
             view.font = TerminalFont.mono(size: fontSize, useNerdFont: useNerdFont)
             context.coordinator.appliedFontSize = fontSize
@@ -57,18 +57,17 @@ struct TerminalViewContainer: UIViewRepresentable {
 
     @MainActor
     final class Coordinator: NSObject, TerminalViewDelegate {
-        private let session: TerminalSession
+        private let session: any TerminalIO
         var appliedFontSize: CGFloat?
         var appliedUseNerdFont: Bool?
         var appliedTheme: TerminalTheme?
 
-        init(session: TerminalSession) {
+        init(session: any TerminalIO) {
             self.session = session
         }
 
         func sizeChanged(source: TerminalView, newCols: Int, newRows: Int) {
-            session.takeOverIfReady()
-            session.reportResize(cols: newCols, rows: newRows)
+            session.terminalDidResize(cols: newCols, rows: newRows)
         }
 
         func send(source: TerminalView, data: ArraySlice<UInt8>) {
@@ -111,7 +110,7 @@ final class FollowAwareTerminalView: TerminalView {
     var onUserScroll: ((Double) -> Void)?
     var autoFocusTerminal = true
 
-    weak var session: TerminalSession?
+    weak var session: (any TerminalIO)?
 
     private let accessoryBar = TerminalAccessoryBar()
     private var keyboardHidden = false
@@ -177,7 +176,7 @@ final class FollowAwareTerminalView: TerminalView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        session?.takeOverIfReady()
+        session?.terminalDidLayout()
     }
 
     private func toggleKeyboard() {

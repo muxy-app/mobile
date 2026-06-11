@@ -20,8 +20,8 @@ struct ConnectionManagerTests {
         """
     }
 
-    private func device() -> Device {
-        Device(
+    private func device() -> Connection {
+        Connection(
             id: UUID(),
             name: "Studio",
             host: "studio.local",
@@ -79,7 +79,7 @@ struct ConnectionManagerTests {
         let device = device()
 
         await manager.connect(to: device, token: "t")
-        await manager.ensureConnected(device: device, token: "t")
+        await manager.ensureConnected(connection: device, token: "t")
         let state = await manager.currentState
 
         #expect(state == .connected)
@@ -90,7 +90,7 @@ struct ConnectionManagerTests {
         let (factory, count) = successFactory()
         let manager = ConnectionManager(makeTransport: factory)
 
-        await manager.ensureConnected(device: device(), token: "t")
+        await manager.ensureConnected(connection: device(), token: "t")
         let state = await manager.currentState
 
         #expect(state == .connected)
@@ -105,7 +105,7 @@ struct ConnectionManagerTests {
         await manager.connect(to: device, token: "t")
         await holder.latest()?.failReaders()
         try await waitUntil { await manager.currentState == .disconnected }
-        await manager.ensureConnected(device: device, token: "t")
+        await manager.ensureConnected(connection: device, token: "t")
         let state = await manager.currentState
 
         #expect(state == .connected)
@@ -117,7 +117,7 @@ struct ConnectionManagerTests {
         let manager = ConnectionManager(makeTransport: factory)
 
         await manager.connect(to: device(), token: "t")
-        await manager.ensureConnected(device: device(), token: "t")
+        await manager.ensureConnected(connection: device(), token: "t")
         let state = await manager.currentState
 
         #expect(state == .connected)
@@ -141,10 +141,10 @@ struct ConnectionManagerTests {
         let manager = ConnectionManager(makeTransport: factory)
         let device = device()
 
-        let status = await manager.beginPairing(device: device, token: "t") { _ in }
+        let status = await manager.beginPairing(connection: device, token: "t") { _ in }
         guard case .paired = status else { Issue.record("Expected paired"); return }
 
-        await manager.ensureConnected(device: device, token: "t")
+        await manager.ensureConnected(connection: device, token: "t")
         let state = await manager.currentState
 
         #expect(state == .connected)
@@ -154,7 +154,7 @@ struct ConnectionManagerTests {
     @Test func failedEndpointReportsFailure() async {
         let (factory, _) = successFactory()
         let manager = ConnectionManager(makeTransport: factory)
-        let device = Device(
+        let device = Connection(
             id: UUID(),
             name: "Bad",
             host: "",

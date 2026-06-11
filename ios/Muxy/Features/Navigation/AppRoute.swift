@@ -1,6 +1,7 @@
 import Foundation
 
 enum AppRoute: Hashable {
-    case projects(Device)
-    case projectDetail(device: Device, project: Project)
+    case projects(Connection)
+    case projectDetail(connection: Connection, project: Project)
+    case sshTerminal(Connection)
 }

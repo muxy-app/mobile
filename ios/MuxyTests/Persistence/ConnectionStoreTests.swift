@@ -2,14 +2,14 @@ import Foundation
 import Testing
 @testable import Muxy
 
-struct DeviceStoreTests {
-    private func makeStore() -> UserDefaultsDeviceStore {
+struct ConnectionStoreTests {
+    private func makeStore() -> UserDefaultsConnectionStore {
         let suite = UserDefaults(suiteName: "muxy.tests.\(UUID().uuidString)")!
-        return UserDefaultsDeviceStore(defaults: suite, key: "devices")
+        return UserDefaultsConnectionStore(defaults: suite, key: "devices")
     }
 
-    private func device(name: String = "Studio") -> Device {
-        Device(
+    private func device(name: String = "Studio") -> Connection {
+        Connection(
             id: UUID(),
             name: name,
             host: "studio.local",
@@ -58,7 +58,7 @@ struct DeviceStoreTests {
     @Test func deviceCodableRoundTrips() throws {
         let device = device()
         let data = try JSONEncoder().encode(device)
-        let decoded = try JSONDecoder().decode(Device.self, from: data)
+        let decoded = try JSONDecoder().decode(Connection.self, from: data)
         #expect(decoded == device)
     }
 
@@ -66,7 +66,7 @@ struct DeviceStoreTests {
         var device = device()
         device.serviceName = nil
         let data = try JSONEncoder().encode(device)
-        let decoded = try JSONDecoder().decode(Device.self, from: data)
+        let decoded = try JSONDecoder().decode(Connection.self, from: data)
         #expect(decoded.serviceName == nil)
         #expect(decoded == device)
     }

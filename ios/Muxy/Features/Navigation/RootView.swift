@@ -4,15 +4,15 @@ struct RootView: View {
     let container: AppContainer
 
     @AppStorage("muxy.hasCompletedOnboarding") private var hasCompletedOnboarding = false
-    @State private var devicesViewModel: DevicesListViewModel
+    @State private var connectionsViewModel: ConnectionsListViewModel
     @State private var themeStore: ThemeStore
     @State private var path = NavigationPath()
-    @State private var isAddingDevice = false
+    @State private var isAddingConnection = false
     @State private var isShowingSettings = false
 
     init(container: AppContainer) {
         self.container = container
-        _devicesViewModel = State(initialValue: container.makeDevicesListViewModel())
+        _connectionsViewModel = State(initialValue: container.makeConnectionsListViewModel())
         _themeStore = State(initialValue: container.themeStore)
     }
 
@@ -33,24 +33,14 @@ struct RootView: View {
         Group {
             if hasCompletedOnboarding {
                 NavigationStack(path: $path) {
-                    DevicesListView(
-                        viewModel: devicesViewModel,
-                        onSelect: { device in path.append(AppRoute.projects(device)) },
-                        onAddDevice: { isAddingDevice = true },
+                    ConnectionsListView(
+                        viewModel: connectionsViewModel,
+                        onSelect: navigate(to:),
+                        onAddConnection: { isAddingConnection = true },
                         onSettings: { isShowingSettings = true }
                     )
                     .navigationDestination(for: AppRoute.self) { route in
-                        switch route {
-                        case let .projects(device):
-                            ProjectsView(
-                                viewModel: container.makeProjectsViewModel(for: device),
-                                onSelect: { project in
-                                    path.append(AppRoute.projectDetail(device: device, project: project))
-                                }
-                            )
-                        case let .projectDetail(device, project):
-                            ProjectDetailView(viewModel: container.makeProjectDetailViewModel(for: project, device: device))
-                        }
+                        destination(for: route)
                     }
                 }
                 .onChange(of: path.count) { _, newCount in
@@ -66,12 +56,12 @@ struct RootView: View {
         }
         .onAppear { applyDemoMode() }
         .onChange(of: container.settings.demoMode) { _, _ in applyDemoMode() }
-        .sheet(isPresented: $isAddingDevice, onDismiss: { devicesViewModel.load() }) {
-            AddDeviceView(
-                viewModel: container.makeAddDeviceViewModel(),
-                onPaired: { device in
-                    isAddingDevice = false
-                    path.append(AppRoute.projects(device))
+        .sheet(isPresented: $isAddingConnection, onDismiss: { connectionsViewModel.load() }) {
+            AddConnectionView(
+                viewModel: container.makeAddConnectionViewModel(),
+                onAdded: { connection in
+                    isAddingConnection = false
+                    navigate(to: connection)
                 }
             )
         }
@@ -82,17 +72,43 @@ struct RootView: View {
         }
     }
 
+    @ViewBuilder
+    private func destination(for route: AppRoute) -> some View {
+        switch route {
+        case let .projects(connection):
+            ProjectsView(
+                viewModel: container.makeProjectsViewModel(for: connection),
+                onSelect: { project in
+                    path.append(AppRoute.projectDetail(connection: connection, project: project))
+                }
+            )
+        case let .projectDetail(connection, project):
+            ProjectDetailView(viewModel: container.makeProjectDetailViewModel(for: project, connection: connection))
+        case let .sshTerminal(connection):
+            SSHTerminalView(viewModel: container.makeSSHTerminalViewModel(for: connection))
+        }
+    }
+
+    private func navigate(to connection: Connection) {
+        switch connection.kind {
+        case .device:
+            path.append(AppRoute.projects(connection))
+        case .ssh:
+            path.append(AppRoute.sshTerminal(connection))
+        }
+    }
+
     private func completeOnboarding() {
         hasCompletedOnboarding = true
     }
 
     private func completeOnboardingAndPair() {
         hasCompletedOnboarding = true
-        isAddingDevice = true
+        isAddingConnection = true
     }
 
     private func applyDemoMode() {
-        DemoDevice.apply(enabled: container.settings.demoMode, store: container.deviceStore, keychain: container.keychain)
-        devicesViewModel.load()
+        DemoConnection.apply(enabled: container.settings.demoMode, store: container.connectionStore, keychain: container.keychain)
+        connectionsViewModel.load()
     }
 }

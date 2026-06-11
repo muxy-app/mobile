@@ -10,7 +10,7 @@ struct ProjectsView: View {
         content
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(theme.background)
-            .navigationTitle(viewModel.device.name)
+            .navigationTitle(viewModel.connection.name)
             .navigationBarTitleDisplayMode(.inline)
             .task { await viewModel.connect() }
             .onChange(of: scenePhase) { _, phase in
@@ -52,7 +52,7 @@ struct ProjectsView: View {
             ThemedEmptyState(
                 title: "Couldn't Load Projects",
                 systemImage: "exclamationmark.triangle",
-                message: "Something went wrong loading projects from \(viewModel.device.name)."
+                message: "Something went wrong loading projects from \(viewModel.connection.name)."
             ) {
                 retryButton
             }
@@ -60,13 +60,13 @@ struct ProjectsView: View {
             ThemedEmptyState(
                 title: "No Projects",
                 systemImage: "folder",
-                message: "Projects on \(viewModel.device.name) will appear here."
+                message: "Projects on \(viewModel.connection.name) will appear here."
             )
         default:
             ThemedEmptyState(
                 title: "Not Connected",
                 systemImage: "wifi.slash",
-                message: "Connect to \(viewModel.device.name) to see its projects."
+                message: "Connect to \(viewModel.connection.name) to see its projects."
             ) {
                 retryButton
             }

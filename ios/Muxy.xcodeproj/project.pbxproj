@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		574700012FD7000000000001 /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = 574700002FD7000000000001 /* SwiftTerm */; };
+		574700012FD7000000000002 /* Citadel in Frameworks */ = {isa = PBXBuildFile; productRef = 574700002FD7000000000002 /* Citadel */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -57,6 +58,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				574700012FD7000000000001 /* SwiftTerm in Frameworks */,
+				574700012FD7000000000002 /* Citadel in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -109,6 +111,7 @@
 			name = Muxy;
 			packageProductDependencies = (
 				574700002FD7000000000001 /* SwiftTerm */,
+				574700002FD7000000000002 /* Citadel */,
 			);
 			productName = Muxy;
 			productReference = 30F745E92FD6C28A003FC767 /* Muxy.app */;
@@ -167,6 +170,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				574700022FD7000000000001 /* XCRemoteSwiftPackageReference "SwiftTerm" */,
+				574700022FD7000000000002 /* XCRemoteSwiftPackageReference "Citadel" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 30F745EA2FD6C28A003FC767 /* Products */;
@@ -499,6 +503,14 @@
 				minimumVersion = 1.13.0;
 			};
 		};
+		574700022FD7000000000002 /* XCRemoteSwiftPackageReference "Citadel" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/orlandos-nl/Citadel.git";
+			requirement = {
+				kind = upToNextMinorVersion;
+				minimumVersion = 0.12.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -506,6 +518,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 574700022FD7000000000001 /* XCRemoteSwiftPackageReference "SwiftTerm" */;
 			productName = SwiftTerm;
+		};
+		574700002FD7000000000002 /* Citadel */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 574700022FD7000000000002 /* XCRemoteSwiftPackageReference "Citadel" */;
+			productName = Citadel;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

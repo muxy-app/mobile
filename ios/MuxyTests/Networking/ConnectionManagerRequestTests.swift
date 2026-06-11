@@ -41,8 +41,8 @@ struct ConnectionManagerRequestTests {
         }
     }
 
-    private func device() -> Device {
-        Device(
+    private func device() -> Connection {
+        Connection(
             id: UUID(),
             name: "Studio",
             host: "studio.local",

@@ -3,15 +3,15 @@ import Testing
 @testable import Muxy
 
 @MainActor
-struct AddDeviceViewModelTests {
+struct AddConnectionViewModelTests {
     private func makeViewModel(
         services: [DiscoveredService] = []
-    ) -> AddDeviceViewModel {
-        AddDeviceViewModel(
-            store: InMemoryDeviceStore(),
+    ) -> AddConnectionViewModel {
+        AddConnectionViewModel(
+            store: InMemoryConnectionStore(),
             keychain: InMemoryKeychainStore(),
             connectionManager: ConnectionManager(makeTransport: { _ in MockTransport() }),
-            validator: DeviceInputValidator(),
+            validator: ConnectionInputValidator(),
             tokenGenerator: TokenGenerator(),
             browser: MockBonjourBrowser(services: services)
         )
@@ -65,11 +65,11 @@ struct AddDeviceViewModelTests {
 
     @Test func startDiscoveryStartsBrowser() {
         let browser = MockBonjourBrowser()
-        let viewModel = AddDeviceViewModel(
-            store: InMemoryDeviceStore(),
+        let viewModel = AddConnectionViewModel(
+            store: InMemoryConnectionStore(),
             keychain: InMemoryKeychainStore(),
             connectionManager: ConnectionManager(makeTransport: { _ in MockTransport() }),
-            validator: DeviceInputValidator(),
+            validator: ConnectionInputValidator(),
             tokenGenerator: TokenGenerator(),
             browser: browser
         )
