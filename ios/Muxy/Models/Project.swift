@@ -10,4 +10,8 @@ nonisolated struct Project: Codable, Sendable, Identifiable, Equatable, Hashable
     let logo: String?
     let iconColor: String?
     let preferredWorktreeParentPath: String?
+    let worktreesEnabled: Bool?
+    let workspaceKind: String?
+    let workspaceID: UUID?
+    let workspaceName: String?
 }

@@ -12,6 +12,8 @@ actor DemoBackend {
     private let webTabID = UUID(uuidString: "00000000-0000-4000-8000-000000000502")!
     private let muxyPaneID = UUID(uuidString: "00000000-0000-4000-8000-000000000601")!
     private let webPaneID = UUID(uuidString: "00000000-0000-4000-8000-000000000602")!
+    private let workProjectsWorkspaceID = UUID(uuidString: "00000000-0000-4000-8000-000000000701")!
+    private let personalProjectsWorkspaceID = UUID(uuidString: "00000000-0000-4000-8000-000000000702")!
     private var workspaces: [UUID: Workspace] = [:]
     private var gitStatuses: [UUID: VCSStatus] = [:]
     private var tabCounter = 2
@@ -247,7 +249,11 @@ actor DemoBackend {
                 icon: "terminal",
                 logo: nil,
                 iconColor: "#22c55e",
-                preferredWorktreeParentPath: "/Users/demo/Projects"
+                preferredWorktreeParentPath: "/Users/demo/Projects",
+                worktreesEnabled: false,
+                workspaceKind: "local",
+                workspaceID: workProjectsWorkspaceID,
+                workspaceName: "Work"
             ),
             Project(
                 id: webProjectID,
@@ -258,7 +264,11 @@ actor DemoBackend {
                 icon: "globe",
                 logo: nil,
                 iconColor: "#3b82f6",
-                preferredWorktreeParentPath: "/Users/demo/Projects"
+                preferredWorktreeParentPath: "/Users/demo/Projects",
+                worktreesEnabled: false,
+                workspaceKind: "local",
+                workspaceID: personalProjectsWorkspaceID,
+                workspaceName: "Personal"
             )
         ]
     }

@@ -58,7 +58,11 @@ struct GitViewModelTests {
             icon: "terminal",
             logo: nil,
             iconColor: "#22c55e",
-            preferredWorktreeParentPath: "/Users/demo/Projects"
+            preferredWorktreeParentPath: "/Users/demo/Projects",
+            worktreesEnabled: false,
+            workspaceKind: "local",
+            workspaceID: nil,
+            workspaceName: nil
         )
     }
 }

@@ -11,6 +11,7 @@ final class AppContainer {
     let settings: AppSettings
     let themeStore: ThemeStore
 
+    private let workspaceSelectionStore: WorkspaceSelectionStore
     private let makeBrowser: @MainActor () -> any BonjourBrowsing
 
     init(
@@ -20,6 +21,7 @@ final class AppContainer {
         validator: ConnectionInputValidator = ConnectionInputValidator(),
         tokenGenerator: TokenGenerating = TokenGenerator(),
         settings: AppSettings? = nil,
+        workspaceSelectionStore: WorkspaceSelectionStore = UserDefaultsWorkspaceSelectionStore(),
         makeBrowser: @escaping @MainActor () -> any BonjourBrowsing = { BonjourBrowser() }
     ) {
         self.connectionStore = connectionStore
@@ -28,6 +30,7 @@ final class AppContainer {
         self.validator = validator
         self.tokenGenerator = tokenGenerator
         self.settings = settings ?? AppSettings()
+        self.workspaceSelectionStore = workspaceSelectionStore
         self.makeBrowser = makeBrowser
         let connectionManager = ConnectionManager(
             makeTransport: { url in WebSocketTransport(url: url) },
@@ -53,7 +56,12 @@ final class AppContainer {
     }
 
     func makeProjectsViewModel(for connection: Connection) -> ProjectsViewModel {
-        ProjectsViewModel(connection: connection, keychain: keychain, connectionManager: connectionManager)
+        ProjectsViewModel(
+            connection: connection,
+            keychain: keychain,
+            connectionManager: connectionManager,
+            workspaceSelectionStore: workspaceSelectionStore
+        )
     }
 
     func makeProjectDetailViewModel(for project: Project, connection: Connection) -> ProjectDetailViewModel {
