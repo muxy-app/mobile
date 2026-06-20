@@ -11,15 +11,30 @@ final class ProjectsViewModel {
     private(set) var logos: [Project.ID: Data] = [:]
     private(set) var loadFailed = false
 
+    var selectedWorkspaceID: UUID? {
+        didSet {
+            guard selectedWorkspaceID != oldValue else { return }
+            workspaceSelectionStore.save(selectedWorkspaceID, connectionID: connection.id)
+        }
+    }
+
     private let keychain: KeychainStore
     private let connectionManager: ConnectionManager
+    private let workspaceSelectionStore: WorkspaceSelectionStore
     private var observationTask: Task<Void, Never>?
     private var eventsTask: Task<Void, Never>?
 
-    init(connection: Connection, keychain: KeychainStore, connectionManager: ConnectionManager) {
+    init(
+        connection: Connection,
+        keychain: KeychainStore,
+        connectionManager: ConnectionManager,
+        workspaceSelectionStore: WorkspaceSelectionStore = UserDefaultsWorkspaceSelectionStore()
+    ) {
         self.connection = connection
         self.keychain = keychain
         self.connectionManager = connectionManager
+        self.workspaceSelectionStore = workspaceSelectionStore
+        selectedWorkspaceID = workspaceSelectionStore.load(connectionID: connection.id)
     }
 
     func connect() async {
@@ -75,8 +90,32 @@ final class ProjectsViewModel {
         }
     }
 
+    var workspaces: [ProjectWorkspace] {
+        var seen = Set<UUID>()
+        var result: [ProjectWorkspace] = []
+        for project in projects {
+            guard let id = project.workspaceID, let name = project.workspaceName else { continue }
+            guard seen.insert(id).inserted else { continue }
+            result.append(ProjectWorkspace(id: id, name: name))
+        }
+        return result
+    }
+
+    var filteredProjects: [Project] {
+        guard let selectedWorkspaceID, workspaces.contains(where: { $0.id == selectedWorkspaceID }) else {
+            return projects
+        }
+        return projects.filter { $0.workspaceID == selectedWorkspaceID }
+    }
+
     func logoData(for project: Project) -> Data? {
         logos[project.id]
+    }
+
+    private func pruneSelectedWorkspaceIfMissing() {
+        guard let selectedWorkspaceID, !projects.isEmpty else { return }
+        guard !projects.contains(where: { $0.workspaceID == selectedWorkspaceID }) else { return }
+        self.selectedWorkspaceID = nil
     }
 
     private func loadProjects() async {
@@ -84,6 +123,7 @@ final class ProjectsViewModel {
             let result = try await connectionManager.request(.listProjects)
             guard result.type == ResultType.projects else { return }
             projects = try result.decode(ProjectsResult.self).projects.sorted { $0.sortOrder < $1.sortOrder }
+            pruneSelectedWorkspaceIfMissing()
             loadFailed = false
             await loadLogos()
         } catch {
@@ -96,6 +136,7 @@ final class ProjectsViewModel {
         guard let data = event.data, data.type == EventType.projects else { return }
         do {
             projects = try data.decode(ProjectsResult.self).projects.sorted { $0.sortOrder < $1.sortOrder }
+            pruneSelectedWorkspaceIfMissing()
         } catch {
             Log.client.error("Failed to decode projects event: \(error.localizedDescription, privacy: .public)")
             return

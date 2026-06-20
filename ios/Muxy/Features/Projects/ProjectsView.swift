@@ -24,20 +24,38 @@ struct ProjectsView: View {
         if viewModel.projects.isEmpty {
             emptyState
         } else {
-            projectList
+            VStack(spacing: 0) {
+                if viewModel.workspaces.count > 1 {
+                    WorkspaceFilterBar(
+                        workspaces: viewModel.workspaces,
+                        selectedWorkspaceID: $viewModel.selectedWorkspaceID
+                    )
+                }
+
+                projectList
+            }
         }
     }
 
+    @ViewBuilder
     private var projectList: some View {
-        List(viewModel.projects) { project in
-            Button {
-                onSelect(project)
-            } label: {
-                ProjectRowView(project: project, logoData: viewModel.logoData(for: project))
+        if viewModel.filteredProjects.isEmpty {
+            ThemedEmptyState(
+                title: "No Projects",
+                systemImage: "folder",
+                message: "This workspace has no projects."
+            )
+        } else {
+            List(viewModel.filteredProjects) { project in
+                Button {
+                    onSelect(project)
+                } label: {
+                    ProjectRowView(project: project, logoData: viewModel.logoData(for: project))
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
+            .themedSurface()
         }
-        .themedSurface()
     }
 
     @ViewBuilder
