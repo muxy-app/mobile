@@ -497,10 +497,10 @@
 /* Begin XCRemoteSwiftPackageReference section */
 		574700022FD7000000000001 /* XCRemoteSwiftPackageReference "SwiftTerm" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/migueldeicaza/SwiftTerm.git";
+			repositoryURL = "https://github.com/muxy-app/SwiftTerm.git";
 			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 1.13.0;
+				branch = main;
+				kind = branch;
 			};
 		};
 		574700022FD7000000000002 /* XCRemoteSwiftPackageReference "Citadel" */ = {
