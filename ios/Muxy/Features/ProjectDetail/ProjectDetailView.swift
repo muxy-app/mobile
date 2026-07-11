@@ -23,7 +23,6 @@ struct ProjectDetailView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(theme.background)
-        .ignoresSafeArea(.keyboard)
         .navigationTitle(viewModel.projectName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

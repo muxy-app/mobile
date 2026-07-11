@@ -42,7 +42,6 @@ struct TerminalOutputFeeder {
             view.preserveInteractiveOffsetDuringTerminalUpdate {
                 view.feed(byteArray: ArraySlice(bytes))
             }
-            view.scheduleCaretVisibilityCheck()
             return
         }
         view.feed(byteArray: ArraySlice(bytes))
@@ -57,19 +56,20 @@ struct TerminalScrollOffset {
     let y: CGFloat
 
     static func capture(from view: TerminalView) -> TerminalScrollOffset {
-        let maxOffset = TerminalScrollGeometry.maxOffsetY(for: view)
+        let maxOffset = max(0, view.contentSize.height - view.bounds.height)
         let detachedY = min(view.contentOffset.y, max(0, maxOffset - minimumDetachedDistance))
         return TerminalScrollOffset(y: max(0, detachedY))
     }
 
     static func isAtBottom(_ view: TerminalView) -> Bool {
-        view.contentOffset.y >= TerminalScrollGeometry.maxOffsetY(for: view) - bottomTolerance
+        let maxOffset = max(0, view.contentSize.height - view.bounds.height)
+        return view.contentOffset.y >= maxOffset - bottomTolerance
     }
 
     static func scrollToBottom(_ view: TerminalView) {
-        (view as? FollowAwareTerminalView)?.resumeCaretFollow()
         view.scroll(toPosition: 1)
-        view.contentOffset = CGPoint(x: view.contentOffset.x, y: TerminalScrollGeometry.maxOffsetY(for: view))
+        let maxOffset = max(0, view.contentSize.height - view.bounds.height)
+        view.contentOffset = CGPoint(x: view.contentOffset.x, y: maxOffset)
     }
 
     static func isInteracting(with view: TerminalView) -> Bool {
@@ -77,7 +77,7 @@ struct TerminalScrollOffset {
     }
 
     func restore(on view: TerminalView) {
-        let maxOffset = TerminalScrollGeometry.maxOffsetY(for: view)
+        let maxOffset = max(0, view.contentSize.height - view.bounds.height)
         guard maxOffset > 0 else { return }
         let y = min(y, maxOffset)
         let position = Double(y / maxOffset)

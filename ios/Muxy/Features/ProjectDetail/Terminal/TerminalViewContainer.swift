@@ -15,7 +15,6 @@ struct TerminalViewContainer: UIViewRepresentable {
 
     func makeUIView(context: Context) -> TerminalView {
         let view = FollowAwareTerminalView(frame: .zero, font: TerminalFont.mono(size: fontSize, useNerdFont: useNerdFont))
-        view.contentInsetAdjustmentBehavior = .never
         view.autoFocusTerminal = autoFocusTerminal
         view.onUserScroll = { [weak coordinator = context.coordinator] position in
             coordinator?.userScrolled(toPosition: position)
@@ -119,14 +118,6 @@ final class FollowAwareTerminalView: TerminalView {
     private var isRestoringProtectedOffset = false
     private var wheelScrollGesture: UIPanGestureRecognizer?
     private var wheelScrollAccumulatedY: CGFloat = 0
-    private(set) var keyboardOverlap: CGFloat = 0
-    private var isCursorVisible = true
-    private var isCaretFollowSuspended = false
-    private var caretVisibilityTask: Task<Void, Never>?
-
-    private lazy var keyboardAvoidance = TerminalKeyboardAvoidance(view: self) { [weak self] transition in
-        self?.applyKeyboardTransition(transition)
-    }
 
     private let hiddenKeyboardPlaceholder: UIView = {
         let view = UIView(frame: .zero)
@@ -143,9 +134,7 @@ final class FollowAwareTerminalView: TerminalView {
                 return
             }
             guard isTracking || isDragging || isDecelerating else { return }
-            let position = normalizedScrollPosition
-            updateCaretFollowSuspension(position: position)
-            onUserScroll?(position)
+            onUserScroll?(normalizedScrollPosition)
         }
     }
 
@@ -180,109 +169,13 @@ final class FollowAwareTerminalView: TerminalView {
 
     override func didMoveToWindow() {
         super.didMoveToWindow()
-        guard window != nil else {
-            keyboardAvoidance.stopObserving()
-            return
-        }
-        keyboardAvoidance.startObserving()
+        guard window != nil else { return }
         guard autoFocusTerminal else { return }
         _ = becomeFirstResponder()
     }
 
-    override func updateScroller() {
-        super.updateScroller()
-        guard adjustedContentInset.bottom > 0 else { return }
-        guard protectedContentOffset == nil else { return }
-        guard !TerminalScrollOffset.isInteracting(with: self) else { return }
-        guard session?.isFollowingBottom != false else { return }
-        contentOffset.y += adjustedContentInset.bottom
-    }
-
-    override func showCursor(source: Terminal) {
-        super.showCursor(source: source)
-        isCursorVisible = true
-    }
-
-    override func hideCursor(source: Terminal) {
-        super.hideCursor(source: source)
-        isCursorVisible = false
-    }
-
-    func scheduleCaretVisibilityCheck() {
-        guard keyboardOverlap > 0 else { return }
-        caretVisibilityTask?.cancel()
-        caretVisibilityTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(for: .milliseconds(75))
-            guard !Task.isCancelled else { return }
-            self?.revealCaretIfNeeded()
-        }
-    }
-
-    func resumeCaretFollow() {
-        isCaretFollowSuspended = false
-    }
-
-    private func applyKeyboardTransition(_ transition: KeyboardTransition) {
-        guard transition.overlap != keyboardOverlap else { return }
-        keyboardOverlap = transition.overlap
-        contentInset.bottom = transition.overlap
-        verticalScrollIndicatorInsets.bottom = transition.overlap
-        isCaretFollowSuspended = false
-        guard !TerminalScrollOffset.isInteracting(with: self) else { return }
-        let targetY = keyboardTransitionTargetOffsetY()
-        guard targetY != contentOffset.y else { return }
-        guard transition.duration > 0 else {
-            contentOffset.y = targetY
-            return
-        }
-        UIView.animate(withDuration: transition.duration, delay: 0, options: transition.animationOptions) {
-            self.contentOffset.y = targetY
-        }
-    }
-
-    private func keyboardTransitionTargetOffsetY() -> CGFloat {
-        let maxOffsetY = TerminalScrollGeometry.maxOffsetY(for: self)
-        let baseY = session?.isFollowingBottom == false
-            ? min(max(0, contentOffset.y), maxOffsetY)
-            : maxOffsetY
-        guard shouldFollowCaret else { return baseY }
-        return caretRevealOffsetY(from: baseY, maxOffsetY: maxOffsetY) ?? baseY
-    }
-
-    private var shouldFollowCaret: Bool {
-        guard keyboardOverlap > 0, isCursorVisible, !isCaretFollowSuspended else { return false }
-        if getTerminal().isCurrentBufferAlternate { return true }
-        return session?.isFollowingBottom != false
-    }
-
-    private func revealCaretIfNeeded() {
-        guard shouldFollowCaret else { return }
-        guard !TerminalScrollOffset.isInteracting(with: self) else { return }
-        let maxOffsetY = TerminalScrollGeometry.maxOffsetY(for: self)
-        guard let targetY = caretRevealOffsetY(from: contentOffset.y, maxOffsetY: maxOffsetY) else { return }
-        UIView.animate(withDuration: 0.15, delay: 0, options: .curveEaseOut) {
-            self.contentOffset.y = targetY
-        }
-    }
-
-    private func caretRevealOffsetY(from offsetY: CGFloat, maxOffsetY: CGFloat) -> CGFloat? {
-        TerminalScrollGeometry.caretRevealOffsetY(
-            currentOffsetY: offsetY,
-            caretFrame: caretFrame,
-            boundsHeight: bounds.height,
-            bottomInset: adjustedContentInset.bottom,
-            maxOffsetY: maxOffsetY
-        )
-    }
-
-    private func updateCaretFollowSuspension(position: Double) {
-        guard keyboardOverlap > 0 else { return }
-        isCaretFollowSuspended = !TerminalOutputFeeder.isFollowingBottom(position)
-    }
-
     override func layoutSubviews() {
         super.layoutSubviews()
-        keyboardAvoidance.syncToCurrentKeyboard()
         session?.terminalDidLayout()
     }
 
@@ -295,7 +188,7 @@ final class FollowAwareTerminalView: TerminalView {
     }
 
     private var normalizedScrollPosition: Double {
-        let maxOffset = TerminalScrollGeometry.maxOffsetY(for: self)
+        let maxOffset = max(0, contentSize.height - bounds.height)
         guard maxOffset > 0 else { return 1 }
         return Double(min(max(contentOffset.y, 0), maxOffset) / maxOffset)
     }

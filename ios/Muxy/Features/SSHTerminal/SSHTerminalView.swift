@@ -20,7 +20,6 @@ struct SSHTerminalView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(theme.background)
-        .ignoresSafeArea(.keyboard)
         .navigationTitle(viewModel.connectionName)
         .navigationBarTitleDisplayMode(.inline)
         .task { viewModel.start() }
