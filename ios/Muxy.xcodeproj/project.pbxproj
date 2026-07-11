@@ -499,7 +499,7 @@
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/muxy-app/SwiftTerm.git";
 			requirement = {
-				branch = main;
+				branch = muxy;
 				kind = branch;
 			};
 		};

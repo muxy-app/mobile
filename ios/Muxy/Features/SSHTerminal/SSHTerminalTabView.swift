@@ -26,12 +26,14 @@ struct SSHTerminalTabView: View {
                 useNerdFont: useNerdFont,
                 autoFocusTerminal: autoFocusTerminal
             )
-                .ignoresSafeArea(.keyboard)
+
+            KeyboardOcclusionCover(color: session.theme.background.asColor)
 
             overlay
 
             if !session.isFollowingBottom {
                 jumpToBottomButton
+                    .keyboardOverlapPadding()
             }
         }
         .background(session.theme.background.asColor)

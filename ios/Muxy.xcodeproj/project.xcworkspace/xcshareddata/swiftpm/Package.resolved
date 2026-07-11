@@ -105,8 +105,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/muxy-app/SwiftTerm.git",
       "state" : {
-        "branch" : "main",
-        "revision" : "9adb62463d2264e7403feb7a1471aaf27eaab2f4"
+        "branch" : "muxy",
+        "revision" : "f8f2aa853b5b3d70a95058a468f63227b8f138c3"
       }
     }
   ],
