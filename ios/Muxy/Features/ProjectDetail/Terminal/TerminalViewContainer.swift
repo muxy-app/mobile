@@ -8,13 +8,16 @@ struct TerminalViewContainer: UIViewRepresentable {
     let fontSize: CGFloat
     let useNerdFont: Bool
     let autoFocusTerminal: Bool
+    let onKeyboardOffsetChange: (CGFloat) -> Void
 
     func makeCoordinator() -> Coordinator {
         Coordinator(session: session)
     }
 
-    func makeUIView(context: Context) -> TerminalView {
+    func makeUIView(context: Context) -> TerminalViewportHostView {
         let view = FollowAwareTerminalView(frame: .zero, font: TerminalFont.mono(size: fontSize, useNerdFont: useNerdFont))
+        let host = TerminalViewportHostView(terminalView: view)
+        host.onKeyboardOffsetChange = onKeyboardOffsetChange
         view.autoFocusTerminal = autoFocusTerminal
         view.onUserScroll = { [weak coordinator = context.coordinator] position in
             coordinator?.userScrolled(toPosition: position)
@@ -24,23 +27,20 @@ struct TerminalViewContainer: UIViewRepresentable {
         view.terminalDelegate = context.coordinator
         view.allowMouseReporting = true
         apply(theme: theme, to: view)
+        host.applyBackgroundColor(theme.background)
         session.attach(view)
-        context.coordinator.appliedFontSize = fontSize
-        context.coordinator.appliedUseNerdFont = useNerdFont
         context.coordinator.appliedTheme = theme
-        return view
+        return host
     }
 
-    func updateUIView(_ view: TerminalView, context: Context) {
+    func updateUIView(_ host: TerminalViewportHostView, context: Context) {
+        let view = host.terminalView
+        host.onKeyboardOffsetChange = onKeyboardOffsetChange
         session.terminalDidLayout()
-        if context.coordinator.appliedFontSize != fontSize || context.coordinator.appliedUseNerdFont != useNerdFont {
-            view.font = TerminalFont.mono(size: fontSize, useNerdFont: useNerdFont)
-            context.coordinator.appliedFontSize = fontSize
-            context.coordinator.appliedUseNerdFont = useNerdFont
-        }
-        (view as? FollowAwareTerminalView)?.autoFocusTerminal = autoFocusTerminal
+        view.autoFocusTerminal = autoFocusTerminal
         if context.coordinator.appliedTheme != theme {
             apply(theme: theme, to: view)
+            host.applyBackgroundColor(theme.background)
             context.coordinator.appliedTheme = theme
         }
     }
@@ -58,8 +58,6 @@ struct TerminalViewContainer: UIViewRepresentable {
     @MainActor
     final class Coordinator: NSObject, TerminalViewDelegate {
         private let session: any TerminalIO
-        var appliedFontSize: CGFloat?
-        var appliedUseNerdFont: Bool?
         var appliedTheme: TerminalTheme?
 
         init(session: any TerminalIO) {
@@ -111,13 +109,13 @@ final class FollowAwareTerminalView: TerminalView {
     var autoFocusTerminal = true
 
     weak var session: (any TerminalIO)?
+    weak var viewportHost: TerminalViewportHostView?
 
     private let accessoryBar = TerminalAccessoryBar()
     private var keyboardHidden = false
     private var protectedContentOffset: CGPoint?
+    private var contentOffsetProtectionDepth = 0
     private var isRestoringProtectedOffset = false
-    private var wheelScrollGesture: UIPanGestureRecognizer?
-    private var wheelScrollAccumulatedY: CGFloat = 0
 
     private let hiddenKeyboardPlaceholder: UIView = {
         let view = UIView(frame: .zero)
@@ -133,16 +131,37 @@ final class FollowAwareTerminalView: TerminalView {
                 isRestoringProtectedOffset = false
                 return
             }
-            guard isTracking || isDragging || isDecelerating else { return }
+            guard isTerminalScrollInteractionActive else { return }
             onUserScroll?(normalizedScrollPosition)
         }
     }
 
     func preserveInteractiveOffsetDuringTerminalUpdate(_ update: () -> Void) {
-        let shouldProtect = isTracking || isDragging || isDecelerating
-        protectedContentOffset = shouldProtect ? contentOffset : nil
-        update()
-        protectedContentOffset = nil
+        guard isTerminalScrollInteractionActive else {
+            update()
+            return
+        }
+        preserveContentOffset(update)
+    }
+
+    override func insertText(_ text: String) {
+        preserveContentOffset {
+            super.insertText(text)
+        }
+    }
+
+    override func deleteBackward() {
+        preserveContentOffset {
+            super.deleteBackward()
+        }
+    }
+
+    var isTerminalScrollInteractionActive: Bool {
+        isTracking || isDragging || isDecelerating || viewportHost?.isInteracting == true
+    }
+
+    func cancelViewportMomentum() {
+        viewportHost?.cancelMomentum()
     }
 
     func configureAccessoryBar() {
@@ -187,6 +206,28 @@ final class FollowAwareTerminalView: TerminalView {
         reloadInputViews()
     }
 
+    private func preserveContentOffset(_ update: () -> Void) {
+        if contentOffsetProtectionDepth == 0 {
+            protectedContentOffset = contentOffset
+        }
+        contentOffsetProtectionDepth += 1
+        defer {
+            contentOffsetProtectionDepth -= 1
+            if contentOffsetProtectionDepth == 0 {
+                restoreProtectedContentOffset()
+                protectedContentOffset = nil
+            }
+        }
+        update()
+    }
+
+    private func restoreProtectedContentOffset() {
+        guard let protectedContentOffset, contentOffset != protectedContentOffset else { return }
+        isRestoringProtectedOffset = true
+        contentOffset = protectedContentOffset
+        isRestoringProtectedOffset = false
+    }
+
     private var normalizedScrollPosition: Double {
         let maxOffset = max(0, contentSize.height - bounds.height)
         guard maxOffset > 0 else { return 1 }
@@ -195,66 +236,6 @@ final class FollowAwareTerminalView: TerminalView {
 
     override func mouseModeChanged(source: Terminal) {
         super.mouseModeChanged(source: source)
-        if source.mouseMode == .off {
-            disableWheelScrollGesture()
-            return
-        }
-        enableWheelScrollGesture()
-    }
-
-    private func enableWheelScrollGesture() {
-        guard wheelScrollGesture == nil else { return }
-        let gesture = UIPanGestureRecognizer(target: self, action: #selector(handleWheelScroll))
-        gesture.delegate = self
-        addGestureRecognizer(gesture)
-        wheelScrollGesture = gesture
-    }
-
-    private func disableWheelScrollGesture() {
-        guard let gesture = wheelScrollGesture else { return }
-        removeGestureRecognizer(gesture)
-        wheelScrollGesture = nil
-    }
-
-    @objc private func handleWheelScroll(_ gesture: UIPanGestureRecognizer) {
-        let terminal = getTerminal()
-        guard terminal.mouseMode != .off else { return }
-        switch gesture.state {
-        case .began:
-            wheelScrollAccumulatedY = 0
-        case .changed:
-            wheelScrollAccumulatedY += gesture.translation(in: self).y
-            gesture.setTranslation(.zero, in: self)
-            sendWheelEvents(for: gesture, terminal: terminal)
-        default:
-            break
-        }
-    }
-
-    private func sendWheelEvents(for gesture: UIPanGestureRecognizer, terminal: Terminal) {
-        let rowHeight = bounds.height / CGFloat(max(terminal.rows, 1))
-        let columnWidth = bounds.width / CGFloat(max(terminal.cols, 1))
-        guard rowHeight > 0, columnWidth > 0 else { return }
-        let steps = Int(wheelScrollAccumulatedY / rowHeight)
-        guard steps != 0 else { return }
-        wheelScrollAccumulatedY -= CGFloat(steps) * rowHeight
-        let location = gesture.location(in: self)
-        let column = max(0, min(terminal.cols - 1, Int(location.x / columnWidth)))
-        let row = max(0, min(terminal.rows - 1, Int(location.y / rowHeight)))
-        let button = steps < 0 ? 5 : 4
-        let buttonFlags = terminal.encodeButton(button: button, release: false, shift: false, meta: false, control: false)
-        for _ in 0 ..< abs(steps) {
-            terminal.sendEvent(buttonFlags: buttonFlags, x: column, y: row)
-        }
-    }
-}
-
-extension FollowAwareTerminalView: UIGestureRecognizerDelegate {
-    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool {
-        false
-    }
-
-    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldBeRequiredToFailBy other: UIGestureRecognizer) -> Bool {
-        gestureRecognizer === wheelScrollGesture && other is UIPanGestureRecognizer
+        viewportHost?.refreshGesturePriorities()
     }
 }
