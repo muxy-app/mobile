@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { useReanimatedKeyboardAnimation } from 'react-native-keyboard-controller';
+import {
+  KeyboardController,
+  KeyboardEvents,
+  useReanimatedKeyboardAnimation,
+} from 'react-native-keyboard-controller';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { bytesToBase64, stringToBase64 } from '@/lib/base64';
-import { getNerdFont, NERD_FONT_FAMILY, subscribeNerdFont } from '@/lib/nerdFont';
+import { getNerdFont, loadNerdFont, type NerdFontBase64 } from '@/lib/nerdFont';
 import {
   recordDimensions,
   reclaimPane,
@@ -18,8 +22,9 @@ import {
 import { useTokens } from '@/theme';
 
 import { buildTerminalTheme } from './buildTerminalTheme';
-import { KeyBar, transformWithModifiers } from './KeyBar';
+import { KEY_BAR_HEIGHT, KeyBar, transformWithModifiers } from './KeyBar';
 import {
+  type TerminalKeyboardPhase,
   TerminalWebView,
   type TerminalDimensions,
   type TerminalWebViewHandle,
@@ -35,7 +40,48 @@ type Props = {
 
 const INPUT_SENTINEL = '​';
 
-export function TerminalView({ paneId, onNewTerminal, onSelectTabShortcut }: Props) {
+export function TerminalView(props: Props) {
+  const tokens = useTokens();
+  const useNerdFont = useSettingsStore((s) => s.useNerdFont);
+  const [nerdFont, setNerdFont] = useState<NerdFontBase64 | null>(getNerdFont);
+  const [nerdFontUnavailable, setNerdFontUnavailable] = useState(false);
+
+  useEffect(() => {
+    if (nerdFont) return;
+    let active = true;
+    loadNerdFont()
+      .then((font) => {
+        if (active) setNerdFont(font);
+      })
+      .catch(() => {
+        if (active) setNerdFontUnavailable(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, [nerdFont]);
+
+  if (useNerdFont && !nerdFont && !nerdFontUnavailable) {
+    return <View style={[styles.root, { backgroundColor: tokens.surface.primary }]} />;
+  }
+
+  const selectedNerdFont = useNerdFont ? nerdFont : null;
+
+  return (
+    <TerminalSessionView
+      key={selectedNerdFont ? 'nerd' : 'system'}
+      {...props}
+      nerdFont={selectedNerdFont}
+    />
+  );
+}
+
+function TerminalSessionView({
+  paneId,
+  onNewTerminal,
+  onSelectTabShortcut,
+  nerdFont,
+}: Props & { nerdFont: NerdFontBase64 | null }) {
   const tokens = useTokens();
   const webRef = useRef<TerminalWebViewHandle>(null);
   const inputRef = useRef<TextInput>(null);
@@ -66,36 +112,19 @@ export function TerminalView({ paneId, onNewTerminal, onSelectTabShortcut }: Pro
 
   const [dimensions, setDimensions] = useState<TerminalDimensions | null>(null);
   const [ready, setReady] = useState(false);
-  const [nerdFontLoaded, setNerdFontLoaded] = useState<boolean>(() => getNerdFont() !== null);
-  const useNerdFont = useSettingsStore((s) => s.useNerdFont);
   const autoFocusTerminal = useSettingsStore((s) => s.autoFocusTerminal);
-
-  const fontFamily = useNerdFont && nerdFontLoaded
-    ? `'${NERD_FONT_FAMILY}', Menlo, monospace`
-    : 'Menlo, monospace';
 
   usePaneSession({
     paneId,
     cols: dimensions?.cols ?? null,
     rows: dimensions?.rows ?? null,
-    onSnapshotBytes: (base64, cols, rows) => webRef.current?.loadSnapshot(base64, cols, rows),
+    onSnapshotBytes: (base64) => webRef.current?.loadSnapshot(base64),
     onWrite: (base64) => webRef.current?.write(base64),
   });
 
   useEffect(() => {
     if (ready) webRef.current?.setTheme(terminalTheme);
   }, [terminalTheme, ready]);
-
-  useEffect(() => {
-    return subscribeNerdFont(() => setNerdFontLoaded(true));
-  }, []);
-
-  useEffect(() => {
-    if (!ready) return;
-    const data = getNerdFont();
-    if (data) webRef.current?.installFont(data.regular, data.bold);
-    webRef.current?.setFontFamily(fontFamily);
-  }, [ready, nerdFontLoaded, fontFamily]);
 
   const sessionForUs =
     'paneId' in session && session.paneId === paneId ? session : null;
@@ -161,19 +190,51 @@ export function TerminalView({ paneId, onNewTerminal, onSelectTabShortcut }: Pro
     setInputValue(INPUT_SENTINEL);
   }, []);
 
+  const insets = useSafeAreaInsets();
+  const { height } = useReanimatedKeyboardAnimation();
+  const safeAreaStyle = useMemo(() => ({ paddingBottom: insets.bottom }), [insets.bottom]);
+  const keyBarSlideStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: Math.min(0, height.value + insets.bottom) }],
+  }));
+  const setTerminalKeyboardOffset = useCallback(
+    (keyboardHeight: number, duration: number, phase: TerminalKeyboardPhase) => {
+      const offset = Math.round(Math.max(0, keyboardHeight - insets.bottom));
+      webRef.current?.setKeyboardOffset(offset, duration, phase);
+    },
+    [insets.bottom],
+  );
+
   const keyboardVisibleRef = useRef(false);
   useEffect(() => {
-    const showSub = Keyboard.addListener('keyboardDidShow', () => {
-      keyboardVisibleRef.current = true;
+    const willShowSub = KeyboardEvents.addListener('keyboardWillShow', (event) => {
+      setTerminalKeyboardOffset(event.height, event.duration, 'willShow');
     });
-    const hideSub = Keyboard.addListener('keyboardDidHide', () => {
+    const willHideSub = KeyboardEvents.addListener('keyboardWillHide', (event) => {
+      setTerminalKeyboardOffset(0, event.duration, 'willHide');
+    });
+    const didShowSub = KeyboardEvents.addListener('keyboardDidShow', (event) => {
+      keyboardVisibleRef.current = true;
+      setTerminalKeyboardOffset(event.height, 0, 'didShow');
+    });
+    const didHideSub = KeyboardEvents.addListener('keyboardDidHide', () => {
       keyboardVisibleRef.current = false;
+      setTerminalKeyboardOffset(0, 0, 'didHide');
     });
     return () => {
-      showSub.remove();
-      hideSub.remove();
+      willShowSub.remove();
+      willHideSub.remove();
+      didShowSub.remove();
+      didHideSub.remove();
     };
-  }, []);
+  }, [setTerminalKeyboardOffset]);
+
+  useEffect(() => {
+    if (!ready) return;
+    const visible = KeyboardController.isVisible();
+    const state = KeyboardController.state();
+    keyboardVisibleRef.current = visible;
+    setTerminalKeyboardOffset(visible ? state.height : 0, 0, 'sync');
+  }, [ready, setTerminalKeyboardOffset]);
 
   const handleTap = useCallback(() => {
     if (keyboardVisibleRef.current) {
@@ -189,104 +250,103 @@ export function TerminalView({ paneId, onNewTerminal, onSelectTabShortcut }: Pro
     [inputValue],
   );
 
-  const insets = useSafeAreaInsets();
-  const { height } = useReanimatedKeyboardAnimation();
-  const slideStyle = useAnimatedStyle(() => ({
-    paddingBottom: Math.max(insets.bottom, -height.value),
-  }));
+  const handleReady = useCallback(() => {
+    setReady(true);
+  }, []);
 
   return (
     <View style={[styles.root, { backgroundColor: terminalTheme.background }]}>
-      <Animated.View style={[styles.slider, slideStyle]}>
+      <View style={[styles.slider, safeAreaStyle]}>
         <View style={styles.terminalArea}>
-        <TerminalWebView
-          ref={webRef}
-          theme={terminalTheme}
-          onReady={() => setReady(true)}
-          onDimensions={(d) => {
-            setDimensions(d);
-            recordDimensions(d.cols, d.rows);
-          }}
-          onData={handleData}
-          onTap={handleTap}
-          onNewTerminalShortcut={onNewTerminal}
-          onSelectTabShortcut={onSelectTabShortcut}
-          onRenderer={(renderer, reason) => {
-            if (reason) {
-              console.log('[terminal] renderer=' + renderer + ' reason=' + reason);
-              return;
-            }
-            console.log('[terminal] renderer=' + renderer);
-          }}
-        />
+          <TerminalWebView
+            ref={webRef}
+            theme={terminalTheme}
+            nerdFont={nerdFont}
+            onReady={handleReady}
+            onDimensions={(d) => {
+              setDimensions(d);
+              recordDimensions(d.cols, d.rows);
+            }}
+            onData={handleData}
+            onTap={handleTap}
+            onNewTerminalShortcut={onNewTerminal}
+            onSelectTabShortcut={onSelectTabShortcut}
+            onRenderer={(renderer, reason) => {
+              if (reason) {
+                console.log('[terminal] renderer=' + renderer + ' reason=' + reason);
+                return;
+              }
+              console.log('[terminal] renderer=' + renderer);
+            }}
+          />
 
-        <TextInput
-          ref={inputRef}
-          value={inputValue}
-          selection={inputSelection}
-          onChangeText={handleInputChange}
-          onBlur={handleInputBlur}
-          multiline
-          autoCorrect={false}
-          autoCapitalize="none"
-          autoComplete="off"
-          spellCheck={false}
-          caretHidden
-          style={styles.hiddenInput}
-        />
+          <TextInput
+            ref={inputRef}
+            value={inputValue}
+            selection={inputSelection}
+            onChangeText={handleInputChange}
+            onBlur={handleInputBlur}
+            multiline
+            autoCorrect={false}
+            autoCapitalize="none"
+            autoComplete="off"
+            spellCheck={false}
+            caretHidden
+            style={styles.hiddenInput}
+          />
 
-        {reconnecting ? (
-          <View
-            style={[
-              styles.banner,
-              { backgroundColor: tokens.surface.tertiary, borderColor: tokens.border.subtle },
-            ]}>
-            <ActivityIndicator size="small" color={tokens.text.muted} />
-            <Text style={[styles.bannerLabel, { color: tokens.text.secondary }]}>Reconnecting…</Text>
-          </View>
-        ) : null}
-
-        {ownershipLost ? (
-          <View style={[styles.fullOverlay, { backgroundColor: tokens.surface.primary }]}>
-            <Text style={[styles.title, { color: tokens.text.primary }]}>Desktop took control</Text>
-            <Text style={[styles.body, { color: tokens.text.muted }]}>
-              {sessionForUs?.kind === 'lost' && sessionForUs.takenBy
-                ? `${sessionForUs.takenBy} is using this terminal.`
-                : 'Another client is controlling this pane.'}
-            </Text>
-            <Pressable
-              onPress={onResume}
-              style={({ pressed }) => [
-                styles.cta,
-                { backgroundColor: tokens.accent.primary, opacity: pressed ? 0.85 : 1 },
+          {reconnecting ? (
+            <View
+              style={[
+                styles.banner,
+                { backgroundColor: tokens.surface.tertiary, borderColor: tokens.border.subtle },
               ]}>
-              <Text style={[styles.ctaLabel, { color: tokens.accent.contrast }]}>Take Over</Text>
-            </Pressable>
-          </View>
-        ) : null}
+              <ActivityIndicator size="small" color={tokens.text.muted} />
+              <Text style={[styles.bannerLabel, { color: tokens.text.secondary }]}>Reconnecting…</Text>
+            </View>
+          ) : null}
 
-        {failed ? (
-          <View style={[styles.fullOverlay, { backgroundColor: tokens.surface.primary }]}>
-            <Text style={[styles.title, { color: tokens.text.primary }]}>Couldn’t take control</Text>
-            <Text style={[styles.body, { color: tokens.status.danger }]}>
-              {sessionForUs?.kind === 'failed' ? sessionForUs.reason : ''}
-            </Text>
-            <Pressable
-              onPress={onResume}
-              style={({ pressed }) => [
-                styles.cta,
-                { backgroundColor: tokens.accent.primary, opacity: pressed ? 0.85 : 1 },
-              ]}>
-              <Text style={[styles.ctaLabel, { color: tokens.accent.contrast }]}>Try again</Text>
-            </Pressable>
-          </View>
-        ) : null}
+          {ownershipLost ? (
+            <View style={[styles.fullOverlay, { backgroundColor: tokens.surface.primary }]}>
+              <Text style={[styles.title, { color: tokens.text.primary }]}>Desktop took control</Text>
+              <Text style={[styles.body, { color: tokens.text.muted }]}>
+                {sessionForUs?.kind === 'lost' && sessionForUs.takenBy
+                  ? `${sessionForUs.takenBy} is using this terminal.`
+                  : 'Another client is controlling this pane.'}
+              </Text>
+              <Pressable
+                onPress={onResume}
+                style={({ pressed }) => [
+                  styles.cta,
+                  { backgroundColor: tokens.accent.primary, opacity: pressed ? 0.85 : 1 },
+                ]}>
+                <Text style={[styles.ctaLabel, { color: tokens.accent.contrast }]}>Take Over</Text>
+              </Pressable>
+            </View>
+          ) : null}
+
+          {failed ? (
+            <View style={[styles.fullOverlay, { backgroundColor: tokens.surface.primary }]}>
+              <Text style={[styles.title, { color: tokens.text.primary }]}>Couldn’t take control</Text>
+              <Text style={[styles.body, { color: tokens.status.danger }]}>
+                {sessionForUs?.kind === 'failed' ? sessionForUs.reason : ''}
+              </Text>
+              <Pressable
+                onPress={onResume}
+                style={({ pressed }) => [
+                  styles.cta,
+                  { backgroundColor: tokens.accent.primary, opacity: pressed ? 0.85 : 1 },
+                ]}>
+                <Text style={[styles.ctaLabel, { color: tokens.accent.contrast }]}>Try again</Text>
+              </Pressable>
+            </View>
+          ) : null}
+        </View>
+
+        <Animated.View style={[styles.keyBarSlot, keyBarSlideStyle]}>
+          {sessionForUs?.kind === 'streaming' ? <KeyBar onBytes={handleKeyBarBytes} /> : null}
+        </Animated.View>
       </View>
-
-        {sessionForUs?.kind === 'streaming' ? (
-          <KeyBar onBytes={handleKeyBarBytes} />
-        ) : null}
-      </Animated.View>
     </View>
   );
 }
@@ -295,6 +355,7 @@ const styles = StyleSheet.create({
   root: { flex: 1, overflow: 'hidden' },
   slider: { flex: 1 },
   terminalArea: { flex: 1 },
+  keyBarSlot: { height: KEY_BAR_HEIGHT },
   banner: {
     position: 'absolute',
     top: 8,

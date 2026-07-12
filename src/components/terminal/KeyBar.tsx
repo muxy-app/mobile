@@ -11,6 +11,8 @@ import { Joystick, type JoystickDirection } from './Joystick';
 
 export type Modifier = 'ctrl' | 'shift' | 'alt' | 'meta';
 
+export const KEY_BAR_HEIGHT = 64;
+
 type ModifierState = {
   active: Modifier | null;
   slot: Modifier;
@@ -311,6 +313,7 @@ const MENU_HEIGHT = 4 * 44 + 12;
 
 const styles = StyleSheet.create({
   row: {
+    height: KEY_BAR_HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,

@@ -73,6 +73,14 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
   var WebglAddon = window.WebglAddon && window.WebglAddon.WebglAddon;
   var CanvasAddon = window.CanvasAddon && window.CanvasAddon.CanvasAddon;
   var INITIAL = ${JSON.stringify(init)};
+  var terminalHandleMessage = null;
+  var initializationStarted = false;
+  var root = document.getElementById('root');
+  var viewportOffset = 0;
+  var viewportOffsetLimit = 0;
+  var pendingHideViewportOffset = null;
+  var pendingHideViewportLimit = 0;
+  var cancelTerminalMomentum = null;
 
   function post(msg) {
     if (window.ReactNativeWebView) {
@@ -89,6 +97,132 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
     return;
   }
 
+  function installInitialFont(font) {
+    if (!font) {
+      return Promise.resolve();
+    }
+    var family = JSON.stringify(font.family);
+    var styleEl = document.createElement('style');
+    styleEl.textContent = '@font-face{font-family:' + family + ';src:url("data:font/ttf;base64,' + font.regular + '") format("truetype");font-weight:400;font-style:normal;font-display:block;}'
+      + '@font-face{font-family:' + family + ';src:url("data:font/ttf;base64,' + font.bold + '") format("truetype");font-weight:700;font-style:normal;font-display:block;}';
+    document.head.appendChild(styleEl);
+    if (!document.fonts || !document.fonts.load) {
+      return Promise.resolve();
+    }
+    return Promise.all([
+      document.fonts.load('400 ' + INITIAL.fontSize + 'px ' + family),
+      document.fonts.load('700 ' + INITIAL.fontSize + 'px ' + family),
+    ]);
+  }
+
+  function initializeTerminal(msg) {
+    if (initializationStarted) return;
+    initializationStarted = true;
+    INITIAL.fontFamily = msg.fontFamily;
+    installInitialFont(msg.font).then(startTerminal, startTerminal);
+  }
+
+  function applyViewportOffset(duration) {
+    var transitionDuration = Math.max(0, Number(duration) || 0);
+    root.style.transition = transitionDuration > 0
+      ? 'transform ' + transitionDuration + 'ms cubic-bezier(0.25, 0.1, 0.25, 1)'
+      : 'none';
+    root.style.transform = 'translate3d(0, ' + (-viewportOffset) + 'px, 0)';
+  }
+
+  function reconcileVisibleViewport(nextLimit) {
+    if (pendingHideViewportOffset !== null) {
+      var wasPendingAboveKeyboard = pendingHideViewportLimit > 0
+        && Math.abs(pendingHideViewportOffset - pendingHideViewportLimit) <= 0.5;
+      viewportOffsetLimit = nextLimit;
+      viewportOffset = wasPendingAboveKeyboard
+        ? viewportOffsetLimit
+        : Math.min(pendingHideViewportOffset, viewportOffsetLimit);
+      pendingHideViewportOffset = null;
+      pendingHideViewportLimit = 0;
+      return;
+    }
+    var previousLimit = viewportOffsetLimit;
+    var wasAnchoredAboveKeyboard = previousLimit > 0 && Math.abs(viewportOffset - previousLimit) <= 0.5;
+    viewportOffsetLimit = nextLimit;
+    if (previousLimit === 0 || wasAnchoredAboveKeyboard) {
+      viewportOffset = viewportOffsetLimit;
+      return;
+    }
+    viewportOffset = Math.min(viewportOffset, viewportOffsetLimit);
+  }
+
+  function setKeyboardOffset(offset, duration, phase) {
+    var nextLimit = Math.max(0, Number(offset) || 0);
+    var transitionDuration = Math.max(0, Number(duration) || 0);
+    var limitChanged = Math.abs(nextLimit - viewportOffsetLimit) > 0.5;
+    if (limitChanged && cancelTerminalMomentum) cancelTerminalMomentum();
+    if (phase === 'willHide') {
+      if (viewportOffsetLimit > 0) {
+        pendingHideViewportOffset = viewportOffset;
+        pendingHideViewportLimit = viewportOffsetLimit;
+      }
+      viewportOffsetLimit = 0;
+      viewportOffset = 0;
+      applyViewportOffset(transitionDuration);
+      return;
+    }
+    if (phase === 'didHide' || nextLimit === 0) {
+      viewportOffsetLimit = 0;
+      viewportOffset = 0;
+      pendingHideViewportOffset = null;
+      pendingHideViewportLimit = 0;
+      applyViewportOffset(transitionDuration);
+      return;
+    }
+    reconcileVisibleViewport(nextLimit);
+    applyViewportOffset(transitionDuration);
+  }
+
+  function captureRenderedViewportOffset() {
+    var transform = window.getComputedStyle(root).transform;
+    var values;
+    var translateY;
+    if (transform && transform.indexOf('matrix3d(') === 0) {
+      values = transform.slice(9, -1).split(',');
+      translateY = Number(values[13]);
+    } else if (transform && transform.indexOf('matrix(') === 0) {
+      values = transform.slice(7, -1).split(',');
+      translateY = Number(values[5]);
+    }
+    if (isFinite(translateY)) {
+      viewportOffset = Math.min(viewportOffsetLimit, Math.max(0, -translateY));
+    }
+    applyViewportOffset(0);
+  }
+
+  function consumeViewportOffset(delta) {
+    if (viewportOffsetLimit <= 0 || delta === 0) return delta;
+    var nextOffset = Math.min(viewportOffsetLimit, Math.max(0, viewportOffset + delta));
+    var consumed = nextOffset - viewportOffset;
+    if (consumed === 0) return delta;
+    viewportOffset = nextOffset;
+    applyViewportOffset(0);
+    return delta - consumed;
+  }
+
+  window.handleMessage = function (msg) {
+    try {
+      if (msg.type === 'initialize') {
+        initializeTerminal(msg);
+        return;
+      }
+      if (msg.type === 'setKeyboardOffset') {
+        setKeyboardOffset(msg.offset, msg.duration, msg.phase);
+        return;
+      }
+      if (terminalHandleMessage) terminalHandleMessage(msg);
+    } catch (e) {
+      reportError('handleMessage failed', e);
+    }
+  };
+
+  function startTerminal() {
   var term = new Terminal({
     cursorBlink: true,
     convertEol: false,
@@ -106,7 +240,6 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
   var fit = new FitAddon();
   term.loadAddon(fit);
 
-  var root = document.getElementById('root');
   term.open(root);
 
   if (INITIAL.commandShortcutsEnabled !== false) {
@@ -219,14 +352,6 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
       return false;
     }
   }
-  function isScrolledToBottom() {
-    try {
-      var buffer = term.buffer && term.buffer.active;
-      return !!buffer && buffer.viewportY >= buffer.baseY;
-    } catch (err) {
-      return true;
-    }
-  }
   function scrollToBottom() {
     try { term.scrollToBottom(); } catch (e) {}
   }
@@ -261,7 +386,9 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
     if (!flushRaf) flushRaf = requestAnimationFrame(flushPendingLines);
   }
   function queueScrollPixels(dy, clientX, clientY) {
-    scrollAccumulator += dy;
+    var scrollDelta = consumeViewportOffset(dy);
+    if (scrollDelta === 0) return;
+    scrollAccumulator += scrollDelta;
     var lineHeight = getLineHeightPx();
     if (lineHeight <= 0) return;
     var lines = (scrollAccumulator / lineHeight) | 0;
@@ -277,6 +404,10 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
     if (momentumRaf) cancelAnimationFrame(momentumRaf);
     momentumRaf = 0;
   }
+  cancelTerminalMomentum = function () {
+    cancelMomentum();
+    scrollAccumulator = 0;
+  };
   function cancelFlush() {
     if (flushRaf) cancelAnimationFrame(flushRaf);
     flushRaf = 0;
@@ -355,6 +486,7 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
     cancelMomentum();
     cancelFlush();
     scrollAccumulator = 0;
+    captureRenderedViewportOffset();
     touchMoved = false;
     if (e.touches && e.touches[0]) {
       touchStartX = e.touches[0].clientX;
@@ -396,31 +528,27 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
     post({ type: 'tap' });
   }, { passive: true, capture: true });
 
-  var lastDims = { cols: 0, rows: 0 };
-  function reportDimensions() {
-    var shouldStickToBottom = isAltBuffer() || isScrolledToBottom();
+  var dimensionsInitialized = false;
+  function initializeDimensions() {
+    if (dimensionsInitialized) return;
+    if (root.clientWidth <= 0 || root.clientHeight <= 0) {
+      requestAnimationFrame(initializeDimensions);
+      return;
+    }
+    var proposed = fit.proposeDimensions();
+    if (!proposed || !isFinite(proposed.cols) || !isFinite(proposed.rows)) {
+      requestAnimationFrame(initializeDimensions);
+      return;
+    }
     try {
       fit.fit();
-    } catch (e) {}
-    if (shouldStickToBottom) scrollToBottom();
-    if (term.cols !== lastDims.cols || term.rows !== lastDims.rows) {
-      lastDims = { cols: term.cols, rows: term.rows };
-      post({ type: 'dimensions', cols: term.cols, rows: term.rows });
+    } catch (e) {
+      requestAnimationFrame(initializeDimensions);
+      return;
     }
-  }
-
-  window.addEventListener('resize', reportDimensions);
-
-  if (typeof ResizeObserver !== 'undefined') {
-    var resizeRaf = 0;
-    var ro = new ResizeObserver(function () {
-      if (resizeRaf) return;
-      resizeRaf = requestAnimationFrame(function () {
-        resizeRaf = 0;
-        reportDimensions();
-      });
-    });
-    ro.observe(root);
+    dimensionsInitialized = true;
+    post({ type: 'dimensions', cols: term.cols, rows: term.rows });
+    post({ type: 'ready' });
   }
 
   var pendingWrites = [];
@@ -456,25 +584,7 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
     return arr;
   }
 
-
-  var fontInstalled = false;
-  function installFont(regularB64, boldB64) {
-    if (fontInstalled) return;
-    var css = '';
-    if (regularB64) {
-      css += "@font-face{font-family:'JetBrainsMonoNF';src:url(data:font/ttf;base64," + regularB64 + ") format('truetype');font-weight:400;font-style:normal;font-display:block;}";
-    }
-    if (boldB64) {
-      css += "@font-face{font-family:'JetBrainsMonoNF';src:url(data:font/ttf;base64," + boldB64 + ") format('truetype');font-weight:700;font-style:normal;font-display:block;}";
-    }
-    if (!css) return;
-    var styleEl = document.createElement('style');
-    styleEl.textContent = css;
-    document.head.appendChild(styleEl);
-    fontInstalled = true;
-  }
-
-  window.handleMessage = function (msg) {
+  terminalHandleMessage = function (msg) {
     try {
       switch (msg.type) {
         case 'write':
@@ -490,10 +600,6 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
         case 'loadSnapshot':
           pendingWrites = [];
           flushScheduled = false;
-          if (typeof msg.cols === 'number' && typeof msg.rows === 'number'
-              && msg.cols > 0 && msg.rows > 0) {
-            try { term.resize(msg.cols, msg.rows); } catch (e) {}
-          }
           if (isAltBuffer()) {
             term.reset();
           }
@@ -503,24 +609,9 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
         case 'setTheme':
           term.options.theme = msg.theme;
           break;
-        case 'resize':
-          var resizeShouldStickToBottom = isAltBuffer() || isScrolledToBottom();
-          term.resize(msg.cols, msg.rows);
-          if (resizeShouldStickToBottom) scrollToBottom();
-          break;
         case 'clear':
           term.clear();
           term.reset();
-          break;
-        case 'requestDimensions':
-          reportDimensions();
-          break;
-        case 'installFont':
-          installFont(msg.regular, msg.bold);
-          break;
-        case 'setFontFamily':
-          term.options.fontFamily = msg.fontFamily;
-          reportDimensions();
           break;
       }
     } catch (e) {
@@ -528,10 +619,10 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
     }
   };
 
-  setTimeout(function () {
-    reportDimensions();
-    post({ type: 'ready' });
-  }, 0);
+  requestAnimationFrame(initializeDimensions);
+  }
+
+  post({ type: 'bootstrapReady' });
 })();
 </script>
 </body>
