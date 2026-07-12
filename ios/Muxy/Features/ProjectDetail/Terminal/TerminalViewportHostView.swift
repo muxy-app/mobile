@@ -37,7 +37,6 @@ final class TerminalViewportHostView: UIView, UIGestureRecognizerDelegate {
     private var momentumVelocity: CGFloat = 0
     private var momentumTimestamp: CFTimeInterval = 0
     private var momentumLocation: CGPoint = .zero
-    private var keyboardHideResetPending = false
     private var lastReportedKeyboardOffset: CGFloat = 0
 
     var isInteracting: Bool {
@@ -63,12 +62,6 @@ final class TerminalViewportHostView: UIView, UIGestureRecognizerDelegate {
         addSubview(keyboardOcclusionView)
         configureKeyboardGuideProbe()
         configureViewportPanGesture()
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(keyboardDidHide),
-            name: UIResponder.keyboardDidHideNotification,
-            object: nil
-        )
     }
 
     @available(*, unavailable)
@@ -78,7 +71,6 @@ final class TerminalViewportHostView: UIView, UIGestureRecognizerDelegate {
 
     deinit {
         momentumDisplayLink?.invalidate()
-        NotificationCenter.default.removeObserver(self)
     }
 
     override func didMoveToWindow() {
@@ -185,10 +177,6 @@ final class TerminalViewportHostView: UIView, UIGestureRecognizerDelegate {
             viewportState.updateKeyboardOffset(nextOffset)
             reportKeyboardOffset(nextOffset)
         }
-        if keyboardHideResetPending, nextOffset <= 0.5 {
-            keyboardHideResetPending = false
-            viewportState.resetAfterKeyboardHide()
-        }
     }
 
     private func reportKeyboardOffset(_ offset: CGFloat) {
@@ -225,12 +213,6 @@ final class TerminalViewportHostView: UIView, UIGestureRecognizerDelegate {
         viewportState.captureRenderedOffset(-renderedFrame.minY)
         terminalView.layer.removeAllAnimations()
         positionTerminal()
-    }
-
-    @objc private func keyboardDidHide(_: Notification) {
-        guard window != nil else { return }
-        keyboardHideResetPending = true
-        setNeedsLayout()
     }
 
     @objc private func handleViewportPan(_ gesture: UIPanGestureRecognizer) {

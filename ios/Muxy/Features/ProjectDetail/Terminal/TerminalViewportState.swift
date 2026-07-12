@@ -4,36 +4,40 @@ struct TerminalViewportState {
     private(set) var keyboardOffset: CGFloat = 0
     private(set) var viewportOffset: CGFloat = 0
 
-    private var preferredViewportOffset: CGFloat = 0
-    private var followsKeyboardTop = true
+    private var viewportOffsetLimit: CGFloat = 0
 
     mutating func updateKeyboardOffset(_ offset: CGFloat) {
         keyboardOffset = max(0, offset)
-        viewportOffset = followsKeyboardTop
-            ? keyboardOffset
-            : min(preferredViewportOffset, keyboardOffset)
+        if keyboardOffset > 0 {
+            viewportOffsetLimit = max(viewportOffset, keyboardOffset)
+            return
+        }
+        if viewportOffset == 0 {
+            viewportOffsetLimit = 0
+        }
     }
 
     mutating func captureRenderedOffset(_ offset: CGFloat) {
-        viewportOffset = min(max(0, offset), keyboardOffset)
-        preferredViewportOffset = viewportOffset
-        followsKeyboardTop = keyboardOffset > 0 && abs(viewportOffset - keyboardOffset) <= 0.5
+        viewportOffset = min(max(0, offset), viewportOffsetLimit)
     }
 
     mutating func consume(_ delta: CGFloat) -> CGFloat {
-        guard keyboardOffset > 0, delta != 0 else { return delta }
-        let nextOffset = min(max(0, viewportOffset + delta), keyboardOffset)
+        guard viewportOffsetLimit > 0, delta != 0 else { return delta }
+        let nextOffset = min(max(0, viewportOffset + delta), viewportOffsetLimit)
         let consumed = nextOffset - viewportOffset
         guard consumed != 0 else { return delta }
         viewportOffset = nextOffset
-        preferredViewportOffset = nextOffset
-        followsKeyboardTop = abs(nextOffset - keyboardOffset) <= 0.5
+        reconcileViewportOffsetLimit()
         return delta - consumed
     }
 
-    mutating func resetAfterKeyboardHide() {
-        followsKeyboardTop = true
-        preferredViewportOffset = 0
-        viewportOffset = keyboardOffset
+    private mutating func reconcileViewportOffsetLimit() {
+        if keyboardOffset > 0, viewportOffset <= keyboardOffset {
+            viewportOffsetLimit = keyboardOffset
+            return
+        }
+        if keyboardOffset == 0, viewportOffset == 0 {
+            viewportOffsetLimit = 0
+        }
     }
 }
