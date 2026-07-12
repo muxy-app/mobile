@@ -2,6 +2,8 @@ import { forwardRef, useCallback, useImperativeHandle, useRef, useState } from '
 import { Platform, StyleSheet, View } from 'react-native';
 import WebView, { type WebViewMessageEvent } from 'react-native-webview';
 
+import { NERD_FONT_FAMILY, type NerdFontBase64 } from '@/lib/nerdFont';
+
 import { buildTerminalHtml, type TerminalTheme } from './terminalHtml';
 
 const FONT_FAMILY = Platform.select({
@@ -12,20 +14,21 @@ const FONT_FAMILY = Platform.select({
 
 const FONT_SIZE = 12;
 
+export type TerminalKeyboardPhase = 'willShow' | 'willHide' | 'didShow' | 'didHide' | 'sync';
+
 export type TerminalWebViewHandle = {
   write: (base64: string) => void;
-  loadSnapshot: (base64: string, cols?: number, rows?: number) => void;
+  loadSnapshot: (base64: string) => void;
   setTheme: (theme: TerminalTheme) => void;
   clear: () => void;
-  requestDimensions: () => void;
-  installFont: (regular: string, bold: string) => void;
-  setFontFamily: (fontFamily: string) => void;
+  setKeyboardOffset: (offset: number, duration: number, phase: TerminalKeyboardPhase) => void;
 };
 
 export type TerminalDimensions = { cols: number; rows: number };
 
 type Props = {
   theme: TerminalTheme;
+  nerdFont: NerdFontBase64 | null;
   onReady: () => void;
   onDimensions: (dims: TerminalDimensions) => void;
   onData?: (base64: string) => void;
@@ -39,6 +42,7 @@ type Props = {
 export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function TerminalWebView(
   {
     theme,
+    nerdFont,
     onReady,
     onDimensions,
     onData,
@@ -53,11 +57,12 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function
   const webRef = useRef<WebView>(null);
   const queuedWritesRef = useRef<string[]>([]);
   const writeFrameRef = useRef<number | null>(null);
+  const fontFamily = nerdFont ? `'${NERD_FONT_FAMILY}', ${FONT_FAMILY}` : FONT_FAMILY;
 
   const [html] = useState(() =>
     buildTerminalHtml({
       theme,
-      fontFamily: FONT_FAMILY,
+      fontFamily,
       fontSize: FONT_SIZE,
       commandShortcutsEnabled: Platform.OS !== 'ios',
     }),
@@ -94,18 +99,16 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function
     ref,
     () => ({
       write: queueWrite,
-      loadSnapshot: (base64, cols, rows) => {
+      loadSnapshot: (base64) => {
         cancelQueuedWrites();
-        send({ type: 'loadSnapshot', bytes: base64, cols, rows });
+        send({ type: 'loadSnapshot', bytes: base64 });
       },
       setTheme: (next) => send({ type: 'setTheme', theme: next }),
       clear: () => {
         cancelQueuedWrites();
         send({ type: 'clear' });
       },
-      requestDimensions: () => send({ type: 'requestDimensions' }),
-      installFont: (regular, bold) => send({ type: 'installFont', regular, bold }),
-      setFontFamily: (fontFamily) => send({ type: 'setFontFamily', fontFamily }),
+      setKeyboardOffset: (offset, duration, phase) => send({ type: 'setKeyboardOffset', offset, duration, phase }),
     }),
     [cancelQueuedWrites, queueWrite, send],
   );
@@ -114,6 +117,15 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function
     try {
       const msg = JSON.parse(event.nativeEvent.data);
       switch (msg.type) {
+        case 'bootstrapReady':
+          send({
+            type: 'initialize',
+            fontFamily,
+            font: nerdFont
+              ? { family: NERD_FONT_FAMILY, regular: nerdFont.regular, bold: nerdFont.bold }
+              : undefined,
+          });
+          return;
         case 'ready':
           onReady();
           return;

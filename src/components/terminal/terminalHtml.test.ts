@@ -24,6 +24,10 @@ const theme: TerminalTheme = {
   brightWhite: '#ffffff',
 };
 
+function terminalRuntime(html: string): string {
+  return html.slice(html.lastIndexOf('<script>'));
+}
+
 describe('buildTerminalHtml', () => {
   it('can disable WebView command shortcuts when native menu commands own them', () => {
     const html = buildTerminalHtml({
@@ -37,17 +41,47 @@ describe('buildTerminalHtml', () => {
     expect(html).toContain('INITIAL.commandShortcutsEnabled !== false');
   });
 
-  it('keeps terminal viewport anchored after resize and snapshot updates', () => {
+  it('keeps terminal dimensions immutable after its initial fit', () => {
     const html = buildTerminalHtml({
       theme,
       fontFamily: 'Menlo',
       fontSize: 12,
     });
 
-    expect(html).toContain('function isScrolledToBottom()');
-    expect(html).toContain('var shouldStickToBottom = isAltBuffer() || isScrolledToBottom();');
-    expect(html).toContain('if (shouldStickToBottom) scrollToBottom();');
-    expect(html).toContain('if (resizeShouldStickToBottom) scrollToBottom();');
+    const runtime = terminalRuntime(html);
+
+    expect(runtime.match(/fit\.fit\(\)/g)).toHaveLength(1);
+    expect(runtime).not.toContain('ResizeObserver');
+    expect(runtime).not.toContain("addEventListener('resize'");
+    expect(runtime).not.toContain('term.resize(');
+    expect(runtime).not.toContain("case 'resize'");
+    expect(runtime).not.toContain("case 'requestDimensions'");
+  });
+
+  it('selects and loads the final font before creating the terminal', () => {
+    const html = buildTerminalHtml({
+      theme,
+      fontFamily: 'Menlo',
+      fontSize: 12,
+    });
+
+    expect(html).toContain('INITIAL.fontFamily = msg.fontFamily;');
+    expect(html).toContain('installInitialFont(msg.font).then(startTerminal, startTerminal);');
+    expect(html.indexOf('function installInitialFont')).toBeLessThan(html.indexOf('function startTerminal'));
+  });
+
+  it('moves terminal content with a transform while its WebView stays fixed', () => {
+    const html = buildTerminalHtml({
+      theme,
+      fontFamily: 'Menlo',
+      fontSize: 12,
+    });
+
+    const runtime = terminalRuntime(html);
+
+    expect(runtime).toContain("msg.type === 'setKeyboardOffset'");
+    expect(runtime).toContain("root.style.transform = 'translate3d(0, '");
+    expect(runtime).not.toContain('root.style.height');
   });
 
   it('accepts batched terminal output chunks from the native host', () => {

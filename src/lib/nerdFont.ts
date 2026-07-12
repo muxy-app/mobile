@@ -4,21 +4,11 @@ export const NERD_FONT_FAMILY = 'JetBrainsMonoNF';
 
 export type NerdFontBase64 = { regular: string; bold: string };
 
-type Listener = (data: NerdFontBase64) => void;
-
 let cached: NerdFontBase64 | null = null;
 let inflight: Promise<NerdFontBase64> | null = null;
-const listeners = new Set<Listener>();
 
 export function getNerdFont(): NerdFontBase64 | null {
   return cached;
-}
-
-export function subscribeNerdFont(fn: Listener): () => void {
-  listeners.add(fn);
-  return () => {
-    listeners.delete(fn);
-  };
 }
 
 export function loadNerdFont(): Promise<NerdFontBase64> {
@@ -42,13 +32,6 @@ export function loadNerdFont(): Promise<NerdFontBase64> {
     };
     cached = result;
     inflight = null;
-    listeners.forEach((fn) => {
-      try {
-        fn(result);
-      } catch {
-        void 0;
-      }
-    });
     return result;
   })();
 

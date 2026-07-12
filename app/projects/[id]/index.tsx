@@ -282,15 +282,6 @@ export default function WorkspaceScreen() {
             creatingTerminal={creatingTerminal}
             closingTabId={closingTabId}
           />
-          {tabActionError ? (
-            <Text
-              style={[
-                styles.inlineError,
-                { color: tokens.status.danger, borderBottomColor: tokens.border.subtle },
-              ]}>
-              {tabActionError}
-            </Text>
-          ) : null}
           <GestureDetector gesture={swipeGesture}>
             <View style={styles.body}>
               {activeEntry ? (
@@ -304,6 +295,19 @@ export default function WorkspaceScreen() {
                 ) : (
                   <TabKindPlaceholder tab={activeEntry.tab} />
                 )
+              ) : null}
+              {tabActionError ? (
+                <Text
+                  style={[
+                    styles.inlineError,
+                    {
+                      color: tokens.status.danger,
+                      backgroundColor: tokens.surface.primary,
+                      borderBottomColor: tokens.border.subtle,
+                    },
+                  ]}>
+                  {tabActionError}
+                </Text>
               ) : null}
               <SwipeArrowOverlay ref={arrowRef} />
             </View>
@@ -337,6 +341,12 @@ const styles = StyleSheet.create({
   emptyButtonLabel: { fontSize: 14, fontWeight: '600' },
   errorBody: { fontSize: 14, textAlign: 'center' },
   inlineError: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1,
+    pointerEvents: 'none',
     borderBottomWidth: StyleSheet.hairlineWidth,
     fontSize: 13,
     paddingHorizontal: 16,
