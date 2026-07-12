@@ -205,19 +205,24 @@ function TerminalSessionView({
   );
 
   const keyboardVisibleRef = useRef(false);
+  const keyboardTransitioningRef = useRef(false);
   useEffect(() => {
     const willShowSub = KeyboardEvents.addListener('keyboardWillShow', (event) => {
+      keyboardTransitioningRef.current = true;
       setTerminalKeyboardOffset(event.height, event.duration, 'willShow');
     });
     const willHideSub = KeyboardEvents.addListener('keyboardWillHide', (event) => {
+      keyboardTransitioningRef.current = true;
       setTerminalKeyboardOffset(0, event.duration, 'willHide');
     });
     const didShowSub = KeyboardEvents.addListener('keyboardDidShow', (event) => {
       keyboardVisibleRef.current = true;
+      keyboardTransitioningRef.current = false;
       setTerminalKeyboardOffset(event.height, 0, 'didShow');
     });
     const didHideSub = KeyboardEvents.addListener('keyboardDidHide', () => {
       keyboardVisibleRef.current = false;
+      keyboardTransitioningRef.current = false;
       setTerminalKeyboardOffset(0, 0, 'didHide');
     });
     return () => {
@@ -230,6 +235,7 @@ function TerminalSessionView({
 
   useEffect(() => {
     if (!ready) return;
+    if (keyboardTransitioningRef.current) return;
     const visible = KeyboardController.isVisible();
     const state = KeyboardController.state();
     keyboardVisibleRef.current = visible;

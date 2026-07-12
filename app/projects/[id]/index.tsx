@@ -298,7 +298,6 @@ export default function WorkspaceScreen() {
               ) : null}
               {tabActionError ? (
                 <Text
-                  pointerEvents="none"
                   style={[
                     styles.inlineError,
                     {
@@ -347,6 +346,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 1,
+    pointerEvents: 'none',
     borderBottomWidth: StyleSheet.hairlineWidth,
     fontSize: 13,
     paddingHorizontal: 16,
