@@ -4,9 +4,10 @@ struct TerminalTabView: View {
     @Bindable var session: TerminalSession
 
     @Environment(\.appTheme) private var appTheme
-    @AppStorage(AppSettingKey.useNerdFont) private var useNerdFont = true
     @AppStorage(AppSettingKey.autoFocusTerminal) private var autoFocusTerminal = false
+    @State private var useNerdFont = AppSettings.storedUseNerdFont()
     @State private var fontSize = TerminalFont.defaultSize
+    @State private var keyboardOffset: CGFloat = 0
 
     var body: some View {
         terminalSurface
@@ -24,14 +25,15 @@ struct TerminalTabView: View {
                 theme: session.theme,
                 fontSize: fontSize,
                 useNerdFont: useNerdFont,
-                autoFocusTerminal: autoFocusTerminal
+                autoFocusTerminal: autoFocusTerminal,
+                onKeyboardOffsetChange: { keyboardOffset = $0 }
             )
-                .ignoresSafeArea(.keyboard)
 
             overlay
 
             if !session.isFollowingBottom {
                 jumpToBottomButton
+                    .padding(.bottom, keyboardOffset)
             }
         }
         .background(session.theme.background.asColor)

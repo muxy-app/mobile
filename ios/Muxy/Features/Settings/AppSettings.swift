@@ -20,9 +20,13 @@ final class AppSettings {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        useNerdFont = defaults.object(forKey: Key.useNerdFont) as? Bool ?? true
+        useNerdFont = AppSettings.storedUseNerdFont(defaults: defaults)
         autoFocusTerminal = defaults.bool(forKey: Key.autoFocusTerminal)
         demoMode = defaults.bool(forKey: Key.demoMode)
+    }
+
+    static func storedUseNerdFont(defaults: UserDefaults = .standard) -> Bool {
+        defaults.object(forKey: Key.useNerdFont) as? Bool ?? true
     }
 }
 

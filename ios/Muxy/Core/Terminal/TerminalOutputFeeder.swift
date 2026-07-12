@@ -67,13 +67,17 @@ struct TerminalScrollOffset {
     }
 
     static func scrollToBottom(_ view: TerminalView) {
+        (view as? FollowAwareTerminalView)?.cancelViewportMomentum()
         view.scroll(toPosition: 1)
         let maxOffset = max(0, view.contentSize.height - view.bounds.height)
         view.contentOffset = CGPoint(x: view.contentOffset.x, y: maxOffset)
     }
 
     static func isInteracting(with view: TerminalView) -> Bool {
-        view.isTracking || view.isDragging || view.isDecelerating
+        if let view = view as? FollowAwareTerminalView {
+            return view.isTerminalScrollInteractionActive
+        }
+        return view.isTracking || view.isDragging || view.isDecelerating
     }
 
     func restore(on view: TerminalView) {
