@@ -1,22 +1,22 @@
 #!/usr/bin/env bash
-# Local iOS release script. Mirrors .github/workflows/ios-release.yml.
+# Local native iOS release script. Mirrors .github/workflows/ios-native-release.yml.
 #
-# Builds the native app in ios/ (Muxy.xcodeproj, SwiftPM).
+# Builds the native app in ios-native/ (Muxy.xcodeproj, SwiftPM).
 #
 # Usage:
-#   scripts/release-ios.sh [--upload] <version> [build_number]
-#   scripts/release-ios.sh --upload-only [path/to/file.ipa]
+#   scripts/release-ios-native.sh [--upload] <version> [build_number]
+#   scripts/release-ios-native.sh --upload-only [path/to/file.ipa]
 #
 # Flags:
 #   --upload        Skip the confirmation prompt and upload to App Store Connect.
 #   --upload-only   Skip build; upload an existing IPA. Defaults to the most
-#                   recent file in ios/build/export/.
+#                   recent file in ios-native/build/export/.
 #
 # Examples:
-#   scripts/release-ios.sh 0.3.0 42
-#   scripts/release-ios.sh --upload 0.3.0 42
-#   scripts/release-ios.sh --upload-only
-#   scripts/release-ios.sh --upload-only path/to/Muxy.ipa
+#   scripts/release-ios-native.sh 0.3.0 42
+#   scripts/release-ios-native.sh --upload 0.3.0 42
+#   scripts/release-ios-native.sh --upload-only
+#   scripts/release-ios-native.sh --upload-only path/to/Muxy.ipa
 #
 # Reads secrets from .env at repo root. See .env.example.
 
@@ -33,7 +33,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --upload) AUTO_UPLOAD=true; shift ;;
     --upload-only) UPLOAD_ONLY=true; AUTO_UPLOAD=true; shift ;;
-    -h|--help) die "usage: scripts/release-ios.sh [--upload | --upload-only] <version> [build_number]" ;;
+    -h|--help) die "usage: scripts/release-ios-native.sh [--upload | --upload-only] <version> [build_number]" ;;
     *) POSITIONAL+=("$1"); shift ;;
   esac
 done
@@ -41,7 +41,7 @@ set -- "${POSITIONAL[@]}"
 
 cd "$REPO_ROOT"
 
-APP_EXPORT_PATH="ios/build/export"
+APP_EXPORT_PATH="ios-native/build/export"
 
 if [[ "$UPLOAD_ONLY" == "true" ]]; then
   run_started
@@ -79,7 +79,7 @@ if [[ "$UPLOAD_ONLY" == "true" ]]; then
 fi
 
 if [[ $# -lt 1 ]]; then
-  die "usage: scripts/release-ios.sh [--upload | --upload-only] <version> [build_number]"
+  die "usage: scripts/release-ios-native.sh [--upload | --upload-only] <version> [build_number]"
 fi
 
 VERSION="$1"
@@ -99,8 +99,8 @@ require_file APP_STORE_PROVISIONING_PROFILE_PATH
 require_var KEYCHAIN_PASSWORD
 
 APP_SCHEME="Muxy"
-APP_PROJECT="ios/Muxy.xcodeproj"
-APP_ARCHIVE_PATH="ios/build/Muxy.xcarchive"
+APP_PROJECT="ios-native/Muxy.xcodeproj"
+APP_ARCHIVE_PATH="ios-native/build/Muxy.xcarchive"
 BUNDLE_ID="com.muxy.app"
 KEYCHAIN_PATH="$HOME/Library/Keychains/muxy-build.keychain-db"
 

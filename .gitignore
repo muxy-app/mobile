@@ -54,4 +54,5 @@ app-example
 # python venv created by scripts/release-android.sh for Play upload
 .venv-play-upload/
 
-ios/.build
+ios-native/.build
+/ios

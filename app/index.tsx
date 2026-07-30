@@ -6,7 +6,9 @@ import { isBillingEnforced, useEntitlement } from '@/billing';
 import { EntitlementFooter } from '@/components/billing/EntitlementFooter';
 import { DeviceRow } from '@/components/DeviceRow';
 import { HeaderIconButton } from '@/components/HeaderIconButton';
+import { SSHHomeEntry } from '@/components/ssh/SSHHomeEntry';
 import { DEMO_DEVICE_ID } from '@/demo/demoBackend';
+import { getSSHSupport } from '@/ssh';
 import { useDevicesStore, useSettingsStore, type DeviceEntry } from '@/state';
 import { useTokens } from '@/theme';
 
@@ -24,6 +26,7 @@ export default function DevicesScreen() {
   const connectionPhase = useDevicesStore((s) => s.connectionPhase);
   const connectionError = useDevicesStore((s) => s.connectionError);
   const entitlement = useEntitlement();
+  const sshSupport = getSSHSupport();
 
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [errorByDevice, setErrorByDevice] = useState<Record<string, string>>({});
@@ -128,14 +131,22 @@ export default function DevicesScreen() {
       />
 
       {visibleDevices.length === 0 ? (
-        <View style={styles.center}>
-          <Text style={[styles.emptyTitle, { color: tokens.text.primary }]}>No devices yet</Text>
-          <Text style={[styles.emptyBody, { color: tokens.text.muted }]}>
-            Tap the + icon to add your first Muxy desktop.
-          </Text>
+        <View style={styles.emptyRoot}>
+          {sshSupport === 'hidden' ? null : (
+            <View style={styles.sshEntry}>
+              <SSHHomeEntry />
+            </View>
+          )}
+          <View style={styles.center}>
+            <Text style={[styles.emptyTitle, { color: tokens.text.primary }]}>No devices yet</Text>
+            <Text style={[styles.emptyBody, { color: tokens.text.muted }]}>
+              Tap the + icon to add your first Muxy desktop.
+            </Text>
+          </View>
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.list}>
+          <SSHHomeEntry />
           {visibleDevices.map((d) => (
             <DeviceRow
               key={d.id}
@@ -160,6 +171,8 @@ export default function DevicesScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   list: { padding: 16, gap: 8 },
+  emptyRoot: { flex: 1 },
+  sshEntry: { padding: 16 },
   center: {
     flex: 1,
     alignItems: 'center',

@@ -7,6 +7,16 @@ on:
         description: "Version (format: X.Y.Z)"
         required: true
         type: string
+      release_ios:
+        description: "Release iOS (React Native)"
+        required: true
+        type: boolean
+        default: true
+      release_android:
+        description: "Release Android"
+        required: true
+        type: boolean
+        default: true
 
 jobs:
   validate:
@@ -16,24 +26,35 @@ jobs:
       version_code: ${{ steps.v.outputs.version_code }}
     steps:
       - id: v
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          RELEASE_IOS: ${{ inputs.release_ios }}
+          RELEASE_ANDROID: ${{ inputs.release_android }}
         run: |
-          VERSION="${{ inputs.version }}"
+          VERSION="$INPUT_VERSION"
           if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "Error: version must be X.Y.Z"
+            exit 1
+          fi
+          if [[ "$RELEASE_IOS" != "true" && "$RELEASE_ANDROID" != "true" ]]; then
+            echo "Error: select at least one platform"
             exit 1
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "version_code=$(date +%s)" >> "$GITHUB_OUTPUT"
 
   ios:
+    if: ${{ inputs.release_ios }}
     needs: validate
     uses: ./.github/workflows/ios-release.yml
     with:
       version: ${{ needs.validate.outputs.version }}
+      build_number: ${{ needs.validate.outputs.version_code }}
       skip_release_tag: true
     secrets: inherit
 
   android:
+    if: ${{ inputs.release_android }}
     needs: validate
     uses: ./.github/workflows/android-release.yml
     with:
@@ -44,6 +65,7 @@ jobs:
 
   release:
     needs: [validate, ios, android]
+    if: ${{ !cancelled() && needs.validate.result == 'success' && needs.ios.result != 'failure' && needs.android.result != 'failure' && (needs.ios.result == 'success' || needs.android.result == 'success') }}
     runs-on: ubuntu-latest
     permissions:
       contents: write

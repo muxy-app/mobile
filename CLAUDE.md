@@ -16,12 +16,12 @@ Companion app for Muxy (github.com/muxy-app/muxy)
 
 ### New
 
-- Swift, SwiftTerm for iOS (ios/)
+- Swift, SwiftTerm for iOS (ios-native/)
 - Kotlin for Android (android/)
 
 ### Commands
 
-- `ios/scripts/run.sh test`
+- `ios-native/scripts/run.sh test`
 - `android/scripts/run.sh test`
 
 ## API Docs
