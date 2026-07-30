@@ -235,13 +235,8 @@ jobs:
             -destination "generic/platform=iOS" \
             -archivePath "$APP_ARCHIVE_PATH" \
             -disableAutomaticPackageResolution \
-            CODE_SIGN_STYLE=Manual \
-            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
-            PROVISIONING_PROFILE_SPECIFIER="${{ steps.profile.outputs.uuid }}" \
-            CODE_SIGN_IDENTITY="Apple Distribution" \
-            PRODUCT_BUNDLE_IDENTIFIER="$BUNDLE_ID" \
-            MARKETING_VERSION="${{ steps.validate.outputs.version }}" \
-            CURRENT_PROJECT_VERSION="${{ steps.validate.outputs.build_number }}" \
+            MUXY_DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            MUXY_PROVISIONING_PROFILE_SPECIFIER="${{ steps.profile.outputs.uuid }}" \
             clean archive
 
       - name: Export IPA

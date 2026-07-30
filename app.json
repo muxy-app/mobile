@@ -38,6 +38,7 @@
     "plugins": [
       "expo-router",
       "./plugins/withMuxyMenuCommands",
+      "./plugins/withMuxyReleaseSigning",
       [
         "expo-splash-screen",
         {
