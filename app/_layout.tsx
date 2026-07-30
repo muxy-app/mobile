@@ -89,7 +89,10 @@ function NavStack() {
         <Stack.Screen name="add-device" options={{ presentation: 'modal' }} />
         <Stack.Screen name="paywall" options={{ presentation: 'fullScreenModal', headerShown: false }} />
         <Stack.Screen name="projects/index" />
-        <Stack.Screen name="projects/[id]/index" />
+        <Stack.Screen
+          name="projects/[id]/index"
+          options={{ headerBackButtonDisplayMode: 'minimal' }}
+        />
         <Stack.Screen name="ssh/index" />
         <Stack.Screen name="ssh/add" options={{ presentation: 'modal' }} />
         <Stack.Screen name="ssh/[id]" />
