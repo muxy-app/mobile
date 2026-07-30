@@ -1,17 +1,17 @@
-name: iOS Checks
+name: iOS Native Checks
 
 on:
   pull_request:
     branches: [main]
     paths:
-      - "ios/**"
+      - "ios-native/**"
   push:
     branches: [main]
     paths:
-      - "ios/**"
+      - "ios-native/**"
 
 concurrency:
-  group: ios-checks-${{ github.workflow }}-${{ github.ref }}
+  group: ios-native-checks-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -30,4 +30,4 @@ jobs:
           fi
 
       - name: Run iOS checks
-        run: ios/scripts/checks.sh
+        run: ios-native/scripts/checks.sh

@@ -90,6 +90,9 @@ function NavStack() {
         <Stack.Screen name="paywall" options={{ presentation: 'fullScreenModal', headerShown: false }} />
         <Stack.Screen name="projects/index" />
         <Stack.Screen name="projects/[id]/index" />
+        <Stack.Screen name="ssh/index" />
+        <Stack.Screen name="ssh/add" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="ssh/[id]" />
         <Stack.Screen name="onboarding" options={{ headerShown: false, animation: 'fade' }} />
       </Stack>
       <StatusBar

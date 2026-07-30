@@ -1,4 +1,4 @@
-name: Release iOS
+name: Release iOS (React Native)
 
 on:
   workflow_dispatch:
@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       build_number:
-        description: "Build number (defaults to run number)"
+        description: "Build number (defaults to a Unix timestamp)"
         required: false
         type: string
   workflow_call:
@@ -25,22 +25,22 @@ on:
         type: boolean
         default: false
     secrets:
-      APPLE_DISTRIBUTION_CERTIFICATE:
-        required: true
-      APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD:
-        required: true
-      KEYCHAIN_PASSWORD:
-        required: true
       APP_STORE_CONNECT_API_KEY:
         required: true
       APP_STORE_CONNECT_KEY_ID:
         required: true
       APP_STORE_CONNECT_ISSUER_ID:
         required: true
-      APP_STORE_PROVISIONING_PROFILE:
-        required: true
       APPLE_TEAM_ID:
         required: true
+      APPLE_DISTRIBUTION_CERTIFICATE:
+        required: false
+      APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD:
+        required: false
+      KEYCHAIN_PASSWORD:
+        required: false
+      APP_STORE_PROVISIONING_PROFILE:
+        required: false
 
 jobs:
   release-ios:
@@ -50,10 +50,13 @@ jobs:
       contents: write
     env:
       APP_SCHEME: Muxy
-      APP_PROJECT: ios/Muxy.xcodeproj
-      APP_ARCHIVE_PATH: ios/build/Muxy.xcarchive
-      APP_EXPORT_PATH: ios/build/export
-      BUNDLE_ID: com.muxy.app
+      APP_WORKSPACE: ios/Muxy.xcworkspace
+      APP_ARCHIVE_PATH: build/Muxy.xcarchive
+      APP_EXPORT_PATH: build/export
+    outputs:
+      version: ${{ steps.validate.outputs.version }}
+      build_number: ${{ steps.validate.outputs.build_number }}
+      artifact_name: ${{ steps.validate.outputs.artifact_name }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -64,159 +67,105 @@ jobs:
 
       - name: Validate inputs
         id: validate
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_BUILD_NUMBER: ${{ inputs.build_number }}
         run: |
-          VERSION="${{ inputs.version }}"
+          VERSION="$INPUT_VERSION"
           if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Error: Version must be in X.Y.Z format"
+            echo "Error: version must be X.Y.Z"
             exit 1
           fi
 
-          if [[ -n "${{ inputs.build_number }}" ]]; then
-            BUILD_NUMBER="${{ inputs.build_number }}"
+          if [[ -n "$INPUT_BUILD_NUMBER" ]]; then
+            BUILD_NUMBER="$INPUT_BUILD_NUMBER"
           else
-            BUILD_NUMBER="${{ github.run_number }}"
+            BUILD_NUMBER=$(date +%s)
           fi
 
           if ! [[ "$BUILD_NUMBER" =~ ^[0-9]+$ ]]; then
-            echo "Error: Build number must be numeric"
+            echo "Error: build_number must be numeric"
             exit 1
           fi
 
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "build_number=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
+          {
+            echo "version=$VERSION"
+            echo "build_number=$BUILD_NUMBER"
+            echo "artifact_name=ios-release-$VERSION-$BUILD_NUMBER"
+          } >> "$GITHUB_OUTPUT"
 
-      - name: Cache SwiftPM dependencies
-        uses: actions/cache@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
         with:
-          path: ~/Library/Caches/org.swift.swiftpm
-          key: ${{ runner.os }}-spm-${{ hashFiles('ios/Muxy.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
-          restore-keys: |
-            ${{ runner.os }}-spm-
+          node-version: 20
+          cache: npm
 
-      - name: Import distribution certificate
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Set version in app.json
         env:
-          CERTIFICATE_P12: ${{ secrets.APPLE_DISTRIBUTION_CERTIFICATE }}
-          CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD }}
-          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          VERSION: ${{ steps.validate.outputs.version }}
+          BUILD_NUMBER: ${{ steps.validate.outputs.build_number }}
         run: |
-          echo "$CERTIFICATE_P12" | base64 --decode > certificate.p12
-          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
-          security default-keychain -s build.keychain
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
-          security set-keychain-settings -lut 21600 build.keychain
-          security import certificate.p12 \
-            -k build.keychain \
-            -P "$CERTIFICATE_PASSWORD" \
-            -T /usr/bin/codesign
-          security set-key-partition-list \
-            -S apple-tool:,apple:,codesign: \
-            -s -k "$KEYCHAIN_PASSWORD" build.keychain
-          rm certificate.p12
+          node -e '
+            const fs = require("fs");
+            const path = "app.json";
+            const cfg = JSON.parse(fs.readFileSync(path, "utf8"));
+            cfg.expo.version = process.env.VERSION;
+            cfg.expo.ios = cfg.expo.ios || {};
+            cfg.expo.ios.buildNumber = process.env.BUILD_NUMBER;
+            fs.writeFileSync(path, JSON.stringify(cfg, null, 2) + "\n");
+          '
+
+      - name: Expo prebuild
+        run: npx expo prebuild --platform ios --no-install --clean
+
+      - name: Install CocoaPods
+        run: npx pod-install@1.1.0 ios --non-interactive
 
       - name: Install App Store Connect API key
+        id: api_key
         env:
-          APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+          API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+          KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
         run: |
-          mkdir -p ios/private_keys ~/.appstoreconnect/private_keys
-          echo "$APP_STORE_CONNECT_API_KEY" > ios/private_keys/AuthKey_${{ secrets.APP_STORE_CONNECT_KEY_ID }}.p8
-          cp ios/private_keys/AuthKey_${{ secrets.APP_STORE_CONNECT_KEY_ID }}.p8 \
-            ~/.appstoreconnect/private_keys/
-
-      - name: Install App Store provisioning profile
-        id: profile
-        env:
-          APP_STORE_PROVISIONING_PROFILE: ${{ secrets.APP_STORE_PROVISIONING_PROFILE }}
-        run: |
-          if [[ -z "$APP_STORE_PROVISIONING_PROFILE" ]]; then
-            echo "Error: APP_STORE_PROVISIONING_PROFILE secret is missing"
-            exit 1
-          fi
-
-          PROFILE_SOURCE_PATH="$RUNNER_TEMP/app-store.mobileprovision"
-          PROFILE_PLIST_PATH="$RUNNER_TEMP/app-store-profile.plist"
-
-          echo "$APP_STORE_PROVISIONING_PROFILE" | base64 --decode > "$PROFILE_SOURCE_PATH"
-          security cms -D -i "$PROFILE_SOURCE_PATH" > "$PROFILE_PLIST_PATH"
-
-          PROFILE_UUID=$(/usr/libexec/PlistBuddy -c "Print :UUID" "$PROFILE_PLIST_PATH")
-          PROFILE_NAME=$(/usr/libexec/PlistBuddy -c "Print :Name" "$PROFILE_PLIST_PATH")
-          PROFILE_APP_ID=$(/usr/libexec/PlistBuddy -c "Print :Entitlements:application-identifier" "$PROFILE_PLIST_PATH")
-          PROFILE_GET_TASK_ALLOW=$(/usr/libexec/PlistBuddy -c "Print :Entitlements:get-task-allow" "$PROFILE_PLIST_PATH")
-          DISTRIBUTION_CERT_SHA1=$(security find-certificate -Z -c "Apple Distribution" -a build.keychain | awk '/SHA-1 hash:/ {print tolower($3); exit}')
-
-          if [[ -z "$DISTRIBUTION_CERT_SHA1" ]]; then
-            echo "Error: Apple Distribution certificate not found in imported keychain"
-            exit 1
-          fi
-
-          if [[ "$PROFILE_GET_TASK_ALLOW" == "true" ]]; then
-            echo "Error: Provisioning profile '$PROFILE_NAME' is a development profile. Use an App Store profile for $BUNDLE_ID."
-            exit 1
-          fi
-
-          if [[ "$PROFILE_APP_ID" != *.$BUNDLE_ID ]]; then
-            echo "Error: Provisioning profile app id '$PROFILE_APP_ID' does not match $BUNDLE_ID"
-            exit 1
-          fi
-
-          PROFILE_PLIST_PATH="$PROFILE_PLIST_PATH" DISTRIBUTION_CERT_SHA1="$DISTRIBUTION_CERT_SHA1" python3 - <<'PY'
-          import hashlib
-          import os
-          import plistlib
-          import sys
-
-          profile_plist_path = os.environ["PROFILE_PLIST_PATH"]
-          distribution_cert_sha1 = os.environ["DISTRIBUTION_CERT_SHA1"].lower().replace(":", "")
-
-          with open(profile_plist_path, "rb") as profile_file:
-              profile = plistlib.load(profile_file)
-
-          profile_cert_hashes = [
-              hashlib.sha1(certificate).hexdigest()
-              for certificate in profile.get("DeveloperCertificates", [])
-          ]
-
-          if distribution_cert_sha1 not in profile_cert_hashes:
-              print("Error: Provisioning profile does not include the imported Apple Distribution certificate.")
-              print(f"Imported certificate SHA-1: {distribution_cert_sha1}")
-              print("Profile certificate SHA-1 values:")
-              for profile_hash in profile_cert_hashes:
-                  print(f"- {profile_hash}")
-              sys.exit(1)
-          PY
-
-          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
-          cp "$PROFILE_SOURCE_PATH" "$HOME/Library/MobileDevice/Provisioning Profiles/$PROFILE_UUID.mobileprovision"
-
-          echo "uuid=$PROFILE_UUID" >> "$GITHUB_OUTPUT"
+          umask 077
+          KEY_DIRECTORY="$RUNNER_TEMP/private_keys"
+          KEY_PATH="$KEY_DIRECTORY/AuthKey_${KEY_ID}.p8"
+          mkdir -p "$KEY_DIRECTORY" "$HOME/.appstoreconnect/private_keys"
+          printf '%s\n' "$API_KEY" > "$KEY_PATH"
+          cp "$KEY_PATH" "$HOME/.appstoreconnect/private_keys/"
+          echo "path=$KEY_PATH" >> "$GITHUB_OUTPUT"
 
       - name: Archive app
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          API_KEY_PATH: ${{ steps.api_key.outputs.path }}
+          API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
         run: |
           xcodebuild \
-            -project "$APP_PROJECT" \
+            -workspace "$APP_WORKSPACE" \
             -scheme "$APP_SCHEME" \
             -configuration Release \
             -destination "generic/platform=iOS" \
             -archivePath "$APP_ARCHIVE_PATH" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$API_KEY_PATH" \
+            -authenticationKeyID "$API_KEY_ID" \
+            -authenticationKeyIssuerID "$API_ISSUER_ID" \
+            CODE_SIGN_STYLE=Automatic \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
-            MUXY_PROVISIONING_PROFILE_SPECIFIER="${{ steps.profile.outputs.uuid }}" \
-            MARKETING_VERSION="${{ steps.validate.outputs.version }}" \
-            CURRENT_PROJECT_VERSION="${{ steps.validate.outputs.build_number }}" \
             clean archive
 
       - name: Export IPA
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          API_KEY_PATH: ${{ steps.api_key.outputs.path }}
+          API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
         run: |
-          PROFILE_UUID="${{ steps.profile.outputs.uuid }}"
-
-          if [[ -z "$PROFILE_UUID" ]]; then
-            echo "Error: provisioning profile UUID is missing"
-            exit 1
-          fi
-
           cat > ExportOptions.plist <<EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -225,16 +174,11 @@ jobs:
             <key>method</key>
             <string>app-store-connect</string>
             <key>signingStyle</key>
-            <string>manual</string>
-            <key>signingCertificate</key>
-            <string>Apple Distribution</string>
+            <string>automatic</string>
             <key>teamID</key>
             <string>${APPLE_TEAM_ID}</string>
-            <key>provisioningProfiles</key>
-            <dict>
-              <key>${BUNDLE_ID}</key>
-              <string>${PROFILE_UUID}</string>
-            </dict>
+            <key>manageAppVersionAndBuildNumber</key>
+            <false/>
             <key>uploadSymbols</key>
             <true/>
           </dict>
@@ -247,38 +191,42 @@ jobs:
             -exportPath "$APP_EXPORT_PATH" \
             -exportOptionsPlist ExportOptions.plist \
             -allowProvisioningUpdates \
-            -authenticationKeyPath "$GITHUB_WORKSPACE/ios/private_keys/AuthKey_${{ secrets.APP_STORE_CONNECT_KEY_ID }}.p8" \
-            -authenticationKeyID "${{ secrets.APP_STORE_CONNECT_KEY_ID }}" \
-            -authenticationKeyIssuerID "${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}"
+            -authenticationKeyPath "$API_KEY_PATH" \
+            -authenticationKeyID "$API_KEY_ID" \
+            -authenticationKeyIssuerID "$API_ISSUER_ID"
 
       - name: Upload to App Store Connect
+        env:
+          API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
         run: |
           IPA_FILES=("$APP_EXPORT_PATH"/*.ipa)
           if [[ ! -e "${IPA_FILES[0]}" ]]; then
             echo "Error: IPA not found in $APP_EXPORT_PATH"
             exit 1
           fi
-          IPA_PATH="${IPA_FILES[0]}"
 
           xcrun altool \
             --upload-app \
             --type ios \
-            --file "$IPA_PATH" \
-            --apiKey "${{ secrets.APP_STORE_CONNECT_KEY_ID }}" \
-            --apiIssuer "${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}"
+            --file "${IPA_FILES[0]}" \
+            --apiKey "$API_KEY_ID" \
+            --apiIssuer "$API_ISSUER_ID"
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ios-release-${{ steps.validate.outputs.version }}-${{ steps.validate.outputs.build_number }}
+          name: ${{ steps.validate.outputs.artifact_name }}
           path: |
-            ios/build/Muxy.xcarchive
-            ios/build/export/*.ipa
+            build/Muxy.xcarchive
+            build/export/*.ipa
+          if-no-files-found: error
 
       - name: Create GitHub Release
         if: ${{ !inputs.skip_release_tag }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.validate.outputs.version }}
         run: |
           PREV_TAG=$(gh release list \
             --repo "${{ github.repository }}" \
@@ -292,17 +240,15 @@ jobs:
             RANGE="HEAD"
           fi
 
-          git log --no-merges -i --grep='^ios:' --format='%s' "$RANGE" \
-            | sed -E 's/^[Ii][Oo][Ss]:[[:space:]]*/- /' \
-            > notes.md
+          git log --no-merges --format='- %s' "$RANGE" > notes.md
 
           if [[ ! -s notes.md ]]; then
-            echo "- No iOS-facing changes since ${PREV_TAG:-initial release}" > notes.md
+            echo "- No changes since ${PREV_TAG:-initial release}" > notes.md
           fi
 
-          gh release create "ios-v${{ steps.validate.outputs.version }}" \
+          gh release create "ios-v$VERSION" \
             --repo "${{ github.repository }}" \
-            --title "iOS v${{ steps.validate.outputs.version }}" \
+            --title "iOS v$VERSION" \
             --notes-file notes.md \
             --latest=false \
             --target "${{ github.sha }}"
