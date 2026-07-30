@@ -14,6 +14,7 @@ import {
   recordDimensions,
   reclaimPane,
   sendTerminalInput,
+  sendTerminalScroll,
   useDevicesStore,
   usePaneSession,
   usePaneSessionStore,
@@ -27,6 +28,7 @@ import {
   type TerminalKeyboardPhase,
   TerminalWebView,
   type TerminalDimensions,
+  type TerminalScroll,
   type TerminalWebViewHandle,
 } from './TerminalWebView';
 import { scheduleTerminalInputFocus } from './terminalFocus';
@@ -145,6 +147,13 @@ function TerminalSessionView({
   const handleData = (base64: string) => {
     sendTerminalInput(paneId, transformWithModifiers(base64));
   };
+
+  const handleScroll = useCallback(
+    ({ deltaX, deltaY, precise }: TerminalScroll) => {
+      sendTerminalScroll(paneId, deltaX, deltaY, precise);
+    },
+    [paneId],
+  );
 
   const handleKeyBarBytes = (base64: string) => {
     sendTerminalInput(paneId, base64);
@@ -274,6 +283,7 @@ function TerminalSessionView({
               recordDimensions(d.cols, d.rows);
             }}
             onData={handleData}
+            onScroll={handleScroll}
             onTap={handleTap}
             onNewTerminalShortcut={onNewTerminal}
             onSelectTabShortcut={onSelectTabShortcut}

@@ -107,6 +107,27 @@ struct TerminalSessionTests {
         #expect(Array(params.bytes) == [0x03])
     }
 
+    @Test func forwardTerminalScrollSendsPreciseDesktopScroll() async throws {
+        let channel = MockTerminalChannel()
+        let paneID = UUID()
+        let session = TerminalSession(paneID: paneID, channel: channel)
+
+        session.activate()
+        session.bootstrapTakeover(cols: 80, rows: 24)
+        try await channel.waitForRequest(.takeOverPane)
+
+        let forwarded = session.forwardTerminalScroll(deltaX: 1.5, deltaY: -18, precise: true)
+
+        #expect(forwarded)
+        try await channel.waitForNotify(.terminalScroll)
+        let scrolls = await channel.notifications.filter { $0.method == .terminalScroll }
+        let params = try #require(scrolls.first?.params as? TerminalScrollParams)
+        #expect(params.paneID == paneID.uuidString)
+        #expect(params.deltaX == 1.5)
+        #expect(params.deltaY == -18)
+        #expect(params.precise)
+    }
+
     @Test func ownershipMatchingClientIDBecomesOwned() async {
         let clientID = UUID()
         let paneID = UUID()

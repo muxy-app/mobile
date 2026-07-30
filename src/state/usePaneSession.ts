@@ -216,6 +216,22 @@ export function sendTerminalInput(paneId: string, base64: string): void {
     .catch(() => {});
 }
 
+export function sendTerminalScroll(
+  paneId: string,
+  deltaX: number,
+  deltaY: number,
+  precise: boolean,
+): void {
+  const session = usePaneSessionStore.getState().session;
+  if (session.kind !== 'streaming' || session.paneId !== paneId) return;
+  client
+    .request('terminalScroll', {
+      type: 'terminalScroll',
+      value: { paneID: paneId, deltaX, deltaY, precise },
+    })
+    .catch(() => {});
+}
+
 export function reclaimPane(paneId: string, cols: number, rows: number): void {
   transition({ kind: 'taking-over', paneId });
   markTakeOver();
