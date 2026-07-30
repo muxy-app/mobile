@@ -81,6 +81,9 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
   var pendingHideViewportOffset = null;
   var pendingHideViewportLimit = 0;
   var cancelTerminalMomentum = null;
+  var getTerminalCursorBounds = null;
+  var viewportOffsetAwaitingCursor = false;
+  var viewportOffsetFollowsCursor = false;
 
   function post(msg) {
     if (window.ReactNativeWebView) {
@@ -130,14 +133,40 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
     root.style.transform = 'translate3d(0, ' + (-viewportOffset) + 'px, 0)';
   }
 
+  function cursorViewportOffset(cursorBounds, viewportHeight, nextLimit) {
+    if (cursorBounds === null) return 0;
+    if (cursorBounds.bottom <= viewportHeight - nextLimit) return 0;
+    if (cursorBounds.top - nextLimit < 0) return 0;
+    return nextLimit;
+  }
+
+  function chooseInitialViewportOffset(nextLimit) {
+    if (!getTerminalCursorBounds) {
+      viewportOffsetAwaitingCursor = true;
+      return 0;
+    }
+    var cursorBounds = getTerminalCursorBounds();
+    if (cursorBounds === undefined) {
+      viewportOffsetAwaitingCursor = true;
+      return 0;
+    }
+    viewportOffsetAwaitingCursor = false;
+    if (cursorBounds === null) return 0;
+    return cursorViewportOffset(cursorBounds, root.clientHeight, nextLimit);
+  }
+
   function reconcileVisibleViewport(nextLimit) {
     if (pendingHideViewportOffset !== null) {
       var wasPendingAboveKeyboard = pendingHideViewportLimit > 0
         && Math.abs(pendingHideViewportOffset - pendingHideViewportLimit) <= 0.5;
       viewportOffsetLimit = nextLimit;
-      viewportOffset = wasPendingAboveKeyboard
-        ? viewportOffsetLimit
-        : Math.min(pendingHideViewportOffset, viewportOffsetLimit);
+      if (viewportOffsetFollowsCursor) {
+        viewportOffset = chooseInitialViewportOffset(viewportOffsetLimit);
+      } else {
+        viewportOffset = wasPendingAboveKeyboard
+          ? viewportOffsetLimit
+          : Math.min(pendingHideViewportOffset, viewportOffsetLimit);
+      }
       pendingHideViewportOffset = null;
       pendingHideViewportLimit = 0;
       return;
@@ -145,7 +174,16 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
     var previousLimit = viewportOffsetLimit;
     var wasAnchoredAboveKeyboard = previousLimit > 0 && Math.abs(viewportOffset - previousLimit) <= 0.5;
     viewportOffsetLimit = nextLimit;
-    if (previousLimit === 0 || wasAnchoredAboveKeyboard) {
+    if (previousLimit === 0) {
+      viewportOffsetFollowsCursor = true;
+      viewportOffset = chooseInitialViewportOffset(viewportOffsetLimit);
+      return;
+    }
+    if (viewportOffsetFollowsCursor) {
+      viewportOffset = chooseInitialViewportOffset(viewportOffsetLimit);
+      return;
+    }
+    if (wasAnchoredAboveKeyboard) {
       viewportOffset = viewportOffsetLimit;
       return;
     }
@@ -172,6 +210,8 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
       viewportOffset = 0;
       pendingHideViewportOffset = null;
       pendingHideViewportLimit = 0;
+      viewportOffsetAwaitingCursor = false;
+      viewportOffsetFollowsCursor = false;
       applyViewportOffset(transitionDuration);
       return;
     }
@@ -486,6 +526,8 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
     cancelMomentum();
     cancelFlush();
     scrollAccumulator = 0;
+    viewportOffsetAwaitingCursor = false;
+    viewportOffsetFollowsCursor = false;
     captureRenderedViewportOffset();
     touchMoved = false;
     if (e.touches && e.touches[0]) {
@@ -529,6 +571,24 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
   }, { passive: true, capture: true });
 
   var dimensionsInitialized = false;
+  getTerminalCursorBounds = function () {
+    if (!dimensionsInitialized) return undefined;
+    try {
+      var buffer = term.buffer && term.buffer.active;
+      var screen = term.element && term.element.querySelector('.xterm-screen');
+      if (!buffer || !screen || term.rows <= 0) return undefined;
+      var cursorRow = buffer.baseY + buffer.cursorY - buffer.viewportY;
+      if (cursorRow < 0 || cursorRow >= term.rows) return null;
+      var rootRect = root.getBoundingClientRect();
+      var screenRect = screen.getBoundingClientRect();
+      var cellHeight = screenRect.height / term.rows;
+      if (!isFinite(cellHeight) || cellHeight <= 0) return undefined;
+      var top = screenRect.top - rootRect.top + cursorRow * cellHeight;
+      return { top: top, bottom: top + cellHeight };
+    } catch (e) {
+      return undefined;
+    }
+  };
   function initializeDimensions() {
     if (dimensionsInitialized) return;
     if (root.clientWidth <= 0 || root.clientHeight <= 0) {
@@ -547,6 +607,10 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
       return;
     }
     dimensionsInitialized = true;
+    if (viewportOffsetAwaitingCursor && viewportOffsetLimit > 0) {
+      viewportOffset = chooseInitialViewportOffset(viewportOffsetLimit);
+      applyViewportOffset(0);
+    }
     post({ type: 'dimensions', cols: term.cols, rows: term.rows });
     post({ type: 'ready' });
   }
