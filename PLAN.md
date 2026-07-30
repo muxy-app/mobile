@@ -68,6 +68,14 @@ Approved by Saeed. Execute phases in order; Phase 6 is independent of Phases 3�
   build uploaded for `com.muxy.app` (native used run numbers/timestamps).
 - SSH module is Apple-only: `expo-module.config.json` → `"platforms": ["apple"]`. No Android
   sources at all. Android UI entry points hidden via the availability gate.
+- iOS minimum deployment target is raised to **17.0** (Citadel declares `.iOS(.v17)`), set in
+  `app.json` and the module podspec. Consequence: App Store users on iOS 15/16 stop receiving
+  updates once the RN build replaces the native app. Accepted 2026-07-30.
+- Citadel is pinned with `kind: 'exactVersion'` in `modules/muxy-ssh/ios/MuxySsh.podspec`, and the
+  full transitive graph is locked by the committed `modules/muxy-ssh/Package.resolved`, which the
+  RN iOS release workflow restores into `ios/Muxy.xcworkspace/xcshareddata/swiftpm/` and enforces
+  with `xcodebuild -disableAutomaticPackageResolution`. Version bumps must regenerate that file
+  from a local prebuild.
 
 ## Project rules that apply (from CLAUDE.md — do not skip)
 
@@ -126,12 +134,13 @@ Mechanical move, no behavior change.
 
 Citadel is SwiftPM-only; Expo autolinking uses CocoaPods. Two approaches, in order:
 
-1. **`spm_dependency` in the podspec** (CocoaPods ≥ 1.15 era; RN 0.75+ supports it; requires
-   iOS deployment target ≥ 15.1 — Expo 54 default satisfies this):
+1. **`spm_dependency` in the podspec** (CocoaPods ≥ 1.15 era; RN 0.75+ supports it; Citadel
+   itself requires iOS ≥ 17.0, so the app's deployment target is raised accordingly — see
+   Locked decisions):
    ```ruby
    s.spm_dependency(
      url: 'https://github.com/orlandos-nl/Citadel.git',
-     requirement: { kind: 'upToNextMajorVersion', minimumVersion: '<match ios-native Package.resolved>' },
+     requirement: { kind: 'exactVersion', version: '<match ios-native Package.resolved>' },
      products: ['Citadel']
    )
    ```

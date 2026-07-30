@@ -124,6 +124,11 @@ jobs:
       - name: Install CocoaPods
         run: npx pod-install@1.1.0 ios --non-interactive
 
+      - name: Pin Swift package resolution
+        run: |
+          mkdir -p ios/Muxy.xcworkspace/xcshareddata/swiftpm
+          cp modules/muxy-ssh/Package.resolved ios/Muxy.xcworkspace/xcshareddata/swiftpm/Package.resolved
+
       - name: Install App Store Connect API key
         id: api_key
         env:
@@ -151,6 +156,7 @@ jobs:
             -configuration Release \
             -destination "generic/platform=iOS" \
             -archivePath "$APP_ARCHIVE_PATH" \
+            -disableAutomaticPackageResolution \
             -allowProvisioningUpdates \
             -authenticationKeyPath "$API_KEY_PATH" \
             -authenticationKeyID "$API_KEY_ID" \

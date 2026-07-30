@@ -16,7 +16,7 @@ Pod::Spec.new do |s|
   spm_dependency(
     s,
     url: 'https://github.com/orlandos-nl/Citadel.git',
-    requirement: { kind: 'upToNextMajorVersion', minimumVersion: '0.12.1' },
+    requirement: { kind: 'exactVersion', version: '0.12.1' },
     products: ['Citadel']
   )
 end
