@@ -167,4 +167,21 @@ describe('buildTerminalHtml', () => {
     expect(html).toContain('Array.isArray(msg.bytes)');
     expect(html).toContain('pendingWrites.push(decodeBase64(msg.bytes[writeIndex]));');
   });
+
+  it('forwards precise scroll pixels before applying local terminal routing', () => {
+    const html = buildTerminalHtml({
+      theme,
+      fontFamily: 'Menlo',
+      fontSize: 12,
+      forwardTerminalScroll: true,
+    });
+    const runtime = terminalRuntime(html);
+
+    expect(html).toContain('"forwardTerminalScroll":true');
+    expect(runtime).toContain("post({ type: 'scroll', deltaX: 0, deltaY: remoteDeltaY, precise: true });");
+    expect(runtime.indexOf('pendingRemoteDeltaY -= scrollDelta;')).toBeLessThan(
+      runtime.indexOf('scrollAccumulator += scrollDelta;'),
+    );
+    expect(runtime.match(/if \(INITIAL\.forwardTerminalScroll\) return;/g)).toHaveLength(2);
+  });
 });

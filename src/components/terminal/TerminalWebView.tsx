@@ -25,6 +25,11 @@ export type TerminalWebViewHandle = {
 };
 
 export type TerminalDimensions = { cols: number; rows: number };
+export type TerminalScroll = {
+  deltaX: number;
+  deltaY: number;
+  precise: boolean;
+};
 
 type Props = {
   theme: TerminalTheme;
@@ -32,6 +37,7 @@ type Props = {
   onReady: () => void;
   onDimensions: (dims: TerminalDimensions) => void;
   onData?: (base64: string) => void;
+  onScroll?: (scroll: TerminalScroll) => void;
   onError?: (message: string) => void;
   onTap?: () => void;
   onNewTerminalShortcut?: () => void;
@@ -46,6 +52,7 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function
     onReady,
     onDimensions,
     onData,
+    onScroll,
     onError,
     onTap,
     onNewTerminalShortcut,
@@ -65,6 +72,7 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function
       fontFamily,
       fontSize: FONT_SIZE,
       commandShortcutsEnabled: Platform.OS !== 'ios',
+      forwardTerminalScroll: onScroll !== undefined,
     }),
   );
 
@@ -134,6 +142,13 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function
           return;
         case 'data':
           onData?.(msg.bytes);
+          return;
+        case 'scroll':
+          onScroll?.({
+            deltaX: msg.deltaX,
+            deltaY: msg.deltaY,
+            precise: msg.precise,
+          });
           return;
         case 'tap':
           onTap?.();

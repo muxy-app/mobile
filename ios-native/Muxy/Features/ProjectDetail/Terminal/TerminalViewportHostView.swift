@@ -244,14 +244,26 @@ final class TerminalViewportHostView: UIView, UIGestureRecognizerDelegate {
         positionTerminal()
         let viewportMoved = viewportState.viewportOffset != previousViewportOffset
         guard residual != 0 else { return viewportMoved }
+        let forwarded = forwardTerminalScroll(delta: residual)
         let terminal = terminalView.getTerminal()
         if terminal.mouseMode != .off {
+            guard !forwarded else { return true }
             return routeLines(delta: residual, location: location, destination: .mouse) || viewportMoved
         }
         if terminal.isCurrentBufferAlternate {
+            guard !forwarded else { return true }
             return routeLines(delta: residual, location: location, destination: .alternateBuffer) || viewportMoved
         }
-        return scrollTerminal(by: residual) || viewportMoved
+        return scrollTerminal(by: residual) || forwarded || viewportMoved
+    }
+
+    private func forwardTerminalScroll(delta: CGFloat) -> Bool {
+        guard let forwarding = terminalView.session as? any TerminalScrollForwarding else { return false }
+        return forwarding.forwardTerminalScroll(
+            deltaX: 0,
+            deltaY: -Double(delta),
+            precise: true
+        )
     }
 
     private func scrollTerminal(by delta: CGFloat) -> Bool {

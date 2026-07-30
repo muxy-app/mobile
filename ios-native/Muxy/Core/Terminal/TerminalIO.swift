@@ -25,3 +25,9 @@ protocol TerminalIO: AnyObject {
     @discardableResult
     func dismissKeyboard() -> Bool
 }
+
+@MainActor
+protocol TerminalScrollForwarding: AnyObject {
+    @discardableResult
+    func forwardTerminalScroll(deltaX: Double, deltaY: Double, precise: Bool) -> Bool
+}

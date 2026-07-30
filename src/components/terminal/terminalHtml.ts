@@ -35,6 +35,7 @@ export type TerminalInitOptions = {
   fontFamily: string;
   fontSize: number;
   commandShortcutsEnabled?: boolean;
+  forwardTerminalScroll?: boolean;
 };
 
 export function buildTerminalHtml(init: TerminalInitOptions): string {
@@ -377,6 +378,7 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
   var momentumRaf = 0;
   var scrollAccumulator = 0;
   var pendingLines = 0;
+  var pendingRemoteDeltaY = 0;
   var pendingClientX = 0;
   var pendingClientY = 0;
   var flushRaf = 0;
@@ -405,29 +407,43 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
   }
   function flushPendingLines() {
     flushRaf = 0;
+    var remoteDeltaY = pendingRemoteDeltaY;
+    pendingRemoteDeltaY = 0;
+    if (remoteDeltaY !== 0) {
+      post({ type: 'scroll', deltaX: 0, deltaY: remoteDeltaY, precise: true });
+    }
     var lines = pendingLines;
     if (lines === 0) return;
     pendingLines = 0;
     if (isMouseTrackingActive()) {
+      if (INITIAL.forwardTerminalScroll) return;
       dispatchWheel(lines, pendingClientX, pendingClientY);
       return;
     }
     if (isAltBuffer()) {
+      if (INITIAL.forwardTerminalScroll) return;
       sendArrowKeys(lines);
       return;
     }
     try { term.scrollLines(lines); } catch (e) {}
+  }
+  function scheduleScrollFlush() {
+    if (!flushRaf) flushRaf = requestAnimationFrame(flushPendingLines);
   }
   function queueLines(lines, clientX, clientY) {
     if (lines === 0) return;
     pendingLines += lines;
     pendingClientX = clientX;
     pendingClientY = clientY;
-    if (!flushRaf) flushRaf = requestAnimationFrame(flushPendingLines);
+    scheduleScrollFlush();
   }
   function queueScrollPixels(dy, clientX, clientY) {
     var scrollDelta = consumeViewportOffset(dy);
     if (scrollDelta === 0) return;
+    if (INITIAL.forwardTerminalScroll) {
+      pendingRemoteDeltaY -= scrollDelta;
+      scheduleScrollFlush();
+    }
     scrollAccumulator += scrollDelta;
     var lineHeight = getLineHeightPx();
     if (lineHeight <= 0) return;
@@ -452,6 +468,7 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
     if (flushRaf) cancelAnimationFrame(flushRaf);
     flushRaf = 0;
     pendingLines = 0;
+    pendingRemoteDeltaY = 0;
   }
   function dispatchWheel(deltaLines, clientX, clientY) {
     var target = term.element;

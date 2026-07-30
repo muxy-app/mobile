@@ -6,7 +6,7 @@ import UIKit
 
 @MainActor
 @Observable
-final class TerminalSession: TerminalIO {
+final class TerminalSession: TerminalIO, TerminalScrollForwarding {
     enum Ownership: Equatable {
         case idle
         case takingOver
@@ -237,6 +237,25 @@ final class TerminalSession: TerminalIO {
 
     func sendText(_ text: String) {
         transmit(Array(text.utf8))
+    }
+
+    @discardableResult
+    func forwardTerminalScroll(deltaX: Double, deltaY: Double, precise: Bool) -> Bool {
+        guard ownership == .owned || ownership == .takingOver else { return false }
+        Task { [channel, paneID] in
+            let params = TerminalScrollParams(
+                paneID: paneID.uuidString,
+                deltaX: deltaX,
+                deltaY: deltaY,
+                precise: precise
+            )
+            do {
+                try await channel.notify(.terminalScroll, params: params)
+            } catch {
+                Log.terminal.error("terminalScroll failed: \(String(describing: error), privacy: .public)")
+            }
+        }
+        return true
     }
 
     func setModifierArmed(_ armed: Bool) {
