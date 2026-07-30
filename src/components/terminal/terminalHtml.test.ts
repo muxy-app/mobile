@@ -1,3 +1,5 @@
+import { runInNewContext } from 'node:vm';
+
 import { buildTerminalHtml, type TerminalTheme } from './terminalHtml';
 
 const theme: TerminalTheme = {
@@ -27,6 +29,33 @@ const theme: TerminalTheme = {
 function terminalRuntime(html: string): string {
   return html.slice(html.lastIndexOf('<script>'));
 }
+
+function terminalRuntimeFunction<TFunction>(html: string, name: string): TFunction {
+  const runtime = terminalRuntime(html);
+  const start = runtime.indexOf(`function ${name}(`);
+  const bodyStart = runtime.indexOf('{', start);
+  if (start < 0 || bodyStart < 0) {
+    throw new Error(`Runtime function not found: ${name}`);
+  }
+  let depth = 0;
+
+  for (let index = bodyStart; index < runtime.length; index += 1) {
+    if (runtime[index] === '{') depth += 1;
+    if (runtime[index] !== '}') continue;
+    depth -= 1;
+    if (depth === 0) {
+      return runInNewContext(`(${runtime.slice(start, index + 1)})`) as TFunction;
+    }
+  }
+
+  throw new Error(`Runtime function not found: ${name}`);
+}
+
+type CursorViewportOffset = (
+  cursorBounds: { top: number; bottom: number } | null,
+  viewportHeight: number,
+  keyboardOffset: number,
+) => number;
 
 describe('buildTerminalHtml', () => {
   it('can disable WebView command shortcuts when native menu commands own them', () => {
@@ -82,6 +111,50 @@ describe('buildTerminalHtml', () => {
     expect(runtime).toContain("msg.type === 'setKeyboardOffset'");
     expect(runtime).toContain("root.style.transform = 'translate3d(0, '");
     expect(runtime).not.toContain('root.style.height');
+  });
+
+  it('shifts when the keyboard covers the cursor and the cursor remains onscreen', () => {
+    const html = buildTerminalHtml({
+      theme,
+      fontFamily: 'Menlo',
+      fontSize: 12,
+    });
+    const cursorViewportOffset = terminalRuntimeFunction<CursorViewportOffset>(
+      html,
+      'cursorViewportOffset',
+    );
+
+    expect(cursorViewportOffset({ top: 500, bottom: 520 }, 700, 300)).toBe(300);
+    expect(cursorViewportOffset({ top: 300, bottom: 420 }, 700, 300)).toBe(300);
+  });
+
+  it('preserves the viewport when the keyboard does not cover the cursor', () => {
+    const html = buildTerminalHtml({
+      theme,
+      fontFamily: 'Menlo',
+      fontSize: 12,
+    });
+    const cursorViewportOffset = terminalRuntimeFunction<CursorViewportOffset>(
+      html,
+      'cursorViewportOffset',
+    );
+
+    expect(cursorViewportOffset({ top: 300, bottom: 400 }, 700, 300)).toBe(0);
+    expect(cursorViewportOffset(null, 700, 300)).toBe(0);
+  });
+
+  it('preserves the viewport when shifting would clip the cursor above the screen', () => {
+    const html = buildTerminalHtml({
+      theme,
+      fontFamily: 'Menlo',
+      fontSize: 12,
+    });
+    const cursorViewportOffset = terminalRuntimeFunction<CursorViewportOffset>(
+      html,
+      'cursorViewportOffset',
+    );
+
+    expect(cursorViewportOffset({ top: 250, bottom: 420 }, 700, 300)).toBe(0);
   });
 
   it('accepts batched terminal output chunks from the native host', () => {
