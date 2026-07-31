@@ -21,11 +21,14 @@ type Props = {
   visible: boolean;
   onClose: () => void;
   projectId: string;
+  rootRoute?: GitRootRoute;
 };
+
+export type GitRootRoute = 'overview' | 'worktrees';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-export function GitSheet({ visible, onClose, projectId }: Props) {
+export function GitSheet({ visible, onClose, projectId, rootRoute = 'overview' }: Props) {
   const tokens = useTokens();
   const insets = useSafeAreaInsets();
 
@@ -34,7 +37,7 @@ export function GitSheet({ visible, onClose, projectId }: Props) {
   const translateY = useSharedValue(sheetHeight);
   const overlay = useSharedValue(0);
 
-  const [route, setRoute] = useState<GitRoute>({ name: 'overview' });
+  const [route, setRoute] = useState<GitRoute>(routeForRoot(rootRoute));
 
   const finishClose = useCallback(() => {
     onClose();
@@ -51,11 +54,11 @@ export function GitSheet({ visible, onClose, projectId }: Props) {
     if (visible) {
       translateY.value = sheetHeight;
       overlay.value = 0;
-      setRoute({ name: 'overview' });
+      setRoute(routeForRoot(rootRoute));
       overlay.value = withTiming(1, { duration: 220 });
       translateY.value = withSpring(0, { damping: 22, stiffness: 220, mass: 0.9 });
     }
-  }, [visible, sheetHeight, translateY, overlay]);
+  }, [visible, rootRoute, sheetHeight, translateY, overlay]);
 
   const panGesture = Gesture.Pan()
     .activeOffsetY(8)
@@ -112,14 +115,15 @@ export function GitSheet({ visible, onClose, projectId }: Props) {
                 </View>
                 <SheetHeader
                   route={route}
-                  onBack={() => setRoute({ name: 'overview' })}
+                  rootRoute={rootRoute}
+                  onBack={() => setRoute(parentRouteFor(route, rootRoute))}
                   onClose={dismiss}
                 />
               </View>
             </GestureDetector>
 
             <View style={styles.body}>
-              <GitScreens projectId={projectId} route={route} setRoute={setRoute} onClose={dismiss} />
+              <GitScreens projectId={projectId} route={route} setRoute={setRoute} />
             </View>
           </Animated.View>
         </View>
@@ -130,15 +134,17 @@ export function GitSheet({ visible, onClose, projectId }: Props) {
 
 function SheetHeader({
   route,
+  rootRoute,
   onBack,
   onClose,
 }: {
   route: GitRoute;
+  rootRoute: GitRootRoute;
   onBack: () => void;
   onClose: () => void;
 }) {
   const tokens = useTokens();
-  const isRoot = route.name === 'overview';
+  const isRoot = route.name === rootRoute;
   const title = headerTitleFor(route);
   return (
     <View style={[styles.header, { borderBottomColor: tokens.border.subtle }]}>
@@ -167,6 +173,16 @@ function SheetHeader({
       </Pressable>
     </View>
   );
+}
+
+function parentRouteFor(route: GitRoute, rootRoute: GitRootRoute): GitRoute {
+  if (route.name === 'newWorktree') return { name: 'worktrees' };
+  return routeForRoot(rootRoute);
+}
+
+function routeForRoot(rootRoute: GitRootRoute): GitRoute {
+  if (rootRoute === 'worktrees') return { name: 'worktrees' };
+  return { name: 'overview' };
 }
 
 function headerTitleFor(route: GitRoute): string {

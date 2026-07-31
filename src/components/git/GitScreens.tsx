@@ -23,17 +23,16 @@ type Props = {
   projectId: string;
   route: GitRoute;
   setRoute: (r: GitRoute) => void;
-  onClose: () => void;
 };
 
-export function GitScreens({ projectId, route, setRoute, onClose }: Props) {
+export function GitScreens({ projectId, route, setRoute }: Props) {
   switch (route.name) {
     case 'overview':
       return <OverviewScreen projectId={projectId} setRoute={setRoute} />;
     case 'branches':
       return <BranchesScreen projectId={projectId} setRoute={setRoute} />;
     case 'worktrees':
-      return <WorktreesScreen projectId={projectId} setRoute={setRoute} onClose={onClose} />;
+      return <WorktreesScreen projectId={projectId} setRoute={setRoute} />;
     case 'commit':
       return <CommitScreen projectId={projectId} setRoute={setRoute} />;
     case 'createPR':

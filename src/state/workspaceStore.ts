@@ -16,6 +16,7 @@ type Actions = {
   setWorkspace: (workspace: Workspace | null) => void;
   applyWorkspaceUpdate: (workspace: Workspace) => void;
   setFetchPhase: (phase: WorkspaceFetchPhase, error?: string | null) => void;
+  setActiveWorktreeLocal: (projectId: string, worktreeId: string) => void;
   selectTabLocal: (areaId: string, tabId: string) => void;
   clear: () => void;
 };
@@ -38,6 +39,13 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
   },
 
   setFetchPhase: (phase, error = null) => set({ fetchPhase: phase, fetchError: error }),
+
+  setActiveWorktreeLocal: (projectId, worktreeId) => {
+    const workspace = get().workspace;
+    if (!workspace || workspace.projectID !== projectId) return;
+    if (workspace.worktreeID === worktreeId) return;
+    set({ workspace: { ...workspace, worktreeID: worktreeId } });
+  },
 
   selectTabLocal: (areaId, tabId) => {
     const ws = get().workspace;

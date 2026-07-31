@@ -1,7 +1,9 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect } from 'react';
 import { create } from 'zustand';
+import { createJSONStorage, persist } from 'zustand/middleware';
 
-import { client, useDevicesStore } from '@/state';
+import { client, useDevicesStore, useWorkspaceStore } from '@/state';
 import type {
   VCSBranches,
   VCSDiff,
@@ -20,8 +22,11 @@ type Slice<T> = {
 type ProjectGitState = {
   status: Slice<VCSStatus>;
   branches: Slice<VCSBranches>;
-  worktrees: Slice<Worktree[]>;
   diffsByPath: Record<string, Slice<VCSDiff>>;
+};
+
+type WorktreeSlice = Slice<Worktree[]> & {
+  stale: boolean;
 };
 
 type State = {
@@ -64,7 +69,6 @@ const emptySlice = <T>(): Slice<T> => EMPTY_SLICE as Slice<T>;
 const emptyProject = (): ProjectGitState => ({
   status: emptySlice<VCSStatus>(),
   branches: emptySlice<VCSBranches>(),
-  worktrees: emptySlice<Worktree[]>(),
   diffsByPath: {},
 });
 
@@ -77,7 +81,7 @@ function patchSlice(
   projectId: string,
   key: SliceKey,
   patch: SlicePatch,
-): State {
+): Pick<State, 'byProject'> {
   const project = state.byProject[projectId] ?? emptyProject();
   return {
     byProject: {
@@ -97,7 +101,7 @@ function patchDiffSlice(
   projectId: string,
   filePath: string,
   patch: DiffSlicePatch,
-): State {
+): Pick<State, 'byProject'> {
   const project = state.byProject[projectId] ?? emptyProject();
   const existing = project.diffsByPath[filePath] ?? emptySlice<VCSDiff>();
   return {
@@ -114,7 +118,7 @@ function patchDiffSlice(
   };
 }
 
-function clearDiffs(state: State, projectId: string): State {
+function clearDiffs(state: State, projectId: string): Pick<State, 'byProject'> {
   const project = state.byProject[projectId];
   if (!project || Object.keys(project.diffsByPath).length === 0) return state;
   return {
@@ -124,6 +128,81 @@ function clearDiffs(state: State, projectId: string): State {
     },
   };
 }
+
+const EMPTY_WORKTREE_SLICE: WorktreeSlice = {
+  data: null,
+  loading: false,
+  error: null,
+  stale: true,
+};
+
+function worktreeScope(connectionId: string, projectId: string): string {
+  return JSON.stringify([connectionId, projectId]);
+}
+
+function activeWorktreeScope(projectId: string): string {
+  const connectionId = useDevicesStore.getState().activeDeviceId;
+  if (!connectionId) throw new Error('No active device');
+  return worktreeScope(connectionId, projectId);
+}
+
+type WorktreeCacheState = {
+  hasHydrated: boolean;
+  worktreesByScope: Record<string, WorktreeSlice>;
+};
+
+type WorktreeCacheActions = {
+  setHasHydrated: (value: boolean) => void;
+  patchWorktrees: (scope: string, patch: Partial<WorktreeSlice>) => void;
+};
+
+export type WorktreeCacheStore = WorktreeCacheState & WorktreeCacheActions;
+
+export const useWorktreeCacheStore = create<WorktreeCacheStore>()(
+  persist(
+    (set) => ({
+      hasHydrated: false,
+      worktreesByScope: {},
+      setHasHydrated: (value) => set({ hasHydrated: value }),
+      patchWorktrees: (scope, patch) =>
+        set((state) => ({
+          worktreesByScope: {
+            ...state.worktreesByScope,
+            [scope]: {
+              ...(state.worktreesByScope[scope] ?? EMPTY_WORKTREE_SLICE),
+              ...patch,
+            },
+          },
+        })),
+    }),
+    {
+      name: 'muxy.git.worktrees.v1',
+      storage: createJSONStorage(() => AsyncStorage),
+      partialize: (state) => ({
+        worktreesByScope: Object.fromEntries(
+          Object.entries(state.worktreesByScope)
+            .filter(([, slice]) => slice.data !== null)
+            .map(([scope, slice]) => [
+              scope,
+              {
+                data: slice.data,
+                loading: false,
+                error: null,
+                stale: true,
+              },
+            ]),
+        ),
+      }),
+      merge: (persisted, current) => ({
+        ...current,
+        worktreesByScope: readPersistedWorktrees(persisted),
+      }),
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
+    },
+  ),
+);
 
 export const useGitStore = create<GitStore>((set) => {
   const runFetch = async <T>(
@@ -159,14 +238,26 @@ export const useGitStore = create<GitStore>((set) => {
       return res.value;
     });
 
-  const refreshWorktrees = (projectId: string) =>
-    runFetch(projectId, 'worktrees', async () => {
+  const refreshWorktrees = async (projectId: string) => {
+    const scope = activeWorktreeScope(projectId);
+    const patchWorktrees = useWorktreeCacheStore.getState().patchWorktrees;
+    patchWorktrees(scope, { loading: true, error: null });
+    try {
       const res = await client.request('listWorktrees', {
         type: 'listWorktrees',
         value: { projectID: projectId },
       });
-      return res.value;
-    });
+      patchWorktrees(scope, {
+        data: res.value,
+        loading: false,
+        error: null,
+        stale: false,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to load worktrees';
+      patchWorktrees(scope, { loading: false, error: message });
+    }
+  };
 
   return {
     byProject: {},
@@ -249,6 +340,7 @@ export const useGitStore = create<GitStore>((set) => {
     },
 
     addWorktree: async (projectId, input) => {
+      const scope = activeWorktreeScope(projectId);
       const res = await client.request('vcsAddWorktree', {
         type: 'vcsAddWorktree',
         value: {
@@ -258,9 +350,12 @@ export const useGitStore = create<GitStore>((set) => {
           createBranch: input.createBranch,
         },
       });
-      set((s) =>
-        patchSlice(s, projectId, 'worktrees', { data: res.value, loading: false, error: null }),
-      );
+      useWorktreeCacheStore.getState().patchWorktrees(scope, {
+        data: res.value,
+        loading: false,
+        error: null,
+        stale: false,
+      });
       await refreshStatus(projectId);
       await refreshBranches(projectId);
     },
@@ -279,6 +374,8 @@ export const useGitStore = create<GitStore>((set) => {
         value: { projectID: projectId, worktreeID: worktreeId },
       });
       set((s) => clearDiffs(s, projectId));
+      useWorkspaceStore.getState().setActiveWorktreeLocal(projectId, worktreeId);
+      await Promise.all([refreshStatus(projectId), refreshWorktrees(projectId)]);
     },
 
     loadDiff: async (projectId, filePath, forceFull) => {
@@ -297,6 +394,56 @@ export const useGitStore = create<GitStore>((set) => {
   };
 });
 
+function readPersistedWorktrees(persisted: unknown): Record<string, WorktreeSlice> {
+  if (!persisted || typeof persisted !== 'object') return {};
+  if (!('worktreesByScope' in persisted)) return {};
+  if (!persisted.worktreesByScope || typeof persisted.worktreesByScope !== 'object') return {};
+  if (Array.isArray(persisted.worktreesByScope)) return {};
+
+  return Object.fromEntries(
+    Object.entries(persisted.worktreesByScope).flatMap(([scope, value]) => {
+      if (!isWorktreeScope(scope)) return [];
+      if (!value || typeof value !== 'object') return [];
+      if (!('data' in value) || !Array.isArray(value.data)) return [];
+      if (!value.data.every(isWorktree)) return [];
+      return [[scope, { data: value.data, loading: false, error: null, stale: true }]];
+    }),
+  );
+}
+
+function isWorktreeScope(value: string): boolean {
+  try {
+    const scope = JSON.parse(value);
+    return (
+      Array.isArray(scope) &&
+      scope.length === 2 &&
+      scope.every((entry) => typeof entry === 'string' && entry.length > 0)
+    );
+  } catch {
+    return false;
+  }
+}
+
+function isWorktree(value: unknown): value is Worktree {
+  if (!value || typeof value !== 'object') return false;
+  return (
+    'id' in value &&
+    typeof value.id === 'string' &&
+    'name' in value &&
+    typeof value.name === 'string' &&
+    'path' in value &&
+    typeof value.path === 'string' &&
+    'branch' in value &&
+    typeof value.branch === 'string' &&
+    'isPrimary' in value &&
+    typeof value.isPrimary === 'boolean' &&
+    'canBeRemoved' in value &&
+    typeof value.canBeRemoved === 'boolean' &&
+    'createdAt' in value &&
+    typeof value.createdAt === 'string'
+  );
+}
+
 export function selectStatus(projectId: string) {
   return (s: GitStore): Slice<VCSStatus> => s.byProject[projectId]?.status ?? emptySlice();
 }
@@ -305,8 +452,11 @@ export function selectBranches(projectId: string) {
   return (s: GitStore): Slice<VCSBranches> => s.byProject[projectId]?.branches ?? emptySlice();
 }
 
-export function selectWorktrees(projectId: string) {
-  return (s: GitStore): Slice<Worktree[]> => s.byProject[projectId]?.worktrees ?? emptySlice();
+export function selectWorktrees(connectionId: string | null, projectId: string) {
+  return (state: WorktreeCacheStore): WorktreeSlice => {
+    if (!connectionId) return EMPTY_WORKTREE_SLICE;
+    return state.worktreesByScope[worktreeScope(connectionId, projectId)] ?? EMPTY_WORKTREE_SLICE;
+  };
 }
 
 export function useGitStatus(projectId: string) {
@@ -376,16 +526,27 @@ export function useGitDiff(projectId: string, filePath: string) {
 }
 
 export function useGitWorktrees(projectId: string) {
-  const slice = useGitStore(selectWorktrees(projectId));
+  const connectionId = useDevicesStore((state) => state.activeDeviceId);
+  const connectionPhase = useDevicesStore((state) => state.connectionPhase);
+  const hasHydrated = useWorktreeCacheStore((state) => state.hasHydrated);
+  const slice = useWorktreeCacheStore(selectWorktrees(connectionId, projectId));
   const refresh = useGitStore((s) => s.refreshWorktrees);
-  const connectionPhase = useDevicesStore((s) => s.connectionPhase);
 
   useEffect(() => {
-    if (!projectId || connectionPhase !== 'connected') return;
-    if (slice.data === null && !slice.loading && slice.error === null) {
+    if (!hasHydrated || !projectId || !connectionId || connectionPhase !== 'connected') return;
+    if (slice.stale && !slice.loading && slice.error === null) {
       refresh(projectId);
     }
-  }, [projectId, connectionPhase, refresh, slice.data, slice.loading, slice.error]);
+  }, [
+    hasHydrated,
+    projectId,
+    connectionId,
+    connectionPhase,
+    refresh,
+    slice.stale,
+    slice.loading,
+    slice.error,
+  ]);
 
   return {
     worktrees: slice.data,
