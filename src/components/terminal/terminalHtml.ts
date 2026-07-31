@@ -382,6 +382,7 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
   var pendingClientX = 0;
   var pendingClientY = 0;
   var flushRaf = 0;
+  var lastFollowingBottom = null;
 
   function getLineHeightPx() {
     var fontSize = term.options.fontSize || INITIAL.fontSize;
@@ -395,7 +396,28 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
     }
   }
   function scrollToBottom() {
+    cancelMomentum();
+    cancelFlush();
+    scrollAccumulator = 0;
     try { term.scrollToBottom(); } catch (e) {}
+    syncFollowingBottom();
+  }
+  function isViewportFollowingBottom(viewportY, baseY) {
+    return viewportY >= baseY;
+  }
+  function readFollowingBottom() {
+    try {
+      var buffer = term.buffer && term.buffer.active;
+      return !buffer || isViewportFollowingBottom(buffer.viewportY, buffer.baseY);
+    } catch (e) {
+      return true;
+    }
+  }
+  function syncFollowingBottom() {
+    var followingBottom = readFollowingBottom();
+    if (followingBottom === lastFollowingBottom) return;
+    lastFollowingBottom = followingBottom;
+    post({ type: 'followingBottom', value: followingBottom });
   }
   function sendArrowKeys(lines) {
     if (lines === 0) return;
@@ -501,6 +523,10 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
       return false;
     }
   }
+
+  term.onScroll(syncFollowingBottom);
+  term.onWriteParsed(syncFollowingBottom);
+  syncFollowingBottom();
 
   function computeVelocity() {
     if (velocitySamples.length < 2) return 0;
@@ -693,6 +719,10 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
         case 'clear':
           term.clear();
           term.reset();
+          scrollToBottom();
+          break;
+        case 'scrollToBottom':
+          scrollToBottom();
           break;
       }
     } catch (e) {

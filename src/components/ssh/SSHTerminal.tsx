@@ -52,6 +52,7 @@ import {
   KeyBar,
   transformWithModifiers,
 } from '../terminal/KeyBar';
+import { TerminalJumpToBottomButton } from '../terminal/TerminalJumpToBottomButton';
 import {
   type TerminalDimensions,
   type TerminalKeyboardPhase,
@@ -126,6 +127,7 @@ function SSHSessionTerminal({
   const [inputValue, setInputValue] = useState(INPUT_SENTINEL);
   const [hasDimensions, setHasDimensions] = useState(false);
   const [ready, setReady] = useState(false);
+  const [isFollowingBottom, setIsFollowingBottom] = useState(true);
   const [attemptConnectionId, setAttemptConnectionId] =
     useState(newEntryId);
 
@@ -371,6 +373,11 @@ function SSHSessionTerminal({
       { translateY: Math.min(0, height.value + insets.bottom) },
     ],
   }));
+  const jumpToBottomSlideStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateY: Math.min(0, height.value + insets.bottom) },
+    ],
+  }));
   const setTerminalKeyboardOffset = useCallback(
     (
       keyboardHeight: number,
@@ -466,6 +473,9 @@ function SSHSessionTerminal({
     webRef.current?.clear();
     setAttemptConnectionId(newEntryId());
   }, []);
+  const handleJumpToBottom = useCallback(() => {
+    webRef.current?.scrollToBottom();
+  }, []);
 
   return (
     <View
@@ -482,6 +492,7 @@ function SSHSessionTerminal({
             onReady={() => setReady(true)}
             onDimensions={handleDimensions}
             onData={handleData}
+            onFollowingBottomChange={setIsFollowingBottom}
             onTap={handleTap}
             onError={(message) => {
               console.log('[ssh-terminal] ' + message);
@@ -501,6 +512,14 @@ function SSHSessionTerminal({
               );
             }}
           />
+
+          {!isFollowingBottom ? (
+            <TerminalJumpToBottomButton
+              color={terminalTheme.foreground}
+              onPress={handleJumpToBottom}
+              style={jumpToBottomSlideStyle}
+            />
+          ) : null}
 
           <TextInput
             ref={inputRef}

@@ -57,6 +57,8 @@ type CursorViewportOffset = (
   keyboardOffset: number,
 ) => number;
 
+type IsViewportFollowingBottom = (viewportY: number, baseY: number) => boolean;
+
 describe('buildTerminalHtml', () => {
   it('can disable WebView command shortcuts when native menu commands own them', () => {
     const html = buildTerminalHtml({
@@ -183,5 +185,39 @@ describe('buildTerminalHtml', () => {
       runtime.indexOf('scrollAccumulator += scrollDelta;'),
     );
     expect(runtime.match(/if \(INITIAL\.forwardTerminalScroll\) return;/g)).toHaveLength(2);
+  });
+
+  it('tracks whether the terminal viewport is following live output', () => {
+    const html = buildTerminalHtml({
+      theme,
+      fontFamily: 'Menlo',
+      fontSize: 12,
+    });
+    const runtime = terminalRuntime(html);
+    const isViewportFollowingBottom =
+      terminalRuntimeFunction<IsViewportFollowingBottom>(html, 'isViewportFollowingBottom');
+
+    expect(isViewportFollowingBottom(0, 0)).toBe(true);
+    expect(isViewportFollowingBottom(120, 120)).toBe(true);
+    expect(isViewportFollowingBottom(119, 120)).toBe(false);
+    expect(runtime).toContain('term.onScroll(syncFollowingBottom);');
+    expect(runtime).toContain('term.onWriteParsed(syncFollowingBottom);');
+    expect(runtime).toContain("post({ type: 'followingBottom', value: followingBottom });");
+  });
+
+  it('cancels pending scrolling before jumping to live output', () => {
+    const html = buildTerminalHtml({
+      theme,
+      fontFamily: 'Menlo',
+      fontSize: 12,
+    });
+    const runtime = terminalRuntime(html);
+
+    expect(runtime).toContain(
+      "case 'scrollToBottom':\n          scrollToBottom();",
+    );
+    expect(runtime).toContain(
+      'cancelMomentum();\n    cancelFlush();\n    scrollAccumulator = 0;\n    try { term.scrollToBottom();',
+    );
   });
 });

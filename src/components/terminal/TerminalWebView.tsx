@@ -21,6 +21,7 @@ export type TerminalWebViewHandle = {
   loadSnapshot: (base64: string) => void;
   setTheme: (theme: TerminalTheme) => void;
   clear: () => void;
+  scrollToBottom: () => void;
   setKeyboardOffset: (offset: number, duration: number, phase: TerminalKeyboardPhase) => void;
 };
 
@@ -38,6 +39,7 @@ type Props = {
   onDimensions: (dims: TerminalDimensions) => void;
   onData?: (base64: string) => void;
   onScroll?: (scroll: TerminalScroll) => void;
+  onFollowingBottomChange?: (followingBottom: boolean) => void;
   onError?: (message: string) => void;
   onTap?: () => void;
   onNewTerminalShortcut?: () => void;
@@ -53,6 +55,7 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function
     onDimensions,
     onData,
     onScroll,
+    onFollowingBottomChange,
     onError,
     onTap,
     onNewTerminalShortcut,
@@ -116,6 +119,7 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function
         cancelQueuedWrites();
         send({ type: 'clear' });
       },
+      scrollToBottom: () => send({ type: 'scrollToBottom' }),
       setKeyboardOffset: (offset, duration, phase) => send({ type: 'setKeyboardOffset', offset, duration, phase }),
     }),
     [cancelQueuedWrites, queueWrite, send],
@@ -149,6 +153,9 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function
             deltaY: msg.deltaY,
             precise: msg.precise,
           });
+          return;
+        case 'followingBottom':
+          onFollowingBottomChange?.(msg.value);
           return;
         case 'tap':
           onTap?.();
