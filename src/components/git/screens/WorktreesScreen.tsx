@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
+import { useWorkspaceStore } from '@/state';
 import { useTokens } from '@/theme';
 import type { Worktree } from '@/transport';
 
@@ -12,11 +13,13 @@ import type { GitRoute } from '../GitScreens';
 type Props = {
   projectId: string;
   setRoute: (r: GitRoute) => void;
-  onClose: () => void;
 };
 
-export function WorktreesScreen({ projectId, setRoute, onClose }: Props) {
+export function WorktreesScreen({ projectId, setRoute }: Props) {
   const tokens = useTokens();
+  const activeWorktreeId = useWorkspaceStore((state) =>
+    state.workspace?.projectID === projectId ? state.workspace.worktreeID : null,
+  );
   const { worktrees, loading, error: loadError, reload } = useGitWorktrees(projectId);
   const selectWorktree = useGitStore((s) => s.selectWorktree);
   const removeWorktree = useGitStore((s) => s.removeWorktree);
@@ -29,7 +32,6 @@ export function WorktreesScreen({ projectId, setRoute, onClose }: Props) {
     setActionError(null);
     try {
       await selectWorktree(projectId, wt.id);
-      onClose();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Failed to select worktree');
     } finally {
@@ -91,20 +93,27 @@ export function WorktreesScreen({ projectId, setRoute, onClose }: Props) {
                 trailing={
                   busyId === wt.id ? (
                     <ActivityIndicator color={tokens.text.muted} size="small" />
-                  ) : wt.canBeRemoved ? (
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel="Remove worktree"
-                      hitSlop={10}
-                      onPress={() => onRemove(wt)}>
-                      <Ionicons name="trash-outline" size={18} color={tokens.status.danger} />
-                    </Pressable>
                   ) : (
-                    <Ionicons name="chevron-forward" size={18} color={tokens.text.muted} />
+                    <View style={styles.trailingActions}>
+                      {activeWorktreeId === wt.id ? (
+                        <Ionicons name="checkmark" size={20} color={tokens.accent.primary} />
+                      ) : null}
+                      {wt.canBeRemoved ? (
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel="Remove worktree"
+                          hitSlop={10}
+                          onPress={() => onRemove(wt)}>
+                          <Ionicons name="trash-outline" size={18} color={tokens.status.danger} />
+                        </Pressable>
+                      ) : activeWorktreeId !== wt.id ? (
+                        <Ionicons name="chevron-forward" size={18} color={tokens.text.muted} />
+                      ) : null}
+                    </View>
                   )
                 }
                 onPress={() => onSelect(wt)}
-                disabled={Boolean(busyId) && busyId !== wt.id}
+                disabled={busyId !== null}
               />
             </View>
           ))}
@@ -122,4 +131,5 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   content: { padding: 16, gap: 16, paddingBottom: 32 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
+  trailingActions: { flexDirection: 'row', alignItems: 'center', gap: 16 },
 });
