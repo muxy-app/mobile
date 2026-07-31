@@ -24,6 +24,7 @@ import { useTokens } from '@/theme';
 
 import { buildTerminalTheme } from './buildTerminalTheme';
 import { KEY_BAR_HEIGHT, KeyBar, transformWithModifiers } from './KeyBar';
+import { TerminalJumpToBottomButton } from './TerminalJumpToBottomButton';
 import {
   type TerminalKeyboardPhase,
   TerminalWebView,
@@ -114,6 +115,7 @@ function TerminalSessionView({
 
   const [dimensions, setDimensions] = useState<TerminalDimensions | null>(null);
   const [ready, setReady] = useState(false);
+  const [isFollowingBottom, setIsFollowingBottom] = useState(true);
   const autoFocusTerminal = useSettingsStore((s) => s.autoFocusTerminal);
 
   usePaneSession({
@@ -205,6 +207,9 @@ function TerminalSessionView({
   const keyBarSlideStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: Math.min(0, height.value + insets.bottom) }],
   }));
+  const jumpToBottomSlideStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: Math.min(0, height.value + insets.bottom) }],
+  }));
   const setTerminalKeyboardOffset = useCallback(
     (keyboardHeight: number, duration: number, phase: TerminalKeyboardPhase) => {
       const offset = Math.round(Math.max(0, keyboardHeight - insets.bottom));
@@ -268,6 +273,9 @@ function TerminalSessionView({
   const handleReady = useCallback(() => {
     setReady(true);
   }, []);
+  const handleJumpToBottom = useCallback(() => {
+    webRef.current?.scrollToBottom();
+  }, []);
 
   return (
     <View style={[styles.root, { backgroundColor: terminalTheme.background }]}>
@@ -284,6 +292,7 @@ function TerminalSessionView({
             }}
             onData={handleData}
             onScroll={handleScroll}
+            onFollowingBottomChange={setIsFollowingBottom}
             onTap={handleTap}
             onNewTerminalShortcut={onNewTerminal}
             onSelectTabShortcut={onSelectTabShortcut}
@@ -295,6 +304,14 @@ function TerminalSessionView({
               console.log('[terminal] renderer=' + renderer);
             }}
           />
+
+          {!isFollowingBottom ? (
+            <TerminalJumpToBottomButton
+              color={terminalTheme.foreground}
+              onPress={handleJumpToBottom}
+              style={jumpToBottomSlideStyle}
+            />
+          ) : null}
 
           <TextInput
             ref={inputRef}
