@@ -116,6 +116,7 @@ function TerminalSessionView({
   const [dimensions, setDimensions] = useState<TerminalDimensions | null>(null);
   const [ready, setReady] = useState(false);
   const [isFollowingBottom, setIsFollowingBottom] = useState(true);
+  const [terminalSelection, setTerminalSelection] = useState('');
   const autoFocusTerminal = useSettingsStore((s) => s.autoFocusTerminal);
 
   usePaneSession({
@@ -293,6 +294,7 @@ function TerminalSessionView({
             onData={handleData}
             onScroll={handleScroll}
             onFollowingBottomChange={setIsFollowingBottom}
+            onSelectionChange={setTerminalSelection}
             onTap={handleTap}
             onNewTerminalShortcut={onNewTerminal}
             onSelectTabShortcut={onSelectTabShortcut}
@@ -377,7 +379,12 @@ function TerminalSessionView({
         </View>
 
         <Animated.View style={[styles.keyBarSlot, keyBarSlideStyle]}>
-          {sessionForUs?.kind === 'streaming' ? <KeyBar onBytes={handleKeyBarBytes} /> : null}
+          {sessionForUs?.kind === 'streaming' ? (
+            <KeyBar
+              onBytes={handleKeyBarBytes}
+              terminalSelection={terminalSelection}
+            />
+          ) : null}
         </Animated.View>
       </View>
     </View>
