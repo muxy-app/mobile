@@ -128,6 +128,7 @@ function SSHSessionTerminal({
   const [hasDimensions, setHasDimensions] = useState(false);
   const [ready, setReady] = useState(false);
   const [isFollowingBottom, setIsFollowingBottom] = useState(true);
+  const [terminalSelection, setTerminalSelection] = useState('');
   const [attemptConnectionId, setAttemptConnectionId] =
     useState(newEntryId);
 
@@ -493,6 +494,7 @@ function SSHSessionTerminal({
             onDimensions={handleDimensions}
             onData={handleData}
             onFollowingBottomChange={setIsFollowingBottom}
+            onSelectionChange={setTerminalSelection}
             onTap={handleTap}
             onError={(message) => {
               console.log('[ssh-terminal] ' + message);
@@ -602,7 +604,10 @@ function SSHSessionTerminal({
         <Animated.View
           style={[styles.keyBarSlot, keyBarSlideStyle]}>
           {state === 'connected' ? (
-            <KeyBar onBytes={sendBase64} />
+            <KeyBar
+              onBytes={sendBase64}
+              terminalSelection={terminalSelection}
+            />
           ) : null}
         </Animated.View>
       </View>

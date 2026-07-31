@@ -40,6 +40,7 @@ type Props = {
   onData?: (base64: string) => void;
   onScroll?: (scroll: TerminalScroll) => void;
   onFollowingBottomChange?: (followingBottom: boolean) => void;
+  onSelectionChange?: (selection: string) => void;
   onError?: (message: string) => void;
   onTap?: () => void;
   onNewTerminalShortcut?: () => void;
@@ -56,6 +57,7 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function
     onData,
     onScroll,
     onFollowingBottomChange,
+    onSelectionChange,
     onError,
     onTap,
     onNewTerminalShortcut,
@@ -76,6 +78,7 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function
       fontSize: FONT_SIZE,
       commandShortcutsEnabled: Platform.OS !== 'ios',
       forwardTerminalScroll: onScroll !== undefined,
+      nativeTextSelectionEnabled: Platform.OS !== 'web',
     }),
   );
 
@@ -156,6 +159,9 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function
           return;
         case 'followingBottom':
           onFollowingBottomChange?.(msg.value);
+          return;
+        case 'selectionChange':
+          onSelectionChange?.(typeof msg.text === 'string' ? msg.text : '');
           return;
         case 'tap':
           onTap?.();

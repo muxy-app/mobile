@@ -47,8 +47,10 @@ const ARROW_LEFT = new Uint8Array([0x1b, 0x5b, 0x44]);
 
 export function KeyBar({
   onBytes,
+  terminalSelection,
 }: {
   onBytes: (base64: string) => void;
+  terminalSelection: string;
 }) {
   const tokens = useTokens();
   const active = useModifierStore((s) => s.active);
@@ -80,6 +82,15 @@ export function KeyBar({
     }
   };
 
+  const onCopy = async () => {
+    if (!terminalSelection) return;
+    try {
+      await Clipboard.setStringAsync(terminalSelection);
+    } catch {
+      void 0;
+    }
+  };
+
   return (
     <View style={styles.row}>
       <View
@@ -106,9 +117,15 @@ export function KeyBar({
             }}
           />
           <CapsuleButton label="tab" onPress={() => send(TAB)} />
+          <CapsuleIconButton icon="clipboard-outline" accessibilityLabel="Paste" onPress={onPaste} />
+          <CapsuleIconButton
+            icon="copy-outline"
+            accessibilityLabel="Copy"
+            disabled={!terminalSelection}
+            onPress={onCopy}
+          />
           <CapsuleButton label="~" onPress={() => send(TILDE)} />
           <CapsuleButton label="/" onPress={() => send(SLASH)} />
-          <CapsuleIconButton icon="clipboard-outline" accessibilityLabel="Paste" onPress={onPaste} />
           <CapsuleButton label="|" onPress={() => send(PIPE)} />
           <CapsuleButton label="-" onPress={() => send(DASH)} />
         </ScrollView>
@@ -172,20 +189,27 @@ function CapsuleButton({ label, onPress }: { label: string; onPress: () => void 
 function CapsuleIconButton({
   icon,
   accessibilityLabel,
+  disabled = false,
   onPress,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   accessibilityLabel: string;
+  disabled?: boolean;
   onPress: () => void;
 }) {
   const tokens = useTokens();
   return (
     <Pressable
       onPress={onPress}
+      disabled={disabled}
       hitSlop={6}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
-      style={({ pressed }) => [styles.capsuleBtn, { opacity: pressed ? 0.7 : 1 }]}>
+      accessibilityState={{ disabled }}
+      style={({ pressed }) => [
+        styles.capsuleBtn,
+        { opacity: disabled ? 0.45 : pressed ? 0.7 : 1 },
+      ]}>
       <Ionicons name={icon} size={18} color={tokens.text.primary} />
     </Pressable>
   );

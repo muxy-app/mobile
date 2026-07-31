@@ -36,6 +36,7 @@ export type TerminalInitOptions = {
   fontSize: number;
   commandShortcutsEnabled?: boolean;
   forwardTerminalScroll?: boolean;
+  nativeTextSelectionEnabled?: boolean;
 };
 
 export function buildTerminalHtml(init: TerminalInitOptions): string {
@@ -48,7 +49,7 @@ export function buildTerminalHtml(init: TerminalInitOptions): string {
 ${XTERM_CSS}
 html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${init.theme.background}; overflow: hidden; -webkit-text-size-adjust: 100%; }
 #root { position: absolute; inset: 0; padding: 8px; box-sizing: border-box; }
-.xterm, .xterm-screen { user-select: text; -webkit-user-select: text; -webkit-touch-callout: default; }
+${init.nativeTextSelectionEnabled ? '.xterm, .xterm-screen { user-select: text; -webkit-user-select: text; -webkit-touch-callout: default; }' : ''}
 .xterm-viewport { background-color: transparent !important; }
 .xterm-screen canvas { pointer-events: none !important; }
 .xterm .xterm-scrollable-element > .scrollbar.vertical { width: 4px !important; }
@@ -343,7 +344,7 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
       return false;
     }
   }
-  if (!loadWebgl()) loadCanvas();
+  if (!INITIAL.nativeTextSelectionEnabled && !loadWebgl()) loadCanvas();
   post({ type: 'info', renderer: activeRenderer });
 
   function encodeUtf8ToBase64(str) {
@@ -383,6 +384,7 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
   var pendingClientY = 0;
   var flushRaf = 0;
   var lastFollowingBottom = null;
+  var lastTerminalSelection = null;
 
   function getLineHeightPx() {
     var fontSize = term.options.fontSize || INITIAL.fontSize;
@@ -418,6 +420,25 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
     if (followingBottom === lastFollowingBottom) return;
     lastFollowingBottom = followingBottom;
     post({ type: 'followingBottom', value: followingBottom });
+  }
+  function selectionTextWithinRoot(selection, container) {
+    if (!selection || selection.isCollapsed || !selection.anchorNode || !selection.focusNode) return '';
+    if (!container.contains(selection.anchorNode) || !container.contains(selection.focusNode)) return '';
+    return selection.toString();
+  }
+  function readNativeTerminalSelection() {
+    var selection = window.getSelection && window.getSelection();
+    return selectionTextWithinRoot(selection, root);
+  }
+  function readTerminalSelection() {
+    var nativeSelection = readNativeTerminalSelection();
+    return nativeSelection || term.getSelection();
+  }
+  function syncTerminalSelection() {
+    var selection = readTerminalSelection();
+    if (selection === lastTerminalSelection) return;
+    lastTerminalSelection = selection;
+    post({ type: 'selectionChange', text: selection });
   }
   function sendArrowKeys(lines) {
     if (lines === 0) return;
@@ -475,8 +496,7 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
     queueLines(lines, clientX, clientY);
   }
   function hasSelection() {
-    var sel = window.getSelection && window.getSelection();
-    return !!(sel && sel.toString().length > 0);
+    return readTerminalSelection().length > 0;
   }
   function cancelMomentum() {
     if (momentumRaf) cancelAnimationFrame(momentumRaf);
@@ -526,7 +546,10 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
 
   term.onScroll(syncFollowingBottom);
   term.onWriteParsed(syncFollowingBottom);
+  term.onSelectionChange(syncTerminalSelection);
+  document.addEventListener('selectionchange', syncTerminalSelection);
   syncFollowingBottom();
+  syncTerminalSelection();
 
   function computeVelocity() {
     if (velocitySamples.length < 2) return 0;
@@ -586,6 +609,7 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
   root.addEventListener('touchmove', function (e) {
     e.stopPropagation();
     if (!e.touches || !e.touches[0]) return;
+    if (hasSelection()) return;
     var tx = e.touches[0].clientX;
     var ty = e.touches[0].clientY;
     var totalDx = Math.abs(tx - touchStartX);
