@@ -8,22 +8,26 @@ export function useProjects() {
   const connectionPhase = useDevicesStore((s) => s.connectionPhase);
   const activeDeviceId = useDevicesStore((s) => s.activeDeviceId);
 
+  const hasHydrated = useProjectsStore((s) => s.hasHydrated);
   const setProjects = useProjectsStore((s) => s.setProjects);
   const setFetchPhase = useProjectsStore((s) => s.setFetchPhase);
   const clear = useProjectsStore((s) => s.clear);
 
   const fetchProjects = useCallback(async () => {
+    if (!hasHydrated) return;
+    if (!activeDeviceId) return;
     setFetchPhase('loading');
     try {
       const result = await client.request('listProjects', null);
-      setProjects(result.value);
+      setProjects(result.value, activeDeviceId);
       setFetchPhase('loaded');
     } catch (err) {
       setFetchPhase('error', err instanceof Error ? err.message : 'Failed to load projects');
     }
-  }, [setFetchPhase, setProjects]);
+  }, [activeDeviceId, hasHydrated, setFetchPhase, setProjects]);
 
   useEffect(() => {
+    if (!hasHydrated) return;
     clear();
     if (connectionPhase !== 'connected' || !activeDeviceId) return;
 
@@ -32,14 +36,14 @@ export function useProjects() {
 
     const off = client.on('projectsChanged', (event) => {
       if (cancelled) return;
-      setProjects(event.value);
+      setProjects(event.value, activeDeviceId);
     });
 
     return () => {
       cancelled = true;
       off();
     };
-  }, [connectionPhase, activeDeviceId, fetchProjects, setProjects, clear]);
+  }, [connectionPhase, activeDeviceId, fetchProjects, setProjects, clear, hasHydrated]);
 
   return { refresh: fetchProjects };
 }
