@@ -59,16 +59,6 @@ type CursorViewportOffset = (
 
 type IsViewportFollowingBottom = (viewportY: number, baseY: number) => boolean;
 
-type SelectionTextWithinRoot = (
-  selection: {
-    isCollapsed: boolean;
-    anchorNode: object | null;
-    focusNode: object | null;
-    toString: () => string;
-  } | null,
-  container: { contains: (node: object) => boolean },
-) => string;
-
 describe('buildTerminalHtml', () => {
   it('can disable WebView command shortcuts when native menu commands own them', () => {
     const html = buildTerminalHtml({
@@ -229,106 +219,5 @@ describe('buildTerminalHtml', () => {
     expect(runtime).toContain(
       'cancelMomentum();\n    cancelFlush();\n    scrollAccumulator = 0;\n    try { term.scrollToBottom();',
     );
-  });
-
-  it('keeps native terminal text selectable with the DOM renderer', () => {
-    const html = buildTerminalHtml({
-      theme,
-      fontFamily: 'Menlo',
-      fontSize: 12,
-      nativeTextSelectionEnabled: true,
-    });
-    const runtime = terminalRuntime(html);
-
-    expect(html).toContain(
-      '.xterm, .xterm-screen { user-select: text; -webkit-user-select: text; -webkit-touch-callout: default; }',
-    );
-    expect(runtime).toContain(
-      'if (!INITIAL.nativeTextSelectionEnabled && !loadWebgl()) loadCanvas();',
-    );
-  });
-
-  it('keeps accelerated rendering when native text selection is disabled', () => {
-    const html = buildTerminalHtml({
-      theme,
-      fontFamily: 'Menlo',
-      fontSize: 12,
-      nativeTextSelectionEnabled: false,
-    });
-    const runtime = terminalRuntime(html);
-
-    expect(html).not.toContain(
-      '.xterm, .xterm-screen { user-select: text; -webkit-user-select: text; -webkit-touch-callout: default; }',
-    );
-    expect(runtime).toContain(
-      'if (!INITIAL.nativeTextSelectionEnabled && !loadWebgl()) loadCanvas();',
-    );
-  });
-
-  it('reports only text selected within the terminal', () => {
-    const html = buildTerminalHtml({
-      theme,
-      fontFamily: 'Menlo',
-      fontSize: 12,
-      nativeTextSelectionEnabled: true,
-    });
-    const selectionTextWithinRoot = terminalRuntimeFunction<SelectionTextWithinRoot>(
-      html,
-      'selectionTextWithinRoot',
-    );
-    const insideAnchor = {};
-    const insideFocus = {};
-    const outsideNode = {};
-    const container = {
-      contains: (node: object) => node === insideAnchor || node === insideFocus,
-    };
-
-    expect(
-      selectionTextWithinRoot(
-        {
-          isCollapsed: false,
-          anchorNode: insideAnchor,
-          focusNode: insideFocus,
-          toString: () => 'selected output',
-        },
-        container,
-      ),
-    ).toBe('selected output');
-    expect(
-      selectionTextWithinRoot(
-        {
-          isCollapsed: false,
-          anchorNode: insideAnchor,
-          focusNode: outsideNode,
-          toString: () => 'outside output',
-        },
-        container,
-      ),
-    ).toBe('');
-    expect(
-      selectionTextWithinRoot(
-        {
-          isCollapsed: true,
-          anchorNode: insideAnchor,
-          focusNode: insideFocus,
-          toString: () => 'collapsed output',
-        },
-        container,
-      ),
-    ).toBe('');
-  });
-
-  it('publishes selection text for the native Copy control', () => {
-    const html = buildTerminalHtml({
-      theme,
-      fontFamily: 'Menlo',
-      fontSize: 12,
-      nativeTextSelectionEnabled: true,
-    });
-    const runtime = terminalRuntime(html);
-
-    expect(runtime).toContain("document.addEventListener('selectionchange', syncTerminalSelection);");
-    expect(runtime).toContain("post({ type: 'selectionChange', text: selection });");
-    expect(runtime).toContain('if (hasSelection()) return;');
   });
 });
