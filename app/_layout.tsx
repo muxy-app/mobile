@@ -11,7 +11,7 @@ import 'react-native-reanimated';
 
 import { isBillingEnforced, useBillingStore } from '@/billing';
 import { loadNerdFont } from '@/lib/nerdFont';
-import { useConnection, useDevicesStore, useSettingsStore } from '@/state';
+import { useConnection, useDevicesStore, useProjectsStore, useSettingsStore } from '@/state';
 import { ThemeProvider, useTheme, useTokens } from '@/theme';
 import { hexToRgb, isDark } from '@/theme/colorMath';
 
@@ -26,9 +26,10 @@ function NavStack() {
   useConnection();
 
   const devicesHydrated = useDevicesStore((s) => s.hasHydrated);
+  const projectsHydrated = useProjectsStore((s) => s.hasHydrated);
   const settingsHydrated = useSettingsStore((s) => s.hasHydrated);
 
-  const ready = devicesHydrated && settingsHydrated;
+  const ready = devicesHydrated && projectsHydrated && settingsHydrated;
 
   useEffect(() => {
     if (!ready) return;

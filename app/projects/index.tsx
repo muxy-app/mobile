@@ -1,9 +1,11 @@
 import { FlashList } from '@shopify/flash-list';
 import { Stack, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 
 import { ProjectRow } from '@/components/ProjectRow';
+import { WorkspaceFilterBar } from '@/components/WorkspaceFilterBar';
+import { filterProjectsByWorkspace, getProjectWorkspaces } from '@/state/projectWorkspaces';
 import { useDevicesStore, useProjects, useProjectsStore } from '@/state';
 import { useTokens } from '@/theme';
 
@@ -19,11 +21,21 @@ export default function ProjectsScreen() {
   const setActiveDevice = useDevicesStore((s) => s.setActiveDevice);
 
   const projects = useProjectsStore((s) => s.projects);
+  const selectedWorkspaceID = useProjectsStore((s) => {
+    if (!activeDevice) return null;
+    return s.selectedWorkspaceIDs[activeDevice.id] ?? null;
+  });
+  const setSelectedWorkspaceID = useProjectsStore((s) => s.setSelectedWorkspaceID);
   const fetchPhase = useProjectsStore((s) => s.fetchPhase);
   const fetchError = useProjectsStore((s) => s.fetchError);
 
   const { refresh } = useProjects();
   const [refreshing, setRefreshing] = useState(false);
+  const workspaces = useMemo(() => getProjectWorkspaces(projects), [projects]);
+  const filteredProjects = useMemo(
+    () => filterProjectsByWorkspace(projects, workspaces, selectedWorkspaceID),
+    [projects, selectedWorkspaceID, workspaces],
+  );
 
   useEffect(() => {
     if (!activeDevice) router.replace('/');
@@ -43,6 +55,14 @@ export default function ProjectsScreen() {
       setRefreshing(false);
     }
   }, [refresh]);
+
+  const handleWorkspaceSelect = useCallback(
+    (workspaceID: string | null) => {
+      if (!activeDevice) return;
+      setSelectedWorkspaceID(activeDevice.id, workspaceID);
+    },
+    [activeDevice, setSelectedWorkspaceID],
+  );
 
   const headerTitle = activeDevice?.label ?? 'Projects';
 
@@ -93,8 +113,15 @@ export default function ProjectsScreen() {
   return (
     <View style={[styles.root, { backgroundColor: tokens.surface.primary }]}>
       <Stack.Screen options={{ title: headerTitle }} />
+      {workspaces.length > 1 ? (
+        <WorkspaceFilterBar
+          workspaces={workspaces}
+          selectedWorkspaceID={selectedWorkspaceID}
+          onSelect={handleWorkspaceSelect}
+        />
+      ) : null}
       <FlashList
-        data={projects}
+        data={filteredProjects}
         keyExtractor={(p) => p.id}
         renderItem={({ item }) => (
           <ProjectRow project={item} onPress={() => router.push({ pathname: '/projects/[id]', params: { id: item.id } })} />

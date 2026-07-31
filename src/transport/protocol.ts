@@ -37,6 +37,9 @@ export type Project = {
   icon?: string;
   logo?: string;
   iconColor?: string;
+  workspaceKind?: string;
+  workspaceID?: string;
+  workspaceName?: string;
 };
 
 export type Worktree = {
