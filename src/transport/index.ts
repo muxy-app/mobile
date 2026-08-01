@@ -52,4 +52,9 @@ export {
   type VCSDiff,
   type VCSDiffRow,
   type VCSDiffRowKind,
+  type FileEncoding,
+  type FileEntry,
+  type FileContent,
+  type FileStat,
+  type FileChange,
 } from './protocol';

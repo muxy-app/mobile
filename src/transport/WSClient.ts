@@ -312,6 +312,7 @@ function isKnownEvent(name: string): name is EventName {
     name === 'notificationReceived' ||
     name === 'projectsChanged' ||
     name === 'paneOwnershipChanged' ||
-    name === 'themeChanged'
+    name === 'themeChanged' ||
+    name === 'fileChanged'
   );
 }

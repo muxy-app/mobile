@@ -6,6 +6,7 @@ import { ActivityIndicator, NativeEventEmitter, NativeModules, Platform, Pressab
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 
 import { GitSheet } from '@/components/git/GitSheet';
+import { FileSheet } from '@/components/files/FileSheet';
 import { HeaderIconButton } from '@/components/HeaderIconButton';
 import { SwipeArrowOverlay, type SwipeArrowOverlayHandle } from '@/components/SwipeArrowOverlay';
 import { TabKindPlaceholder } from '@/components/TabKindPlaceholder';
@@ -38,6 +39,7 @@ export default function WorkspaceScreen() {
   const tokens = useTokens();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [gitOpen, setGitOpen] = useState(false);
+  const [filesOpen, setFilesOpen] = useState(false);
   const [creatingTerminal, setCreatingTerminal] = useState(false);
   const creatingTerminalRef = useRef(false);
   const [tabActionError, setTabActionError] = useState<string | null>(null);
@@ -168,12 +170,19 @@ export default function WorkspaceScreen() {
     return () => sub.remove();
   }, [handleCreateTerminal, selectTabShortcut]);
 
-  const headerGitButton = () => (
-    <HeaderIconButton
-      icon="git-branch-outline"
-      accessibilityLabel="Git"
-      onPress={() => id && setGitOpen(true)}
-    />
+  const headerActions = () => (
+    <View style={styles.headerActions}>
+      <HeaderIconButton
+        icon="folder-open-outline"
+        accessibilityLabel="Files"
+        onPress={() => id && setFilesOpen(true)}
+      />
+      <HeaderIconButton
+        icon="git-branch-outline"
+        accessibilityLabel="Git"
+        onPress={() => id && setGitOpen(true)}
+      />
+    </View>
   );
 
   const swipeGesture = useMemo(() => {
@@ -222,8 +231,16 @@ export default function WorkspaceScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: tokens.surface.primary }]}>
-      <Stack.Screen options={{ title: headerTitle, headerRight: headerGitButton }} />
+      <Stack.Screen options={{ title: headerTitle, headerRight: headerActions }} />
       {id ? <GitSheet visible={gitOpen} onClose={() => setGitOpen(false)} projectId={id} /> : null}
+      {project ? (
+        <FileSheet
+          visible={filesOpen}
+          onClose={() => setFilesOpen(false)}
+          project={project}
+          worktreeId={workspace?.worktreeID}
+        />
+      ) : null}
 
       {!workspace ? (
         <Centered tokens={tokens}>
@@ -324,6 +341,7 @@ function Centered({ children, tokens }: { children: React.ReactNode; tokens: Ret
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  headerActions: { flexDirection: 'row', alignItems: 'center' },
   body: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, gap: 10 },
   title: { fontSize: 20, fontWeight: '600' },
