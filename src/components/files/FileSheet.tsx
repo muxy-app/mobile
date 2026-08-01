@@ -59,6 +59,17 @@ export function FileSheet({ visible, onClose, project, worktreeId }: Props) {
       dismiss();
       return;
     }
+    if (manager.contextChanged) {
+      Alert.alert(
+        'Worktree changed',
+        'Your draft is still available here. Copy anything you need before discarding it.',
+        [
+          { text: 'Keep draft', style: 'cancel' },
+          { text: 'Discard and close', style: 'destructive', onPress: dismiss },
+        ],
+      );
+      return;
+    }
     Alert.alert('Unsaved changes', 'Save this file before closing Files?', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Discard', style: 'destructive', onPress: dismiss },
@@ -168,14 +179,25 @@ export function FileSheet({ visible, onClose, project, worktreeId }: Props) {
             </GestureDetector>
             <View style={styles.body}>
               {manager.route.name === 'browser' ? (
-                <FileBrowserScreen manager={manager} project={project} />
+                <FileBrowserScreen
+                  manager={manager}
+                  project={project}
+                  visible={visible}
+                  bottomInset={insets.bottom}
+                />
               ) : manager.route.name === 'preview' ? (
-                <FilePreviewScreen manager={manager} project={project} entry={manager.route.entry} />
+                <FilePreviewScreen
+                  manager={manager}
+                  project={project}
+                  entry={manager.route.entry}
+                  bottomInset={insets.bottom}
+                />
               ) : (
                 <MoveDestinationScreen
                   manager={manager}
                   project={project}
                   paths={manager.route.paths}
+                  bottomInset={insets.bottom}
                 />
               )}
             </View>
@@ -237,12 +259,13 @@ function FileSheetHeader({
       </Pressable>
     );
   } else if (manager.route.name === 'preview' && manager.previewKind === 'text' && manager.content) {
+    const disabled = manager.busy || manager.contextChanged;
     rightAction = (
       <Pressable
         accessibilityRole="button"
-        disabled={manager.busy}
+        disabled={disabled}
         onPress={manager.editing ? manager.save : manager.beginEditing}
-        style={({ pressed }) => [styles.headerSide, styles.headerRight, { opacity: manager.busy ? 0.45 : pressed ? 0.55 : 1 }]}>
+        style={({ pressed }) => [styles.headerSide, styles.headerRight, { opacity: disabled ? 0.45 : pressed ? 0.55 : 1 }]}>
         {manager.busy ? (
           <ActivityIndicator size="small" color={tokens.accent.primary} />
         ) : (

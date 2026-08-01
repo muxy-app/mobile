@@ -28,13 +28,15 @@ type Props = {
   entry: FileEntry;
   manager: FileManager;
   project: Project;
+  bottomInset: number;
 };
 
-export function FilePreviewScreen({ entry, manager, project }: Props) {
+export function FilePreviewScreen({ entry, manager, project, bottomInset }: Props) {
   const tokens = useTokens();
   const [renameOpen, setRenameOpen] = useState(false);
   const content = manager.content;
   const size = manager.fileStat?.size ?? content?.size;
+  const footerActionsDisabled = manager.busy || manager.editing || manager.contextChanged;
 
   const confirmDelete = () => {
     const isSSH = project.workspaceKind === 'ssh';
@@ -86,7 +88,16 @@ export function FilePreviewScreen({ entry, manager, project }: Props) {
     <KeyboardAvoidingView
       style={styles.root}
       behavior={Platform.OS === 'ios' && manager.editing ? 'padding' : undefined}>
-      {manager.externalChanged ? (
+      {manager.contextChanged ? (
+        <View style={[styles.changeBanner, { backgroundColor: tokens.surface.tertiary }]}>
+          <View style={styles.changeCopy}>
+            <Ionicons name="git-branch-outline" size={18} color={tokens.status.warning} />
+            <Text style={[styles.changeText, { color: tokens.text.secondary }]}>
+              The active worktree changed. Your draft is preserved, but it can’t be saved here.
+            </Text>
+          </View>
+        </View>
+      ) : manager.externalChanged ? (
         <View style={[styles.changeBanner, { backgroundColor: tokens.surface.tertiary }]}>
           <View style={styles.changeCopy}>
             <Ionicons name="alert-circle-outline" size={18} color={tokens.status.warning} />
@@ -173,7 +184,13 @@ export function FilePreviewScreen({ entry, manager, project }: Props) {
       <View
         style={[
           styles.footer,
-          { backgroundColor: tokens.surface.secondary, borderTopColor: tokens.border.subtle },
+          {
+            minHeight: 62 + bottomInset,
+            marginBottom: -bottomInset,
+            paddingBottom: 8 + bottomInset,
+            backgroundColor: tokens.surface.secondary,
+            borderTopColor: tokens.border.subtle,
+          },
         ]}>
         <View style={styles.fileInfo}>
           <Text style={[styles.fileInfoName, { color: tokens.text.primary }]} numberOfLines={1}>
@@ -187,17 +204,17 @@ export function FilePreviewScreen({ entry, manager, project }: Props) {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Rename file"
-          disabled={manager.busy || manager.editing}
+          disabled={footerActionsDisabled}
           onPress={() => setRenameOpen(true)}
-          style={({ pressed }) => [styles.footerAction, { opacity: manager.editing ? 0.35 : pressed ? 0.6 : 1 }]}>
+          style={({ pressed }) => [styles.footerAction, { opacity: footerActionsDisabled ? 0.35 : pressed ? 0.6 : 1 }]}>
           <Ionicons name="pencil-outline" size={19} color={tokens.text.secondary} />
         </Pressable>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={project.workspaceKind === 'ssh' ? 'Delete file' : 'Move file to Trash'}
-          disabled={manager.busy}
+          disabled={footerActionsDisabled}
           onPress={confirmDelete}
-          style={({ pressed }) => [styles.footerAction, { opacity: pressed ? 0.6 : 1 }]}>
+          style={({ pressed }) => [styles.footerAction, { opacity: footerActionsDisabled ? 0.35 : pressed ? 0.6 : 1 }]}>
           <Ionicons name="trash-outline" size={19} color={tokens.status.danger} />
         </Pressable>
       </View>

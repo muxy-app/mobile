@@ -1,3 +1,5 @@
+import * as Crypto from 'expo-crypto';
+
 import type {
   FileContent,
   FileEncoding,
@@ -60,6 +62,31 @@ export function createFileClient(transport: FileTransport) {
         value: { projectID: projectId, path, contents, encoding },
       });
       return result.value[0] ?? path;
+    },
+
+    async create(projectId: string, path: string): Promise<string> {
+      const temporaryPath = joinFilePath(
+        parentFilePath(path),
+        `.muxy-mobile-create-${Crypto.randomUUID()}`,
+      );
+      const writeResult = await transport.request('filesWrite', {
+        type: 'filesWrite',
+        value: { projectID: projectId, path: temporaryPath, contents: '', encoding: 'utf8' },
+      });
+      const writtenPath = writeResult.value[0] ?? temporaryPath;
+      try {
+        const renameResult = await transport.request('filesRename', {
+          type: 'filesRename',
+          value: { projectID: projectId, path: writtenPath, newName: fileName(path) },
+        });
+        return renameResult.value[0] ?? path;
+      } catch (error) {
+        await transport.request('filesDelete', {
+          type: 'filesDelete',
+          value: { projectID: projectId, paths: [writtenPath] },
+        }).catch(() => {});
+        throw error;
+      }
     },
 
     async mkdir(projectId: string, path: string): Promise<string> {

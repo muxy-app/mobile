@@ -13,9 +13,10 @@ type Props = {
   manager: FileManager;
   paths: string[];
   project: Project;
+  bottomInset: number;
 };
 
-export function MoveDestinationScreen({ manager, paths, project }: Props) {
+export function MoveDestinationScreen({ manager, paths, project, bottomInset }: Props) {
   const tokens = useTokens();
   const crumbs = useMemo(
     () => breadcrumbsForPath(manager.movePath, project.name),
@@ -124,7 +125,13 @@ export function MoveDestinationScreen({ manager, paths, project }: Props) {
       <View
         style={[
           styles.footer,
-          { backgroundColor: tokens.surface.secondary, borderTopColor: tokens.border.subtle },
+          {
+            bottom: -bottomInset,
+            minHeight: 68 + bottomInset,
+            paddingBottom: 9 + bottomInset,
+            backgroundColor: tokens.surface.secondary,
+            borderTopColor: tokens.border.subtle,
+          },
         ]}>
         <View style={styles.destination}>
           <Text style={[styles.destinationLabel, { color: tokens.text.muted }]}>Destination</Text>

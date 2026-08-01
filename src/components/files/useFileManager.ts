@@ -21,6 +21,7 @@ export type FileManager = ReturnType<typeof useFileManager>;
 
 const FILE_EVENT_DEBOUNCE_MS = 180;
 const OWN_CHANGE_EVENT_WINDOW_MS = 1_000;
+const ACTIVE_WORKTREE_CHANGED_ERROR = 'The active worktree changed. Discard this draft before continuing.';
 
 export function useFileManager({
   projectId,
@@ -47,6 +48,7 @@ export function useFileManager({
   const [editing, setEditing] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [externalChanged, setExternalChanged] = useState(false);
+  const [contextChanged, setContextChanged] = useState(false);
   const [busy, setBusy] = useState(false);
   const [movePath, setMovePath] = useState('');
   const [moveEntries, setMoveEntries] = useState<FileEntry[]>([]);
@@ -61,6 +63,9 @@ export function useFileManager({
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const ownChangeRef = useRef<{ paths: Set<string>; until: number } | null>(null);
   const entriesRef = useRef(entries);
+  const visibleRef = useRef(false);
+  const contextRef = useRef({ projectId, worktreeId });
+  const contextChangedRef = useRef(false);
 
   useEffect(() => {
     routeRef.current = route;
@@ -126,6 +131,7 @@ export function useFileManager({
       setFileStat(null);
       setEditing(false);
       setDirty(false);
+      dirtyRef.current = false;
       setExternalChanged(false);
       draftRef.current = '';
       try {
@@ -164,17 +170,32 @@ export function useFileManager({
   );
 
   useEffect(() => {
+    const previousContext = contextRef.current;
+    const wasVisible = visibleRef.current;
+    const changed = previousContext.projectId !== projectId || previousContext.worktreeId !== worktreeId;
+    contextRef.current = { projectId, worktreeId };
+    visibleRef.current = visible;
     if (!visible) {
       setContent(null);
       setFileStat(null);
       return;
     }
+    if (wasVisible && changed && dirtyRef.current) {
+      contextChangedRef.current = true;
+      setContextChanged(true);
+      setExternalChanged(false);
+      return;
+    }
+    contextChangedRef.current = false;
+    setContextChanged(false);
     setRoute({ name: 'browser' });
     setCurrentPath('');
+    currentPathRef.current = '';
     setSelectionMode(false);
     setSelectedPaths(new Set());
     setEditing(false);
     setDirty(false);
+    dirtyRef.current = false;
     setExternalChanged(false);
     loadDirectory('').catch(() => {});
   }, [visible, projectId, worktreeId, loadDirectory]);
@@ -182,6 +203,7 @@ export function useFileManager({
   useEffect(() => {
     if (!visible) return;
     const off = client.on('fileChanged', (event) => {
+      if (contextChangedRef.current) return;
       if (event.value.projectID !== projectId) return;
       if (worktreeId && event.value.worktreeID !== worktreeId) return;
 
@@ -264,7 +286,7 @@ export function useFileManager({
           setError(`“${name.trim()}” already exists in this folder.`);
           return;
         }
-        const path = await fileClient.write(projectId, requestedPath, '');
+        const path = await fileClient.create(projectId, requestedPath);
         await loadDirectory(currentPathRef.current, 'silent');
         const entry: FileEntry = { name: fileName(path), path, isDirectory: false, isIgnored: false };
         const nextRoute: FileManagerRoute = { name: 'preview', entry };
@@ -299,6 +321,10 @@ export function useFileManager({
 
   const rename = useCallback(
     async (path: string, newName: string) => {
+      if (contextChangedRef.current) {
+        setError(ACTIVE_WORKTREE_CHANGED_ERROR);
+        return false;
+      }
       setBusy(true);
       setError(null);
       ownChangeRef.current = { paths: new Set([path]), until: Date.now() + OWN_CHANGE_EVENT_WINDOW_MS };
@@ -320,6 +346,10 @@ export function useFileManager({
 
   const deletePaths = useCallback(
     async (paths: string[]) => {
+      if (contextChangedRef.current) {
+        setError(ACTIVE_WORKTREE_CHANGED_ERROR);
+        return;
+      }
       setBusy(true);
       setError(null);
       ownChangeRef.current = { paths: new Set(paths), until: Date.now() + OWN_CHANGE_EVENT_WINDOW_MS };
@@ -380,13 +410,16 @@ export function useFileManager({
     if (!content || previewKind !== 'text') return;
     draftRef.current = content.content;
     setDirty(false);
+    dirtyRef.current = false;
     setEditing(true);
   }, [content, previewKind]);
 
   const updateDraft = useCallback(
     (value: string) => {
       draftRef.current = value;
-      if (!dirty && value !== content?.content) setDirty(true);
+      const nextDirty = value !== content?.content;
+      dirtyRef.current = nextDirty;
+      if (nextDirty !== dirty) setDirty(nextDirty);
     },
     [dirty, content],
   );
@@ -394,6 +427,10 @@ export function useFileManager({
   const save = useCallback(async () => {
     const currentRoute = routeRef.current;
     if (currentRoute.name !== 'preview') return false;
+    if (contextChangedRef.current) {
+      setError(ACTIVE_WORKTREE_CHANGED_ERROR);
+      return false;
+    }
     setBusy(true);
     setError(null);
     ownChangeRef.current = {
@@ -406,6 +443,7 @@ export function useFileManager({
       setFileStat(updatedStat);
       setContent((current) => current ? { ...current, content: draftRef.current, size: updatedStat.size } : current);
       setDirty(false);
+      dirtyRef.current = false;
       setEditing(false);
       setExternalChanged(false);
       await loadDirectory(currentPathRef.current, 'silent');
@@ -422,6 +460,7 @@ export function useFileManager({
   const discardDraft = useCallback(() => {
     draftRef.current = content?.content ?? '';
     setDirty(false);
+    dirtyRef.current = false;
     setEditing(false);
     setExternalChanged(false);
   }, [content]);
@@ -437,6 +476,7 @@ export function useFileManager({
   }, [loadFile]);
 
   const returnToBrowser = useCallback(() => {
+    const shouldReloadRoot = contextChangedRef.current;
     const nextRoute: FileManagerRoute = { name: 'browser' };
     setRoute(nextRoute);
     routeRef.current = nextRoute;
@@ -444,8 +484,17 @@ export function useFileManager({
     setFileStat(null);
     setEditing(false);
     setDirty(false);
+    dirtyRef.current = false;
     setExternalChanged(false);
-  }, []);
+    contextChangedRef.current = false;
+    setContextChanged(false);
+    if (!shouldReloadRoot) return;
+    setCurrentPath('');
+    currentPathRef.current = '';
+    setSelectionMode(false);
+    setSelectedPaths(new Set());
+    loadDirectory('').catch(() => {});
+  }, [loadDirectory]);
 
   return {
     route,
@@ -463,6 +512,7 @@ export function useFileManager({
     editing,
     dirty,
     externalChanged,
+    contextChanged,
     busy,
     movePath,
     moveEntries,

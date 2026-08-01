@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList, type ListRenderItemInfo } from '@shopify/flash-list';
-import { memo, useCallback, useDeferredValue, useMemo, useState } from 'react';
+import { memo, useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -27,6 +27,8 @@ const MONO_FONT = Platform.select({ ios: 'Menlo', android: 'monospace', default:
 type Props = {
   manager: FileManager;
   project: Project;
+  visible: boolean;
+  bottomInset: number;
 };
 
 type PromptState =
@@ -35,7 +37,7 @@ type PromptState =
   | { kind: 'rename'; initialValue: string; path: string }
   | null;
 
-export function FileBrowserScreen({ manager, project }: Props) {
+export function FileBrowserScreen({ manager, project, visible, bottomInset }: Props) {
   const tokens = useTokens();
   const { entries, openEntry, toggleSelection } = manager;
   const [query, setQuery] = useState('');
@@ -50,6 +52,10 @@ export function FileBrowserScreen({ manager, project }: Props) {
     if (!deferredQuery) return manager.entries;
     return manager.entries.filter((entry) => entry.name.toLocaleLowerCase().includes(deferredQuery));
   }, [deferredQuery, manager.entries]);
+
+  useEffect(() => {
+    setQuery('');
+  }, [manager.currentPath, visible]);
 
   const handlePress = useCallback(
     (path: string) => {
@@ -151,8 +157,7 @@ export function FileBrowserScreen({ manager, project }: Props) {
       <View style={[styles.search, { backgroundColor: tokens.surface.secondary }]}>
         <Ionicons name="search" size={16} color={tokens.text.muted} />
         <TextInput
-          key={manager.currentPath}
-          defaultValue=""
+          value={query}
           onChangeText={setQuery}
           placeholder="Filter this folder"
           placeholderTextColor={tokens.text.muted}
@@ -246,7 +251,13 @@ export function FileBrowserScreen({ manager, project }: Props) {
         <View
           style={[
             styles.selectionBar,
-            { backgroundColor: tokens.surface.secondary, borderTopColor: tokens.border.subtle },
+            {
+              bottom: -bottomInset,
+              minHeight: 74 + bottomInset,
+              paddingBottom: bottomInset,
+              backgroundColor: tokens.surface.secondary,
+              borderTopColor: tokens.border.subtle,
+            },
           ]}>
           <SelectionAction
             icon="folder-open-outline"
