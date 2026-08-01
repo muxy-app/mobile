@@ -5,8 +5,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, NativeEventEmitter, NativeModules, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 
-import { GitSheet } from '@/components/git/GitSheet';
 import { FileSheet } from '@/components/files/FileSheet';
+import { GitSheet, type GitRootRoute } from '@/components/git/GitSheet';
 import { HeaderIconButton } from '@/components/HeaderIconButton';
 import { SwipeArrowOverlay, type SwipeArrowOverlayHandle } from '@/components/SwipeArrowOverlay';
 import { TabKindPlaceholder } from '@/components/TabKindPlaceholder';
@@ -38,8 +38,8 @@ const muxyMenuCommands = NativeModules.MuxyMenuCommands
 export default function WorkspaceScreen() {
   const tokens = useTokens();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const [gitOpen, setGitOpen] = useState(false);
   const [filesOpen, setFilesOpen] = useState(false);
+  const [gitRootRoute, setGitRootRoute] = useState<GitRootRoute | null>(null);
   const [creatingTerminal, setCreatingTerminal] = useState(false);
   const creatingTerminalRef = useRef(false);
   const [tabActionError, setTabActionError] = useState<string | null>(null);
@@ -178,9 +178,14 @@ export default function WorkspaceScreen() {
         onPress={() => id && setFilesOpen(true)}
       />
       <HeaderIconButton
+        icon="folder-outline"
+        accessibilityLabel="Worktrees"
+        onPress={() => id && setGitRootRoute('worktrees')}
+      />
+      <HeaderIconButton
         icon="git-branch-outline"
         accessibilityLabel="Git"
-        onPress={() => id && setGitOpen(true)}
+        onPress={() => id && setGitRootRoute('overview')}
       />
     </View>
   );
@@ -232,7 +237,14 @@ export default function WorkspaceScreen() {
   return (
     <View style={[styles.root, { backgroundColor: tokens.surface.primary }]}>
       <Stack.Screen options={{ title: headerTitle, headerRight: headerActions }} />
-      {id ? <GitSheet visible={gitOpen} onClose={() => setGitOpen(false)} projectId={id} /> : null}
+      {id && gitRootRoute ? (
+        <GitSheet
+          visible
+          onClose={() => setGitRootRoute(null)}
+          projectId={id}
+          rootRoute={gitRootRoute}
+        />
+      ) : null}
       {project ? (
         <FileSheet
           visible={filesOpen}
