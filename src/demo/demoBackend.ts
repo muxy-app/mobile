@@ -3,6 +3,7 @@ import { base64ToString, stringToBase64 } from '@/lib/base64';
 import type {
   EventDataMap,
   EventName,
+  FileEncoding,
   MethodMap,
   MethodName,
   MethodParams,
@@ -15,6 +16,13 @@ import type {
   Workspace,
   Worktree,
 } from '@/transport';
+
+type DemoFileNode = {
+  isDirectory: boolean;
+  isIgnored: boolean;
+  content: string;
+  encoding: FileEncoding;
+};
 
 export const DEMO_DEVICE_ID = '00000000-0000-0000-0000-0000000000DE';
 export const DEMO_DEVICE_NAME = 'Demo Desktop';
@@ -78,11 +86,16 @@ function simulatedDelayMs(method: MethodName): number {
     case 'vcsAddWorktree':
     case 'vcsRemoveWorktree':
     case 'vcsSwitchBranch':
+    case 'filesMove':
+    case 'filesDelete':
       return 700;
     case 'vcsCreateBranch':
     case 'vcsStageFiles':
     case 'vcsUnstageFiles':
     case 'vcsDiscardFiles':
+    case 'filesWrite':
+    case 'filesMkdir':
+    case 'filesRename':
       return 250;
     default:
       return 0;
@@ -111,6 +124,7 @@ function buildProjects(): Project[] {
       createdAt: NOW,
       icon: 'terminal',
       iconColor: 'blue',
+      workspaceKind: 'local',
     },
     {
       id: WEB_ID,
@@ -120,6 +134,7 @@ function buildProjects(): Project[] {
       createdAt: NOW,
       icon: 'globe',
       iconColor: 'green',
+      workspaceKind: 'local',
     },
   ];
 }
@@ -250,6 +265,93 @@ function buildBranches(): Record<string, VCSBranches> {
   };
 }
 
+function demoDirectory(): DemoFileNode {
+  return { isDirectory: true, isIgnored: false, content: '', encoding: 'utf8' };
+}
+
+function demoText(content: string, isIgnored = false): DemoFileNode {
+  return { isDirectory: false, isIgnored, content, encoding: 'utf8' };
+}
+
+function buildFiles(): Record<string, Record<string, DemoFileNode>> {
+  return {
+    [MUXY_ID]: {
+      '': demoDirectory(),
+      app: demoDirectory(),
+      'app/_layout.tsx': demoText("import { Stack } from 'expo-router';\n\nexport default function Layout() {\n  return <Stack />;\n}\n"),
+      'app/index.tsx': demoText("import { Text, View } from 'react-native';\n\nexport default function Home() {\n  return <View><Text>Muxy</Text></View>;\n}\n"),
+      assets: demoDirectory(),
+      'assets/icon.png': {
+        isDirectory: false,
+        isIgnored: false,
+        content: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+        encoding: 'base64',
+      },
+      src: demoDirectory(),
+      'src/components': demoDirectory(),
+      'src/components/ProjectRow.tsx': demoText("import { Pressable, Text } from 'react-native';\n\nexport function ProjectRow({ project, onPress }: Props) {\n  return (\n    <Pressable onPress={onPress}>\n      <Text>{project.name}</Text>\n    </Pressable>\n  );\n}\n"),
+      'src/components/DeviceRow.tsx': demoText("import { Text, View } from 'react-native';\n\nexport function DeviceRow({ label }: Props) {\n  return <View><Text>{label}</Text></View>;\n}\n"),
+      'src/state': demoDirectory(),
+      'src/state/connection.ts': demoText("export const connectionState = 'connected';\n"),
+      'src/transport': demoDirectory(),
+      'src/transport/protocol.ts': demoText("export type Envelope = { type: string; payload: unknown };\n"),
+      '.expo': { ...demoDirectory(), isIgnored: true },
+      '.expo/settings.json': demoText('{}\n', true),
+      'package.json': demoText('{\n  "name": "muxy-mobile",\n  "private": true\n}\n'),
+      'package-lock.json': demoText('{\n  "lockfileVersion": 3\n}\n', true),
+      'README.md': demoText('# Muxy Mobile\n\nCompanion app for Muxy.\n'),
+    },
+    [WEB_ID]: {
+      '': demoDirectory(),
+      src: demoDirectory(),
+      'src/index.ts': demoText("export const appName = 'web-app';\n"),
+      'package.json': demoText('{\n  "name": "web-app"\n}\n'),
+      'README.md': demoText('# Web app\n'),
+    },
+  };
+}
+
+function normalizeDemoPath(path: string): string {
+  const normalized = path === '.' ? '' : path.replace(/^\.\//, '').replace(/\/+$/, '');
+  if (normalized === '..' || normalized.startsWith('../') || normalized.includes('/../')) {
+    throw demoError(403, `Path '${path}' escapes the workspace root`);
+  }
+  return normalized;
+}
+
+function demoParent(path: string): string {
+  const index = path.lastIndexOf('/');
+  return index < 0 ? '' : path.slice(0, index);
+}
+
+function demoName(path: string): string {
+  const index = path.lastIndexOf('/');
+  return index < 0 ? path : path.slice(index + 1);
+}
+
+function joinDemoPath(parent: string, name: string): string {
+  return parent ? `${parent}/${name}` : name;
+}
+
+function demoSize(node: DemoFileNode): number {
+  if (node.isDirectory) return 0;
+  if (node.encoding === 'utf8') return node.content.length;
+  const padding = node.content.endsWith('==') ? 2 : node.content.endsWith('=') ? 1 : 0;
+  return Math.max(0, Math.floor((node.content.length * 3) / 4) - padding);
+}
+
+function uniqueDemoPath(files: Record<string, DemoFileNode>, requestedPath: string): string {
+  if (!files[requestedPath]) return requestedPath;
+  const parent = demoParent(requestedPath);
+  const name = demoName(requestedPath);
+  const dot = name.lastIndexOf('.');
+  const base = dot > 0 ? name.slice(0, dot) : name;
+  const extension = dot > 0 ? name.slice(dot) : '';
+  let suffix = 2;
+  while (files[joinDemoPath(parent, `${base} ${suffix}${extension}`)]) suffix += 1;
+  return joinDemoPath(parent, `${base} ${suffix}${extension}`);
+}
+
 export type DemoEmitter = <E extends EventName>(event: E, data: EventDataMap[E]) => void;
 
 export class DemoBackend {
@@ -258,6 +360,7 @@ export class DemoBackend {
   private workspaces = buildWorkspaces();
   private statusByProject = buildStatus();
   private branchesByProject = buildBranches();
+  private filesByProject = buildFiles();
   private greetedPanes = new Set<string>();
   private nextTabNumber = initialNextTabNumber(this.workspaces);
 
@@ -402,6 +505,121 @@ export class DemoBackend {
 
       case 'getProjectLogo':
         throw demoError(404, 'Not available in demo mode');
+
+      case 'filesList': {
+        const p = (params as MethodParams<'filesList'>)!.value;
+        const files = this.filesForProject(p.projectID);
+        const path = normalizeDemoPath(p.path);
+        const directory = files[path];
+        if (!directory?.isDirectory) throw demoError(500, `Directory '${p.path}' not found`);
+        const entries = Object.entries(files)
+          .filter(([candidate]) => candidate && demoParent(candidate) === path)
+          .map(([candidate, node]) => ({
+            name: demoName(candidate),
+            path: candidate,
+            isDirectory: node.isDirectory,
+            isIgnored: node.isIgnored,
+          }))
+          .sort((left, right) => {
+            if (left.isDirectory !== right.isDirectory) return left.isDirectory ? -1 : 1;
+            return left.name.localeCompare(right.name, undefined, { sensitivity: 'base' });
+          });
+        return { type: 'files', value: entries } as MethodMap[M]['result'];
+      }
+
+      case 'filesRead': {
+        const p = (params as MethodParams<'filesRead'>)!.value;
+        const path = normalizeDemoPath(p.path);
+        const node = this.filesForProject(p.projectID)[path];
+        if (!node || node.isDirectory) throw demoError(500, `File '${p.path}' not found`);
+        if (p.encoding === 'utf8' && node.encoding === 'base64') {
+          throw demoError(500, `File '${p.path}' is not valid UTF-8`);
+        }
+        const content = p.encoding === node.encoding
+          ? node.content
+          : p.encoding === 'base64'
+            ? utf8ToBase64(node.content)
+            : base64ToUtf8(node.content);
+        return {
+          type: 'fileContent',
+          value: { path, content, size: demoSize(node), encoding: p.encoding },
+        } as MethodMap[M]['result'];
+      }
+
+      case 'filesStat': {
+        const p = (params as MethodParams<'filesStat'>)!.value;
+        const path = normalizeDemoPath(p.path);
+        const node = this.filesForProject(p.projectID)[path];
+        if (!node) throw demoError(500, `Path '${p.path}' not found`);
+        return {
+          type: 'fileStat',
+          value: { name: path ? demoName(path) : '.', path, isDirectory: node.isDirectory, size: demoSize(node) },
+        } as MethodMap[M]['result'];
+      }
+
+      case 'filesWrite': {
+        const p = (params as MethodParams<'filesWrite'>)!.value;
+        const files = this.filesForProject(p.projectID);
+        const path = normalizeDemoPath(p.path);
+        if (!path) throw demoError(500, 'Cannot write the workspace root');
+        if (!files[demoParent(path)]?.isDirectory) throw demoError(500, `Parent directory not found`);
+        files[path] = { isDirectory: false, isIgnored: files[path]?.isIgnored ?? false, content: p.contents, encoding: p.encoding };
+        this.emitFileChange(p.projectID, [path]);
+        return { type: 'filePaths', value: [path] } as MethodMap[M]['result'];
+      }
+
+      case 'filesMkdir': {
+        const p = (params as MethodParams<'filesMkdir'>)!.value;
+        const files = this.filesForProject(p.projectID);
+        const requestedPath = normalizeDemoPath(p.path);
+        if (!requestedPath) throw demoError(500, 'Cannot create the workspace root');
+        if (!files[demoParent(requestedPath)]?.isDirectory) throw demoError(500, `Parent directory not found`);
+        const path = uniqueDemoPath(files, requestedPath);
+        files[path] = demoDirectory();
+        this.emitFileChange(p.projectID, [path]);
+        return { type: 'filePaths', value: [path] } as MethodMap[M]['result'];
+      }
+
+      case 'filesRename': {
+        const p = (params as MethodParams<'filesRename'>)!.value;
+        const files = this.filesForProject(p.projectID);
+        const path = normalizeDemoPath(p.path);
+        const destination = joinDemoPath(demoParent(path), p.newName);
+        if (!files[path]) throw demoError(500, `Path '${p.path}' not found`);
+        if (files[destination]) throw demoError(500, `Path '${destination}' already exists`);
+        this.relocateDemoPath(files, path, destination);
+        this.emitFileChange(p.projectID, [path, destination]);
+        return { type: 'filePaths', value: [destination] } as MethodMap[M]['result'];
+      }
+
+      case 'filesMove': {
+        const p = (params as MethodParams<'filesMove'>)!.value;
+        const files = this.filesForProject(p.projectID);
+        const destinationDirectory = normalizeDemoPath(p.into);
+        if (!files[destinationDirectory]?.isDirectory) throw demoError(500, `Destination not found`);
+        const moved = p.paths.map((requestedPath) => {
+          const path = normalizeDemoPath(requestedPath);
+          if (!files[path]) throw demoError(500, `Path '${requestedPath}' not found`);
+          const destination = uniqueDemoPath(files, joinDemoPath(destinationDirectory, demoName(path)));
+          this.relocateDemoPath(files, path, destination);
+          return { path, destination };
+        });
+        this.emitFileChange(p.projectID, moved.flatMap(({ path, destination }) => [path, destination]));
+        return { type: 'filePaths', value: moved.map(({ destination }) => destination) } as MethodMap[M]['result'];
+      }
+
+      case 'filesDelete': {
+        const p = (params as MethodParams<'filesDelete'>)!.value;
+        const files = this.filesForProject(p.projectID);
+        const paths = p.paths.map(normalizeDemoPath);
+        for (const path of paths) {
+          for (const candidate of Object.keys(files)) {
+            if (candidate === path || candidate.startsWith(`${path}/`)) delete files[candidate];
+          }
+        }
+        this.emitFileChange(p.projectID, paths);
+        return { type: 'ok' } as MethodMap[M]['result'];
+      }
 
       case 'getVCSStatus':
       case 'vcsRefresh': {
@@ -567,6 +785,37 @@ export class DemoBackend {
       default:
         throw demoError(400, `Demo mode does not implement "${String(method)}"`);
     }
+  }
+
+  private filesForProject(projectID: string): Record<string, DemoFileNode> {
+    const files = this.filesByProject[projectID];
+    if (!files) throw demoError(404, 'Project not found');
+    return files;
+  }
+
+  private relocateDemoPath(files: Record<string, DemoFileNode>, source: string, destination: string): void {
+    const affected = Object.keys(files)
+      .filter((path) => path === source || path.startsWith(`${source}/`))
+      .sort((left, right) => left.length - right.length);
+    for (const path of affected) {
+      const suffix = path.slice(source.length);
+      const node = files[path];
+      if (!node) continue;
+      files[`${destination}${suffix}`] = node;
+      delete files[path];
+    }
+  }
+
+  private emitFileChange(projectID: string, paths: string[]): void {
+    this.emit('fileChanged', {
+      type: 'fileChanged',
+      value: {
+        projectID,
+        worktreeID: this.workspaces[projectID]?.worktreeID,
+        paths: [...paths].sort(),
+        truncated: false,
+      },
+    });
   }
 }
 

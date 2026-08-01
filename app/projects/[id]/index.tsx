@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, NativeEventEmitter, NativeModules, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 
+import { FileSheet } from '@/components/files/FileSheet';
 import { GitSheet, type GitRootRoute } from '@/components/git/GitSheet';
 import { HeaderIconButton } from '@/components/HeaderIconButton';
 import { SwipeArrowOverlay, type SwipeArrowOverlayHandle } from '@/components/SwipeArrowOverlay';
@@ -37,6 +38,7 @@ const muxyMenuCommands = NativeModules.MuxyMenuCommands
 export default function WorkspaceScreen() {
   const tokens = useTokens();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const [filesOpen, setFilesOpen] = useState(false);
   const [gitRootRoute, setGitRootRoute] = useState<GitRootRoute | null>(null);
   const [creatingTerminal, setCreatingTerminal] = useState(false);
   const creatingTerminalRef = useRef(false);
@@ -171,6 +173,11 @@ export default function WorkspaceScreen() {
   const headerActions = () => (
     <View style={styles.headerActions}>
       <HeaderIconButton
+        icon="folder-open-outline"
+        accessibilityLabel="Files"
+        onPress={() => id && setFilesOpen(true)}
+      />
+      <HeaderIconButton
         icon="folder-outline"
         accessibilityLabel="Worktrees"
         onPress={() => id && setGitRootRoute('worktrees')}
@@ -236,6 +243,14 @@ export default function WorkspaceScreen() {
           onClose={() => setGitRootRoute(null)}
           projectId={id}
           rootRoute={gitRootRoute}
+        />
+      ) : null}
+      {project ? (
+        <FileSheet
+          visible={filesOpen}
+          onClose={() => setFilesOpen(false)}
+          project={project}
+          worktreeId={workspace?.worktreeID}
         />
       ) : null}
 

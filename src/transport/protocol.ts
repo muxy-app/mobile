@@ -37,7 +37,7 @@ export type Project = {
   icon?: string;
   logo?: string;
   iconColor?: string;
-  workspaceKind?: string;
+  workspaceKind?: 'local' | 'ssh';
   workspaceID?: string;
   workspaceName?: string;
 };
@@ -232,6 +232,36 @@ export type VCSDiff = {
   isBinary: boolean;
 };
 
+export type FileEncoding = 'utf8' | 'base64';
+
+export type FileEntry = {
+  name: string;
+  path: string;
+  isDirectory: boolean;
+  isIgnored: boolean;
+};
+
+export type FileContent = {
+  path: string;
+  content: string;
+  size: number;
+  encoding: FileEncoding;
+};
+
+export type FileStat = {
+  name: string;
+  path: string;
+  isDirectory: boolean;
+  size: number;
+};
+
+export type FileChange = {
+  projectID: string;
+  worktreeID?: string;
+  paths: string[];
+  truncated: boolean;
+};
+
 export type AuthParams = {
   deviceID: string;
   deviceName: string;
@@ -332,6 +362,50 @@ export type MethodMap = {
   getProjectLogo: {
     params: { type: 'getProjectLogo'; value: { projectID: string } };
     result: { type: 'projectLogo'; value: { projectID: string; pngData: string } };
+  };
+  filesList: {
+    params: { type: 'filesList'; value: { projectID: string; path: string } };
+    result: { type: 'files'; value: FileEntry[] };
+  };
+  filesRead: {
+    params: {
+      type: 'filesRead';
+      value: { projectID: string; path: string; encoding: FileEncoding };
+    };
+    result: { type: 'fileContent'; value: FileContent };
+  };
+  filesStat: {
+    params: { type: 'filesStat'; value: { projectID: string; path: string } };
+    result: { type: 'fileStat'; value: FileStat };
+  };
+  filesWrite: {
+    params: {
+      type: 'filesWrite';
+      value: { projectID: string; path: string; contents: string; encoding: FileEncoding };
+    };
+    result: { type: 'filePaths'; value: string[] };
+  };
+  filesMkdir: {
+    params: { type: 'filesMkdir'; value: { projectID: string; path: string } };
+    result: { type: 'filePaths'; value: string[] };
+  };
+  filesRename: {
+    params: {
+      type: 'filesRename';
+      value: { projectID: string; path: string; newName: string };
+    };
+    result: { type: 'filePaths'; value: string[] };
+  };
+  filesMove: {
+    params: {
+      type: 'filesMove';
+      value: { projectID: string; paths: string[]; into: string };
+    };
+    result: { type: 'filePaths'; value: string[] };
+  };
+  filesDelete: {
+    params: { type: 'filesDelete'; value: { projectID: string; paths: string[] } };
+    result: { type: 'ok' };
   };
   subscribe: {
     params: { type: 'subscribe'; value: { events: string[] } };
@@ -434,6 +508,7 @@ export type EventDataMap = {
   projectsChanged: { type: 'projects'; value: Project[] };
   paneOwnershipChanged: { type: 'paneOwnership'; value: PaneOwnership };
   themeChanged: { type: 'deviceTheme'; value: ThemeChange };
+  fileChanged: { type: 'fileChanged'; value: FileChange };
 };
 
 export type EventName = keyof EventDataMap;
@@ -447,4 +522,5 @@ export const ALL_EVENT_NAMES: readonly EventName[] = [
   'projectsChanged',
   'paneOwnershipChanged',
   'themeChanged',
+  'fileChanged',
 ] as const;
