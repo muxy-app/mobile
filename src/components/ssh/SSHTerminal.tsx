@@ -125,6 +125,7 @@ function SSHSessionTerminal({
   const dimensionsRef = useRef<TerminalDimensions | null>(null);
   const lastSentRef = useRef('');
   const [inputValue, setInputValue] = useState(INPUT_SENTINEL);
+  const [focused, setFocused] = useState(false);
   const [hasDimensions, setHasDimensions] = useState(false);
   const [ready, setReady] = useState(false);
   const [isFollowingBottom, setIsFollowingBottom] = useState(true);
@@ -358,9 +359,11 @@ function SSHSessionTerminal({
   );
 
   const handleInputBlur = useCallback(() => {
+    setFocused(false);
     lastSentRef.current = '';
     setInputValue(INPUT_SENTINEL);
   }, []);
+  const handleInputFocus = useCallback(() => setFocused(true), []);
 
   const insets = useSafeAreaInsets();
   const { height } = useReanimatedKeyboardAnimation();
@@ -489,6 +492,7 @@ function SSHSessionTerminal({
             ref={webRef}
             theme={terminalTheme}
             nerdFont={nerdFont}
+            focused={focused}
             onReady={() => setReady(true)}
             onDimensions={handleDimensions}
             onData={handleData}
@@ -526,6 +530,7 @@ function SSHSessionTerminal({
             value={inputValue}
             selection={inputSelection}
             onChangeText={handleInputChange}
+            onFocus={handleInputFocus}
             onBlur={handleInputBlur}
             multiline
             autoCorrect={false}

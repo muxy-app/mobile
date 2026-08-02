@@ -59,6 +59,15 @@ type CursorViewportOffset = (
 
 type IsViewportFollowingBottom = (viewportY: number, baseY: number) => boolean;
 
+type FocusCursorGeometry = (
+  cursorColumn: number,
+  cursorRow: number,
+  cols: number,
+  rows: number,
+  screenWidth: number,
+  screenHeight: number,
+) => { left: number; top: number; width: number; height: number } | null;
+
 describe('buildTerminalHtml', () => {
   it('can disable WebView command shortcuts when native menu commands own them', () => {
     const html = buildTerminalHtml({
@@ -203,6 +212,59 @@ describe('buildTerminalHtml', () => {
     expect(runtime).toContain('term.onScroll(syncFollowingBottom);');
     expect(runtime).toContain('term.onWriteParsed(syncFollowingBottom);');
     expect(runtime).toContain("post({ type: 'followingBottom', value: followingBottom });");
+  });
+
+  it('positions the focus cursor from terminal cell geometry', () => {
+    const html = buildTerminalHtml({
+      theme,
+      fontFamily: 'Menlo',
+      fontSize: 12,
+    });
+    const focusCursorGeometry = terminalRuntimeFunction<FocusCursorGeometry>(
+      html,
+      'focusCursorGeometry',
+    );
+
+    expect(focusCursorGeometry(12, 7, 80, 24, 800, 480)).toEqual({
+      left: 120,
+      top: 140,
+      width: 2,
+      height: 20,
+    });
+    expect(focusCursorGeometry(80, 23, 80, 24, 800, 480)?.left).toBe(790);
+  });
+
+  it('hides the focus cursor outside a usable viewport', () => {
+    const html = buildTerminalHtml({
+      theme,
+      fontFamily: 'Menlo',
+      fontSize: 12,
+    });
+    const focusCursorGeometry = terminalRuntimeFunction<FocusCursorGeometry>(
+      html,
+      'focusCursorGeometry',
+    );
+
+    expect(focusCursorGeometry(0, -1, 80, 24, 800, 480)).toBeNull();
+    expect(focusCursorGeometry(0, 24, 80, 24, 800, 480)).toBeNull();
+    expect(focusCursorGeometry(0, 0, 0, 24, 800, 480)).toBeNull();
+    expect(focusCursorGeometry(0, 0, 80, 24, 0, 480)).toBeNull();
+  });
+
+  it('keeps a renderer-independent cursor synchronized while focused', () => {
+    const html = buildTerminalHtml({
+      theme,
+      fontFamily: 'Menlo',
+      fontSize: 12,
+    });
+    const runtime = terminalRuntime(html);
+
+    expect(html).toContain('@keyframes terminal-focus-cursor-blink');
+    expect(runtime).toContain("if (msg.type === 'setFocused')");
+    expect(runtime).toContain("term.options.cursorInactiveStyle = focused ? 'none' : 'outline';");
+    expect(runtime).toContain('term.onCursorMove(scheduleFocusCursorUpdate);');
+    expect(runtime).toContain('term.onRender(scheduleFocusCursorUpdate);');
+    expect(runtime).toContain('term.onScroll(scheduleFocusCursorUpdate);');
   });
 
   it('cancels pending scrolling before jumping to live output', () => {
