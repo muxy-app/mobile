@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useImperativeHandle, useRef, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import WebView, { type WebViewMessageEvent } from 'react-native-webview';
 
@@ -35,6 +35,7 @@ export type TerminalScroll = {
 type Props = {
   theme: TerminalTheme;
   nerdFont: NerdFontBase64 | null;
+  focused: boolean;
   onReady: () => void;
   onDimensions: (dims: TerminalDimensions) => void;
   onData?: (base64: string) => void;
@@ -51,6 +52,7 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function
   {
     theme,
     nerdFont,
+    focused,
     onReady,
     onDimensions,
     onData,
@@ -83,6 +85,10 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function
     const code = `window.handleMessage && window.handleMessage(${JSON.stringify(msg)}); true;`;
     webRef.current?.injectJavaScript(code);
   }, []);
+
+  useEffect(() => {
+    send({ type: 'setFocused', focused });
+  }, [focused, send]);
 
   const cancelQueuedWrites = useCallback(() => {
     if (writeFrameRef.current !== null) {
@@ -139,6 +145,7 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function
           });
           return;
         case 'ready':
+          send({ type: 'setFocused', focused });
           onReady();
           return;
         case 'dimensions':

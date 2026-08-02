@@ -115,6 +115,7 @@ function TerminalSessionView({
 
   const [dimensions, setDimensions] = useState<TerminalDimensions | null>(null);
   const [ready, setReady] = useState(false);
+  const [focused, setFocused] = useState(false);
   const [isFollowingBottom, setIsFollowingBottom] = useState(true);
   const autoFocusTerminal = useSettingsStore((s) => s.autoFocusTerminal);
 
@@ -197,9 +198,11 @@ function TerminalSessionView({
   );
 
   const handleInputBlur = useCallback(() => {
+    setFocused(false);
     lastSentRef.current = '';
     setInputValue(INPUT_SENTINEL);
   }, []);
+  const handleInputFocus = useCallback(() => setFocused(true), []);
 
   const insets = useSafeAreaInsets();
   const { height } = useReanimatedKeyboardAnimation();
@@ -285,6 +288,7 @@ function TerminalSessionView({
             ref={webRef}
             theme={terminalTheme}
             nerdFont={nerdFont}
+            focused={focused}
             onReady={handleReady}
             onDimensions={(d) => {
               setDimensions(d);
@@ -318,6 +322,7 @@ function TerminalSessionView({
             value={inputValue}
             selection={inputSelection}
             onChangeText={handleInputChange}
+            onFocus={handleInputFocus}
             onBlur={handleInputBlur}
             multiline
             autoCorrect={false}

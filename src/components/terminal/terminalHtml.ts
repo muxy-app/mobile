@@ -53,6 +53,8 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
 .xterm-screen canvas { pointer-events: none !important; }
 .xterm .xterm-scrollable-element > .scrollbar.vertical { width: 4px !important; }
 .xterm .xterm-scrollable-element > .scrollbar.vertical > .slider { width: 4px !important; left: 0 !important; border-radius: 2px; }
+@keyframes terminal-focus-cursor-blink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+.terminal-focus-cursor { position: absolute; display: none; pointer-events: none; z-index: 6; animation: terminal-focus-cursor-blink 1.2s steps(1, end) infinite; }
 .xterm, .xterm-rows {
   -webkit-font-smoothing: antialiased;
   text-rendering: geometricPrecision;
@@ -75,6 +77,7 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
   var CanvasAddon = window.CanvasAddon && window.CanvasAddon.CanvasAddon;
   var INITIAL = ${JSON.stringify(init)};
   var terminalHandleMessage = null;
+  var terminalFocused = false;
   var initializationStarted = false;
   var root = document.getElementById('root');
   var viewportOffset = 0;
@@ -257,6 +260,9 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
         setKeyboardOffset(msg.offset, msg.duration, msg.phase);
         return;
       }
+      if (msg.type === 'setFocused') {
+        terminalFocused = Boolean(msg.focused);
+      }
       if (terminalHandleMessage) terminalHandleMessage(msg);
     } catch (e) {
       reportError('handleMessage failed', e);
@@ -282,6 +288,69 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
   term.loadAddon(fit);
 
   term.open(root);
+
+  var cursorOverlay = document.createElement('div');
+  cursorOverlay.className = 'terminal-focus-cursor';
+  cursorOverlay.setAttribute('aria-hidden', 'true');
+  var terminalScreen = term.element && term.element.querySelector('.xterm-screen');
+  if (terminalScreen) terminalScreen.appendChild(cursorOverlay);
+  var cursorUpdateFrame = 0;
+  function refreshTerminalCursor() {
+    var buffer = term.buffer.active;
+    var cursorRow = buffer.baseY + buffer.cursorY - buffer.viewportY;
+    if (cursorRow < 0 || cursorRow >= term.rows) return;
+    term.refresh(cursorRow, cursorRow);
+  }
+  function focusCursorGeometry(cursorColumn, cursorRow, cols, rows, screenWidth, screenHeight) {
+    if (cols <= 0 || rows <= 0 || cursorRow < 0 || cursorRow >= rows) return null;
+    var cellWidth = screenWidth / cols;
+    var cellHeight = screenHeight / rows;
+    if (!isFinite(cellWidth) || !isFinite(cellHeight) || cellWidth <= 0 || cellHeight <= 0) return null;
+    return {
+      left: Math.min(Math.max(cursorColumn, 0), cols - 1) * cellWidth,
+      top: cursorRow * cellHeight,
+      width: Math.max(2, cellWidth * 0.18),
+      height: cellHeight,
+    };
+  }
+  function updateFocusCursor() {
+    cursorUpdateFrame = 0;
+    if (!terminalFocused || !terminalScreen) {
+      cursorOverlay.style.display = 'none';
+      return;
+    }
+    var buffer = term.buffer.active;
+    var cursorRow = buffer.baseY + buffer.cursorY - buffer.viewportY;
+    var geometry = focusCursorGeometry(
+      buffer.cursorX,
+      cursorRow,
+      term.cols,
+      term.rows,
+      terminalScreen.clientWidth,
+      terminalScreen.clientHeight
+    );
+    if (!geometry) {
+      cursorOverlay.style.display = 'none';
+      return;
+    }
+    cursorOverlay.style.display = 'block';
+    cursorOverlay.style.backgroundColor = term.options.theme.cursor || INITIAL.theme.cursor;
+    cursorOverlay.style.width = geometry.width + 'px';
+    cursorOverlay.style.height = geometry.height + 'px';
+    cursorOverlay.style.transform = 'translate3d(' + geometry.left + 'px, ' + geometry.top + 'px, 0)';
+  }
+  function scheduleFocusCursorUpdate() {
+    if (cursorUpdateFrame) return;
+    cursorUpdateFrame = requestAnimationFrame(updateFocusCursor);
+  }
+  function setTerminalFocused(focused) {
+    term.options.cursorInactiveStyle = focused ? 'none' : 'outline';
+    refreshTerminalCursor();
+    scheduleFocusCursorUpdate();
+  }
+  term.onCursorMove(scheduleFocusCursorUpdate);
+  term.onRender(scheduleFocusCursorUpdate);
+  term.onScroll(scheduleFocusCursorUpdate);
 
   if (INITIAL.commandShortcutsEnabled !== false) {
     window.addEventListener('keydown', function (e) {
@@ -650,6 +719,7 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
       return;
     }
     dimensionsInitialized = true;
+    scheduleFocusCursorUpdate();
     if (viewportOffsetAwaitingCursor && viewportOffsetLimit > 0) {
       viewportOffset = chooseInitialViewportOffset(viewportOffsetLimit);
       applyViewportOffset(0);
@@ -715,6 +785,10 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
           break;
         case 'setTheme':
           term.options.theme = msg.theme;
+          scheduleFocusCursorUpdate();
+          break;
+        case 'setFocused':
+          setTerminalFocused(terminalFocused);
           break;
         case 'clear':
           term.clear();
@@ -730,6 +804,7 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
     }
   };
 
+  setTerminalFocused(terminalFocused);
   requestAnimationFrame(initializeDimensions);
   }
 
