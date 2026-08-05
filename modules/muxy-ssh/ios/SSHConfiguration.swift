@@ -65,7 +65,11 @@ struct SSHConnectionConfiguration: Sendable {
       }
       return .password(password)
     case "privateKey":
-      guard let key = auth["privateKey"], !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+      guard let rawKey = auth["privateKey"] else {
+        throw MuxySSHError.missingCredentials
+      }
+      let key = Self.normalizedPrivateKey(rawKey)
+      guard !key.isEmpty else {
         throw MuxySSHError.missingCredentials
       }
       let passphrase = auth["passphrase"].flatMap {
@@ -75,6 +79,13 @@ struct SSHConnectionConfiguration: Sendable {
     default:
       throw MuxySSHError.invalidAuthenticationType
     }
+  }
+
+  private static func normalizedPrivateKey(_ key: String) -> String {
+    key
+      .replacingOccurrences(of: "\r\n", with: "\n")
+      .replacingOccurrences(of: "\r", with: "\n")
+      .trimmingCharacters(in: .whitespacesAndNewlines)
   }
 
   private static func normalizedFingerprint(_ fingerprint: String?) throws -> String? {
