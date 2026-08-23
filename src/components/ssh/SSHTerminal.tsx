@@ -11,7 +11,6 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import {
@@ -59,6 +58,8 @@ import {
   type TerminalWebViewHandle,
   TerminalWebView,
 } from '../terminal/TerminalWebView';
+import { TerminalInput } from '../terminal/TerminalInputCapture';
+import type { TerminalInputHandle } from '../terminal/TerminalInputCapture.types';
 import { scheduleTerminalInputFocus } from '../terminal/terminalFocus';
 import { buildTerminalInputDiff } from '../terminal/terminalInput';
 import { useSSHHostKeyPrompt } from './useSSHHostKeyPrompt';
@@ -120,7 +121,7 @@ function SSHSessionTerminal({
 }: Props & { nerdFont: NerdFontBase64 | null }) {
   const tokens = useTokens();
   const webRef = useRef<TerminalWebViewHandle>(null);
-  const inputRef = useRef<TextInput>(null);
+  const inputRef = useRef<TerminalInputHandle>(null);
   const sessionIdRef = useRef<string | null>(null);
   const dimensionsRef = useRef<TerminalDimensions | null>(null);
   const lastSentRef = useRef('');
@@ -464,10 +465,6 @@ function SSHSessionTerminal({
     inputRef.current?.focus();
   }, []);
 
-  const inputSelection = useMemo(
-    () => ({ start: inputValue.length, end: inputValue.length }),
-    [inputValue],
-  );
   const state = session?.state ?? 'idle';
   const error = session?.error;
   const connecting = state === 'idle' || state === 'connecting';
@@ -525,20 +522,13 @@ function SSHSessionTerminal({
             />
           ) : null}
 
-          <TextInput
+          <TerminalInput
             ref={inputRef}
             value={inputValue}
-            selection={inputSelection}
             onChangeText={handleInputChange}
             onFocus={handleInputFocus}
             onBlur={handleInputBlur}
-            multiline
-            autoCorrect={false}
-            autoCapitalize="none"
-            autoComplete="off"
-            spellCheck={false}
-            caretHidden
-            style={styles.hiddenInput}
+            onHardwareInput={sendBase64}
           />
 
           {connecting ? (
@@ -620,14 +610,6 @@ const styles = StyleSheet.create({
   slider: { flex: 1 },
   terminalArea: { flex: 1 },
   keyBarSlot: { height: KEY_BAR_HEIGHT },
-  hiddenInput: {
-    position: 'absolute',
-    width: 1,
-    height: 1,
-    opacity: 0,
-    top: 0,
-    left: 0,
-  },
   overlay: {
     position: 'absolute',
     inset: 0,
