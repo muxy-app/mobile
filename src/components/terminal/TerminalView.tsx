@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Keyboard, Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   KeyboardController,
   KeyboardEvents,
@@ -34,6 +34,8 @@ import {
   type TerminalScroll,
   type TerminalWebViewHandle,
 } from './TerminalWebView';
+import { TerminalInput } from './TerminalInputCapture';
+import type { TerminalInputHandle } from './TerminalInputCapture.types';
 import { scheduleTerminalInputFocus } from './terminalFocus';
 import { buildTerminalInputDiff } from './terminalInput';
 
@@ -91,7 +93,7 @@ function TerminalSessionView({
 }: Props & { nerdFont: NerdFontBase64 | null }) {
   const tokens = useTokens();
   const webRef = useRef<TerminalWebViewHandle>(null);
-  const inputRef = useRef<TextInput>(null);
+  const inputRef = useRef<TerminalInputHandle>(null);
   const lastSentRef = useRef('');
   const [inputValue, setInputValue] = useState(INPUT_SENTINEL);
 
@@ -272,11 +274,6 @@ function TerminalSessionView({
     inputRef.current?.focus();
   }, []);
 
-  const inputSelection = useMemo(
-    () => ({ start: inputValue.length, end: inputValue.length }),
-    [inputValue],
-  );
-
   const handleReady = useCallback(() => {
     setReady(true);
   }, []);
@@ -327,20 +324,13 @@ function TerminalSessionView({
           />
         ) : null}
 
-        <TextInput
+        <TerminalInput
           ref={inputRef}
           value={inputValue}
-          selection={inputSelection}
           onChangeText={handleInputChange}
           onFocus={handleInputFocus}
           onBlur={handleInputBlur}
-          multiline
-          autoCorrect={false}
-          autoCapitalize="none"
-          autoComplete="off"
-          spellCheck={false}
-          caretHidden
-          style={styles.hiddenInput}
+          onHardwareInput={handleKeyBarBytes}
         />
 
         {reconnecting ? (
@@ -431,12 +421,4 @@ const styles = StyleSheet.create({
   body: { fontSize: 14, textAlign: 'center' },
   cta: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: 999, marginTop: 8 },
   ctaLabel: { fontSize: 14, fontWeight: '600' },
-  hiddenInput: {
-    position: 'absolute',
-    width: 1,
-    height: 1,
-    opacity: 0,
-    top: 0,
-    left: 0,
-  },
 });
