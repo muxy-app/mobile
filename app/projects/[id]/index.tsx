@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, NativeEventEmitter, NativeModules, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -11,6 +11,7 @@ import { HeaderIconButton } from '@/components/HeaderIconButton';
 import { SwipeArrowOverlay, type SwipeArrowOverlayHandle } from '@/components/SwipeArrowOverlay';
 import { TabKindPlaceholder } from '@/components/TabKindPlaceholder';
 import { TerminalView } from '@/components/terminal/TerminalView';
+import { WorkspaceHeader } from '@/components/WorkspaceHeader';
 import { WorkspaceTabStrip, type WorkspaceTabStripHandle } from '@/components/WorkspaceTabStrip';
 import {
   client,
@@ -37,6 +38,7 @@ const muxyMenuCommands = NativeModules.MuxyMenuCommands
 
 export default function WorkspaceScreen() {
   const tokens = useTokens();
+  const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [filesOpen, setFilesOpen] = useState(false);
   const [gitRootRoute, setGitRootRoute] = useState<GitRootRoute | null>(null);
@@ -170,22 +172,41 @@ export default function WorkspaceScreen() {
     return () => sub.remove();
   }, [handleCreateTerminal, selectTabShortcut]);
 
+  const handleOpenFiles = useCallback(() => {
+    if (!id) return;
+    setFilesOpen(true);
+  }, [id]);
+
+  const handleOpenWorktrees = useCallback(() => {
+    if (!id) return;
+    setGitRootRoute('worktrees');
+  }, [id]);
+
+  const handleOpenGit = useCallback(() => {
+    if (!id) return;
+    setGitRootRoute('overview');
+  }, [id]);
+
+  const handleBack = useCallback(() => {
+    router.back();
+  }, [router]);
+
   const headerActions = () => (
     <View style={styles.headerActions}>
       <HeaderIconButton
         icon="folder-open-outline"
         accessibilityLabel="Files"
-        onPress={() => id && setFilesOpen(true)}
+        onPress={handleOpenFiles}
       />
       <HeaderIconButton
         icon="folder-outline"
         accessibilityLabel="Worktrees"
-        onPress={() => id && setGitRootRoute('worktrees')}
+        onPress={handleOpenWorktrees}
       />
       <HeaderIconButton
         icon="git-branch-outline"
         accessibilityLabel="Git"
-        onPress={() => id && setGitRootRoute('overview')}
+        onPress={handleOpenGit}
       />
     </View>
   );
@@ -236,7 +257,22 @@ export default function WorkspaceScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: tokens.surface.primary }]}>
-      <Stack.Screen options={{ title: headerTitle, headerRight: headerActions }} />
+      <Stack.Screen
+        options={{
+          title: headerTitle,
+          headerShown: Platform.OS !== 'ios',
+          headerRight: headerActions,
+        }}
+      />
+      {Platform.OS === 'ios' ? (
+        <WorkspaceHeader
+          title={headerTitle}
+          onBack={handleBack}
+          onOpenFiles={handleOpenFiles}
+          onOpenWorktrees={handleOpenWorktrees}
+          onOpenGit={handleOpenGit}
+        />
+      ) : null}
       {id && gitRootRoute ? (
         <GitSheet
           visible
@@ -353,7 +389,7 @@ function Centered({ children, tokens }: { children: React.ReactNode; tokens: Ret
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  headerActions: { flexDirection: 'row', alignItems: 'center' },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   body: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, gap: 10 },
   title: { fontSize: 20, fontWeight: '600' },
