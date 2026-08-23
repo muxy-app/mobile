@@ -1,7 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
+import {
+  GlassView,
+  isGlassEffectAPIAvailable,
+  isLiquidGlassAvailable,
+} from 'expo-glass-effect';
 import { useRef, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Animated, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { create } from 'zustand';
 
 import { bytesToBase64, stringToBase64 } from '@/lib/base64';
@@ -12,6 +17,10 @@ import { Joystick, type JoystickDirection } from './Joystick';
 export type Modifier = 'ctrl' | 'shift' | 'alt' | 'meta';
 
 export const KEY_BAR_HEIGHT = 64;
+
+const JOYSTICK_SIZE = 48;
+const JOYSTICK_GAP = 10;
+const KEY_BAR_SIDE_PADDING = 16;
 
 type ModifierState = {
   active: Modifier | null;
@@ -50,11 +59,17 @@ export function KeyBar({
 }: {
   onBytes: (base64: string) => void;
 }) {
-  const tokens = useTokens();
+  const glassAvailable = isGlassEffectAPIAvailable() && isLiquidGlassAvailable();
   const active = useModifierStore((s) => s.active);
   const slot = useModifierStore((s) => s.slot);
   const setActive = useModifierStore((s) => s.set);
   const setSlot = useModifierStore((s) => s.setSlot);
+  const railOffset = useRef(new Animated.Value(0)).current;
+  const leadingEdgeOpacity = railOffset.interpolate({
+    inputRange: [0, 8],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
 
   const send = (bytes: Uint8Array) => onBytes(bytesToBase64(bytes));
 
@@ -82,39 +97,119 @@ export function KeyBar({
 
   return (
     <View style={styles.row}>
-      <View
-        style={[
-          styles.capsule,
-          { backgroundColor: tokens.surface.secondary, borderColor: tokens.border.subtle },
-        ]}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          showsVerticalScrollIndicator={false}
-          alwaysBounceVertical={false}
-          directionalLockEnabled
-          keyboardShouldPersistTaps="always"
-          contentContainerStyle={styles.capsuleContent}>
-          <CapsuleButton label="esc" onPress={() => send(ESC)} />
-          <ModifierKey
-            slot={slot}
-            active={active}
-            onTap={() => setActive(active === slot ? null : slot)}
-            onPickFromMenu={(m) => {
-              setSlot(m);
-              setActive(m);
-            }}
-          />
-          <CapsuleButton label="tab" onPress={() => send(TAB)} />
-          <CapsuleButton label="~" onPress={() => send(TILDE)} />
-          <CapsuleButton label="/" onPress={() => send(SLASH)} />
-          <CapsuleIconButton icon="clipboard-outline" accessibilityLabel="Paste" onPress={onPaste} />
-          <CapsuleButton label="|" onPress={() => send(PIPE)} />
-          <CapsuleButton label="-" onPress={() => send(DASH)} />
-        </ScrollView>
-      </View>
+      <Animated.ScrollView
+        horizontal
+        style={styles.rail}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { x: railOffset } } }],
+          { useNativeDriver: true },
+        )}
+        scrollEventThrottle={16}
+        showsHorizontalScrollIndicator={false}
+        showsVerticalScrollIndicator={false}
+        alwaysBounceVertical={false}
+        directionalLockEnabled
+        keyboardShouldPersistTaps="always"
+        contentContainerStyle={styles.railContent}>
+        <GlassKeyButton
+          label="esc"
+          accessibilityLabel="Escape"
+          glassAvailable={glassAvailable}
+          onPress={() => send(ESC)}
+        />
+        <ModifierKey
+          slot={slot}
+          active={active}
+          glassAvailable={glassAvailable}
+          onTap={() => setActive(active === slot ? null : slot)}
+          onPickFromMenu={(m) => {
+            setSlot(m);
+            setActive(m);
+          }}
+        />
+        <GlassKeyButton
+          label="tab"
+          accessibilityLabel="Tab"
+          glassAvailable={glassAvailable}
+          onPress={() => send(TAB)}
+        />
+        <GlassKeyButton
+          label="~"
+          accessibilityLabel="Tilde"
+          glassAvailable={glassAvailable}
+          onPress={() => send(TILDE)}
+        />
+        <GlassKeyButton
+          label="/"
+          accessibilityLabel="Slash"
+          glassAvailable={glassAvailable}
+          onPress={() => send(SLASH)}
+        />
+        <GlassIconButton
+          icon="clipboard-outline"
+          accessibilityLabel="Paste"
+          glassAvailable={glassAvailable}
+          onPress={onPaste}
+        />
+        <GlassKeyButton
+          label="|"
+          accessibilityLabel="Pipe"
+          glassAvailable={glassAvailable}
+          onPress={() => send(PIPE)}
+        />
+        <GlassKeyButton
+          label="-"
+          accessibilityLabel="Dash"
+          glassAvailable={glassAvailable}
+          onPress={() => send(DASH)}
+        />
+      </Animated.ScrollView>
 
-      <Joystick size={48} onDirection={onJoystick} />
+      <LeadingEdgeShadow opacity={leadingEdgeOpacity} />
+      <JoystickDock onDirection={onJoystick} />
+    </View>
+  );
+}
+
+function LeadingEdgeShadow({
+  opacity,
+}: {
+  opacity: Animated.AnimatedInterpolation<number>;
+}) {
+  const tokens = useTokens();
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[
+        styles.leadingEdgeShadow,
+        {
+          backgroundColor: tokens.surface.primary,
+          shadowColor: tokens.surface.primary,
+          opacity,
+        },
+      ]}
+    />
+  );
+}
+
+function JoystickDock({
+  onDirection,
+}: {
+  onDirection: (direction: JoystickDirection) => void;
+}) {
+  const tokens = useTokens();
+
+  return (
+    <View
+      style={[
+        styles.joystickDock,
+        {
+          backgroundColor: tokens.surface.primary,
+          shadowColor: tokens.surface.primary,
+        },
+      ]}>
+      <Joystick size={JOYSTICK_SIZE} onDirection={onDirection} />
     </View>
   );
 }
@@ -154,51 +249,100 @@ export function transformWithModifiers(base64: string): string {
   return bytesToBase64(result);
 }
 
-function CapsuleButton({ label, onPress }: { label: string; onPress: () => void }) {
+function GlassKeyButton({
+  label,
+  accessibilityLabel,
+  glassAvailable,
+  onPress,
+}: {
+  label: string;
+  accessibilityLabel: string;
+  glassAvailable: boolean;
+  onPress: () => void;
+}) {
   const tokens = useTokens();
+
   return (
     <Pressable
       onPress={onPress}
-      hitSlop={6}
-      style={({ pressed }) => [
-        styles.capsuleBtn,
-        { opacity: pressed ? 0.7 : 1 },
-      ]}>
-      <Text style={[styles.capsuleLabel, { color: tokens.text.primary }]}>{label}</Text>
+      hitSlop={4}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      style={({ pressed }) => [styles.glassKey, pressed && styles.keyPressed]}>
+      <KeyGlassSurface glassAvailable={glassAvailable}>
+        <Text style={[styles.keyLabel, { color: tokens.text.primary }]}>{label}</Text>
+      </KeyGlassSurface>
     </Pressable>
   );
 }
 
-function CapsuleIconButton({
+function GlassIconButton({
   icon,
   accessibilityLabel,
+  glassAvailable,
   onPress,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   accessibilityLabel: string;
+  glassAvailable: boolean;
   onPress: () => void;
 }) {
   const tokens = useTokens();
+
   return (
     <Pressable
       onPress={onPress}
-      hitSlop={6}
+      hitSlop={4}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
-      style={({ pressed }) => [styles.capsuleBtn, { opacity: pressed ? 0.7 : 1 }]}>
-      <Ionicons name={icon} size={18} color={tokens.text.primary} />
+      style={({ pressed }) => [styles.glassKey, pressed && styles.keyPressed]}>
+      <KeyGlassSurface glassAvailable={glassAvailable}>
+        <Ionicons name={icon} size={18} color={tokens.text.primary} />
+      </KeyGlassSurface>
     </Pressable>
+  );
+}
+
+function KeyGlassSurface({
+  children,
+  glassAvailable,
+  active = false,
+}: {
+  children: React.ReactNode;
+  glassAvailable: boolean;
+  active?: boolean;
+}) {
+  const tokens = useTokens();
+
+  return (
+    <GlassView
+      isInteractive
+      glassEffectStyle="regular"
+      colorScheme={tokens.mode}
+      tintColor={active ? tokens.accent.primary : undefined}
+      style={[
+        styles.keyGlass,
+        !glassAvailable && {
+          backgroundColor: active ? tokens.accent.primary : tokens.surface.secondary,
+          borderColor: active ? tokens.accent.primary : tokens.border.subtle,
+          borderWidth: StyleSheet.hairlineWidth,
+        },
+      ]}>
+      {children}
+    </GlassView>
   );
 }
 
 function ModifierKey({
   slot,
   active,
+  glassAvailable,
   onTap,
   onPickFromMenu,
 }: {
   slot: Modifier;
   active: Modifier | null;
+  glassAvailable: boolean;
   onTap: () => void;
   onPickFromMenu: (m: Modifier) => void;
 }) {
@@ -224,28 +368,31 @@ function ModifierKey({
         onPress={onTap}
         onLongPress={openMenu}
         delayLongPress={300}
+        hitSlop={4}
+        accessibilityRole="button"
+        accessibilityLabel={`${slotOption.label} modifier`}
+        accessibilityState={{ selected: isArmed }}
         style={({ pressed }) => [
-          styles.capsuleBtn,
-          {
-            backgroundColor: isArmed ? tokens.accent.primary : 'transparent',
-            borderRadius: 999,
-            opacity: pressed ? 0.7 : 1,
-          },
+          styles.glassKey,
+          styles.modifierKey,
+          pressed && styles.keyPressed,
         ]}>
-        <View style={styles.modifierLabelRow}>
-          <Text
-            style={[
-              styles.capsuleLabel,
-              { color: isArmed ? tokens.accent.contrast : tokens.text.primary },
-            ]}>
-            {slotOption.label}
-          </Text>
-          <Ionicons
-            name="chevron-up"
-            size={11}
-            color={isArmed ? tokens.accent.contrast : tokens.text.muted}
-          />
-        </View>
+        <KeyGlassSurface glassAvailable={glassAvailable} active={isArmed}>
+          <View style={styles.modifierLabelRow}>
+            <Text
+              style={[
+                styles.keyLabel,
+                { color: isArmed ? tokens.accent.contrast : tokens.text.primary },
+              ]}>
+              {slotOption.label}
+            </Text>
+            <Ionicons
+              name="chevron-up"
+              size={11}
+              color={isArmed ? tokens.accent.contrast : tokens.text.muted}
+            />
+          </View>
+        </KeyGlassSurface>
       </Pressable>
 
       <Modal
@@ -255,15 +402,20 @@ function ModifierKey({
         onRequestClose={() => setMenuOpen(false)}>
         <Pressable style={StyleSheet.absoluteFill} onPress={() => setMenuOpen(false)} />
         {anchor ? (
-          <View
+          <GlassView
+            glassEffectStyle="regular"
+            colorScheme={tokens.mode}
             style={[
               styles.menu,
               {
                 left: Math.max(8, anchor.x - 20),
                 bottom: undefined,
                 top: anchor.y - MENU_HEIGHT - 8,
+              },
+              !glassAvailable && {
                 backgroundColor: tokens.surface.secondary,
                 borderColor: tokens.border.subtle,
+                borderWidth: StyleSheet.hairlineWidth,
               },
             ]}>
             {MODIFIER_OPTIONS.map((opt) => {
@@ -302,7 +454,7 @@ function ModifierKey({
                 </Pressable>
               );
             })}
-          </View>
+          </GlassView>
         ) : null}
       </Modal>
     </>
@@ -313,34 +465,68 @@ const MENU_HEIGHT = 4 * 44 + 12;
 
 const styles = StyleSheet.create({
   row: {
+    position: 'relative',
     height: KEY_BAR_HEIGHT,
     flexDirection: 'row',
+    overflow: 'hidden',
     alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 16,
+    paddingHorizontal: KEY_BAR_SIDE_PADDING,
     paddingVertical: 8,
   },
-  capsule: {
+  rail: {
     flex: 1,
-    height: 48,
-    borderRadius: 999,
-    borderWidth: StyleSheet.hairlineWidth,
-    overflow: 'hidden',
   },
-  capsuleContent: {
-    paddingHorizontal: 6,
+  railContent: {
     alignItems: 'center',
-    gap: 2,
+    gap: 8,
+    paddingLeft: 1,
+    paddingRight: JOYSTICK_SIZE + JOYSTICK_GAP,
+    paddingVertical: 6,
   },
-  capsuleBtn: {
+  leadingEdgeShadow: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    zIndex: 1,
+    width: KEY_BAR_SIDE_PADDING,
+    height: KEY_BAR_HEIGHT,
+    shadowOffset: { width: 8, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+  },
+  joystickDock: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    zIndex: 1,
+    width: JOYSTICK_SIZE + KEY_BAR_SIDE_PADDING,
+    height: KEY_BAR_HEIGHT,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    paddingRight: KEY_BAR_SIDE_PADDING,
+    shadowOffset: { width: -8, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+  },
+  glassKey: {
     minWidth: 44,
     height: 36,
-    borderRadius: 999,
+  },
+  modifierKey: {
+    minWidth: 62,
+  },
+  keyGlass: {
+    flex: 1,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 10,
+    overflow: 'hidden',
   },
-  capsuleLabel: { fontSize: 13, fontWeight: '600' },
+  keyPressed: {
+    transform: [{ scale: 0.96 }],
+  },
+  keyLabel: { fontSize: 13, fontWeight: '600' },
   modifierLabelRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -350,8 +536,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     minWidth: 160,
     paddingVertical: 6,
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 18,
+    overflow: 'hidden',
   },
   menuItem: {
     flexDirection: 'row',

@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Keyboard, Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   KeyboardController,
   KeyboardEvents,
   useReanimatedKeyboardAnimation,
 } from 'react-native-keyboard-controller';
+import type { GestureType } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -24,6 +25,7 @@ import { useTokens } from '@/theme';
 
 import { buildTerminalTheme } from './buildTerminalTheme';
 import { KEY_BAR_HEIGHT, KeyBar, transformWithModifiers } from './KeyBar';
+import { TerminalInteractionLayout } from './TerminalInteractionLayout';
 import { TerminalJumpToBottomButton } from './TerminalJumpToBottomButton';
 import {
   type TerminalKeyboardPhase,
@@ -32,11 +34,14 @@ import {
   type TerminalScroll,
   type TerminalWebViewHandle,
 } from './TerminalWebView';
+import { TerminalInput } from './TerminalInputCapture';
+import type { TerminalInputHandle } from './TerminalInputCapture.types';
 import { scheduleTerminalInputFocus } from './terminalFocus';
 import { buildTerminalInputDiff } from './terminalInput';
 
 type Props = {
   paneId: string;
+  tabSwipeGesture: GestureType;
   onNewTerminal?: () => void;
   onSelectTabShortcut?: (digit: number) => void;
 };
@@ -81,13 +86,14 @@ export function TerminalView(props: Props) {
 
 function TerminalSessionView({
   paneId,
+  tabSwipeGesture,
   onNewTerminal,
   onSelectTabShortcut,
   nerdFont,
 }: Props & { nerdFont: NerdFontBase64 | null }) {
   const tokens = useTokens();
   const webRef = useRef<TerminalWebViewHandle>(null);
-  const inputRef = useRef<TextInput>(null);
+  const inputRef = useRef<TerminalInputHandle>(null);
   const lastSentRef = useRef('');
   const [inputValue, setInputValue] = useState(INPUT_SENTINEL);
 
@@ -269,11 +275,6 @@ function TerminalSessionView({
     inputRef.current?.focus();
   }, []);
 
-  const inputSelection = useMemo(
-    () => ({ start: inputValue.length, end: inputValue.length }),
-    [inputValue],
-  );
-
   const handleReady = useCallback(() => {
     setReady(true);
   }, []);
@@ -283,117 +284,109 @@ function TerminalSessionView({
 
   return (
     <View style={[styles.root, { backgroundColor: terminalTheme.background }]}>
-      <View style={[styles.slider, safeAreaStyle]}>
-        <View style={styles.terminalArea}>
-          <TerminalWebView
-            ref={webRef}
-            theme={terminalTheme}
-            nerdFont={nerdFont}
-            focused={focused}
-            onReady={handleReady}
-            onDimensions={(d) => {
-              setDimensions(d);
-              recordDimensions(d.cols, d.rows);
-            }}
-            onData={handleData}
-            onScroll={handleScroll}
-            onFollowingBottomChange={setIsFollowingBottom}
-            onTap={handleTap}
-            onNewTerminalShortcut={onNewTerminal}
-            onSelectTabShortcut={onSelectTabShortcut}
-            onRenderer={(renderer, reason) => {
-              if (reason) {
-                console.log('[terminal] renderer=' + renderer + ' reason=' + reason);
-                return;
-              }
-              console.log('[terminal] renderer=' + renderer);
-            }}
+      <TerminalInteractionLayout
+        tabSwipeGesture={tabSwipeGesture}
+        style={safeAreaStyle}
+        keyBar={
+          <Animated.View style={[styles.keyBarSlot, keyBarSlideStyle]}>
+            {sessionForUs?.kind === 'streaming' ? <KeyBar onBytes={handleKeyBarBytes} /> : null}
+          </Animated.View>
+        }>
+        <TerminalWebView
+          ref={webRef}
+          theme={terminalTheme}
+          nerdFont={nerdFont}
+          focused={focused}
+          onReady={handleReady}
+          onDimensions={(d) => {
+            setDimensions(d);
+            recordDimensions(d.cols, d.rows);
+          }}
+          onData={handleData}
+          onScroll={handleScroll}
+          onFollowingBottomChange={setIsFollowingBottom}
+          onTap={handleTap}
+          onNewTerminalShortcut={onNewTerminal}
+          onSelectTabShortcut={onSelectTabShortcut}
+          onRenderer={(renderer, reason) => {
+            if (reason) {
+              console.log('[terminal] renderer=' + renderer + ' reason=' + reason);
+              return;
+            }
+            console.log('[terminal] renderer=' + renderer);
+          }}
+        />
+
+        {!isFollowingBottom ? (
+          <TerminalJumpToBottomButton
+            color={terminalTheme.foreground}
+            onPress={handleJumpToBottom}
+            style={jumpToBottomSlideStyle}
           />
+        ) : null}
 
-          {!isFollowingBottom ? (
-            <TerminalJumpToBottomButton
-              color={terminalTheme.foreground}
-              onPress={handleJumpToBottom}
-              style={jumpToBottomSlideStyle}
-            />
-          ) : null}
+        <TerminalInput
+          ref={inputRef}
+          value={inputValue}
+          onChangeText={handleInputChange}
+          onFocus={handleInputFocus}
+          onBlur={handleInputBlur}
+          onHardwareInput={handleKeyBarBytes}
+        />
 
-          <TextInput
-            ref={inputRef}
-            value={inputValue}
-            selection={inputSelection}
-            onChangeText={handleInputChange}
-            onFocus={handleInputFocus}
-            onBlur={handleInputBlur}
-            multiline
-            autoCorrect={false}
-            autoCapitalize="none"
-            autoComplete="off"
-            spellCheck={false}
-            caretHidden
-            style={styles.hiddenInput}
-          />
+        {reconnecting ? (
+          <View
+            style={[
+              styles.banner,
+              { backgroundColor: tokens.surface.tertiary, borderColor: tokens.border.subtle },
+            ]}>
+            <ActivityIndicator size="small" color={tokens.text.muted} />
+            <Text style={[styles.bannerLabel, { color: tokens.text.secondary }]}>Reconnecting…</Text>
+          </View>
+        ) : null}
 
-          {reconnecting ? (
-            <View
-              style={[
-                styles.banner,
-                { backgroundColor: tokens.surface.tertiary, borderColor: tokens.border.subtle },
+        {ownershipLost ? (
+          <View style={[styles.fullOverlay, { backgroundColor: tokens.surface.primary }]}>
+            <Text style={[styles.title, { color: tokens.text.primary }]}>Desktop took control</Text>
+            <Text style={[styles.body, { color: tokens.text.muted }]}>
+              {sessionForUs?.kind === 'lost' && sessionForUs.takenBy
+                ? `${sessionForUs.takenBy} is using this terminal.`
+                : 'Another client is controlling this pane.'}
+            </Text>
+            <Pressable
+              onPress={onResume}
+              style={({ pressed }) => [
+                styles.cta,
+                { backgroundColor: tokens.accent.primary, opacity: pressed ? 0.85 : 1 },
               ]}>
-              <ActivityIndicator size="small" color={tokens.text.muted} />
-              <Text style={[styles.bannerLabel, { color: tokens.text.secondary }]}>Reconnecting…</Text>
-            </View>
-          ) : null}
+              <Text style={[styles.ctaLabel, { color: tokens.accent.contrast }]}>Take Over</Text>
+            </Pressable>
+          </View>
+        ) : null}
 
-          {ownershipLost ? (
-            <View style={[styles.fullOverlay, { backgroundColor: tokens.surface.primary }]}>
-              <Text style={[styles.title, { color: tokens.text.primary }]}>Desktop took control</Text>
-              <Text style={[styles.body, { color: tokens.text.muted }]}>
-                {sessionForUs?.kind === 'lost' && sessionForUs.takenBy
-                  ? `${sessionForUs.takenBy} is using this terminal.`
-                  : 'Another client is controlling this pane.'}
-              </Text>
-              <Pressable
-                onPress={onResume}
-                style={({ pressed }) => [
-                  styles.cta,
-                  { backgroundColor: tokens.accent.primary, opacity: pressed ? 0.85 : 1 },
-                ]}>
-                <Text style={[styles.ctaLabel, { color: tokens.accent.contrast }]}>Take Over</Text>
-              </Pressable>
-            </View>
-          ) : null}
-
-          {failed ? (
-            <View style={[styles.fullOverlay, { backgroundColor: tokens.surface.primary }]}>
-              <Text style={[styles.title, { color: tokens.text.primary }]}>Couldn’t take control</Text>
-              <Text style={[styles.body, { color: tokens.status.danger }]}>
-                {sessionForUs?.kind === 'failed' ? sessionForUs.reason : ''}
-              </Text>
-              <Pressable
-                onPress={onResume}
-                style={({ pressed }) => [
-                  styles.cta,
-                  { backgroundColor: tokens.accent.primary, opacity: pressed ? 0.85 : 1 },
-                ]}>
-                <Text style={[styles.ctaLabel, { color: tokens.accent.contrast }]}>Try again</Text>
-              </Pressable>
-            </View>
-          ) : null}
-        </View>
-
-        <Animated.View style={[styles.keyBarSlot, keyBarSlideStyle]}>
-          {sessionForUs?.kind === 'streaming' ? <KeyBar onBytes={handleKeyBarBytes} /> : null}
-        </Animated.View>
-      </View>
+        {failed ? (
+          <View style={[styles.fullOverlay, { backgroundColor: tokens.surface.primary }]}>
+            <Text style={[styles.title, { color: tokens.text.primary }]}>Couldn’t take control</Text>
+            <Text style={[styles.body, { color: tokens.status.danger }]}>
+              {sessionForUs?.kind === 'failed' ? sessionForUs.reason : ''}
+            </Text>
+            <Pressable
+              onPress={onResume}
+              style={({ pressed }) => [
+                styles.cta,
+                { backgroundColor: tokens.accent.primary, opacity: pressed ? 0.85 : 1 },
+              ]}>
+              <Text style={[styles.ctaLabel, { color: tokens.accent.contrast }]}>Try again</Text>
+            </Pressable>
+          </View>
+        ) : null}
+      </TerminalInteractionLayout>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, overflow: 'hidden' },
-  slider: { flex: 1 },
-  terminalArea: { flex: 1 },
   keyBarSlot: { height: KEY_BAR_HEIGHT },
   banner: {
     position: 'absolute',
@@ -429,12 +422,4 @@ const styles = StyleSheet.create({
   body: { fontSize: 14, textAlign: 'center' },
   cta: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: 999, marginTop: 8 },
   ctaLabel: { fontSize: 14, fontWeight: '600' },
-  hiddenInput: {
-    position: 'absolute',
-    width: 1,
-    height: 1,
-    opacity: 0,
-    top: 0,
-    left: 0,
-  },
 });
