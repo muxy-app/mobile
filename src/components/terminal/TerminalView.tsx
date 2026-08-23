@@ -124,6 +124,7 @@ function TerminalSessionView({
     cols: dimensions?.cols ?? null,
     rows: dimensions?.rows ?? null,
     onSnapshotBytes: (base64) => webRef.current?.loadSnapshot(base64),
+    onTakeover: (replay, snapshot) => webRef.current?.applyTakeover(replay, snapshot),
     onWrite: (base64) => webRef.current?.write(base64),
   });
 

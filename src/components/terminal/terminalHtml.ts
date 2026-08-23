@@ -780,7 +780,23 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
           if (isAltBuffer()) {
             term.reset();
           }
-          if (msg.bytes) term.write(decodeBase64(msg.bytes));
+          var snapBytes = msg.bytes ? decodeBase64(msg.bytes) : null;
+          if (snapBytes) term.write(snapBytes);
+          scrollToBottom();
+          break;
+        case 'takeover':
+          pendingWrites = [];
+          flushScheduled = false;
+          term.reset();
+          term.clear();
+          if (Array.isArray(msg.replay)) {
+            for (var replayIndex = 0; replayIndex < msg.replay.length; replayIndex++) {
+              term.write(decodeBase64(msg.replay[replayIndex]));
+            }
+          }
+          if (msg.snapshot) {
+            term.write(decodeBase64(msg.snapshot));
+          }
           scrollToBottom();
           break;
         case 'setTheme':

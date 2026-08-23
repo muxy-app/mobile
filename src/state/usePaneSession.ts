@@ -6,6 +6,7 @@ import { type PaneSession, usePaneSessionStore } from './paneSessionStore';
 
 export type PaneSessionCallbacks = {
   onSnapshotBytes: (base64: string) => void;
+  onTakeover: (replay: string[], snapshot: string | null) => void;
   onWrite: (base64: string) => void;
 };
 
@@ -56,12 +57,13 @@ export function usePaneSession({
   cols,
   rows,
   onSnapshotBytes,
+  onTakeover,
   onWrite,
 }: UsePaneSessionOptions) {
   const connectionPhase = useDevicesStore((s) => s.connectionPhase);
 
-  const callbacksRef = useRef<PaneSessionCallbacks>({ onSnapshotBytes, onWrite });
-  callbacksRef.current = { onSnapshotBytes, onWrite };
+  const callbacksRef = useRef<PaneSessionCallbacks>({ onSnapshotBytes, onTakeover, onWrite });
+  callbacksRef.current = { onSnapshotBytes, onTakeover, onWrite };
 
   const dimsRef = useRef<{ cols: number; rows: number } | null>(null);
   if (cols !== null && rows !== null && cols > 0 && rows > 0) {
@@ -180,12 +182,9 @@ export function usePaneSession({
 
       const snapshot = await snapshotPromise;
       if (cancelled) return;
-      if (snapshot) callbacksRef.current.onSnapshotBytes(snapshot);
       const buffered = takeoverOutputBufferRef.current;
       takeoverOutputBufferRef.current = [];
-      for (const bytes of buffered) {
-        callbacksRef.current.onWrite(bytes);
-      }
+      callbacksRef.current.onTakeover(buffered, snapshot);
 
       const session = usePaneSessionStore.getState().session;
       if (session.kind === 'taking-over' && session.paneId === paneId) {
