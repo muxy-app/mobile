@@ -347,36 +347,39 @@ export default function WorkspaceScreen() {
             creatingTerminal={creatingTerminal}
             closingTabId={closingTabId}
           />
-          <GestureDetector gesture={swipeGesture}>
-            <View style={styles.body}>
-              {activeEntry ? (
-                activeEntry.tab.kind === 'terminal' && activeEntry.tab.paneID ? (
-                  <TerminalView
-                    key={activeEntry.tab.id}
-                    paneId={activeEntry.tab.paneID}
-                    onNewTerminal={handleCreateTerminal}
-                    onSelectTabShortcut={selectTabShortcut}
-                  />
-                ) : (
-                  <TabKindPlaceholder tab={activeEntry.tab} />
-                )
-              ) : null}
-              {tabActionError ? (
-                <Text
-                  style={[
-                    styles.inlineError,
-                    {
-                      color: tokens.status.danger,
-                      backgroundColor: tokens.surface.primary,
-                      borderBottomColor: tokens.border.subtle,
-                    },
-                  ]}>
-                  {tabActionError}
-                </Text>
-              ) : null}
-              <SwipeArrowOverlay ref={arrowRef} />
-            </View>
-          </GestureDetector>
+          <View style={styles.body}>
+            {activeEntry ? (
+              activeEntry.tab.kind === 'terminal' && activeEntry.tab.paneID ? (
+                <TerminalView
+                  key={activeEntry.tab.id}
+                  paneId={activeEntry.tab.paneID}
+                  tabSwipeGesture={swipeGesture}
+                  onNewTerminal={handleCreateTerminal}
+                  onSelectTabShortcut={selectTabShortcut}
+                />
+              ) : (
+                <GestureDetector gesture={swipeGesture}>
+                  <View style={styles.body}>
+                    <TabKindPlaceholder tab={activeEntry.tab} />
+                  </View>
+                </GestureDetector>
+              )
+            ) : null}
+            {tabActionError ? (
+              <Text
+                style={[
+                  styles.inlineError,
+                  {
+                    color: tokens.status.danger,
+                    backgroundColor: tokens.surface.primary,
+                    borderBottomColor: tokens.border.subtle,
+                  },
+                ]}>
+                {tabActionError}
+              </Text>
+            ) : null}
+            <SwipeArrowOverlay ref={arrowRef} />
+          </View>
         </>
       )}
     </View>
