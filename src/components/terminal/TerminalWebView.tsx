@@ -18,6 +18,7 @@ export type TerminalKeyboardPhase = 'willShow' | 'willHide' | 'didShow' | 'didHi
 
 export type TerminalWebViewHandle = {
   write: (base64: string) => void;
+  applyTakeover: (replay: string[], snapshot: string | null) => void;
   loadSnapshot: (base64: string) => void;
   setTheme: (theme: TerminalTheme) => void;
   clear: () => void;
@@ -116,6 +117,10 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function
     ref,
     () => ({
       write: queueWrite,
+      applyTakeover: (replay, snapshot) => {
+        cancelQueuedWrites();
+        send({ type: 'takeover', replay, snapshot });
+      },
       loadSnapshot: (base64) => {
         cancelQueuedWrites();
         send({ type: 'loadSnapshot', bytes: base64 });

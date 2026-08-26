@@ -179,6 +179,25 @@ describe('buildTerminalHtml', () => {
     expect(html).toContain('pendingWrites.push(decodeBase64(msg.bytes[writeIndex]));');
   });
 
+  it('resets the terminal before every takeover replay', () => {
+    const html = buildTerminalHtml({
+      theme,
+      fontFamily: 'Menlo',
+      fontSize: 12,
+    });
+    const runtime = terminalRuntime(html);
+    const takeoverStart = runtime.indexOf("case 'takeover':");
+    const takeoverBody = runtime.slice(takeoverStart, runtime.indexOf('break;', takeoverStart));
+
+    expect(takeoverBody).toContain('pendingWrites = [];');
+    expect(takeoverBody).toContain('flushScheduled = false;');
+    expect(takeoverBody.indexOf('term.reset()')).toBeGreaterThan(-1);
+    expect(takeoverBody.indexOf('term.reset()')).toBeLessThan(
+      takeoverBody.indexOf('decodeBase64(msg.replay[replayIndex])'),
+    );
+    expect(takeoverBody).not.toContain('isAltBuffer()');
+  });
+
   it('forwards precise scroll pixels before applying local terminal routing', () => {
     const html = buildTerminalHtml({
       theme,
