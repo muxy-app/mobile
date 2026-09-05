@@ -20,11 +20,6 @@ export { closeTerminalTab, createTerminalTab } from './workspaceActions';
 export { tabShortcutToIndex, type WorkspaceMenuCommand } from './workspaceCommands';
 export { flattenAreas, flattenTabs, findArea, mapAreas, type TabWithArea } from './workspaceTree';
 export { usePaneSessionStore, type PaneSession, type PaneSessionStore } from './paneSessionStore';
-export {
-  usePaneSession,
-  reclaimPane,
-  sendTerminalInput,
-  sendTerminalScroll,
-} from './usePaneSession';
+export { usePaneSession, sendTerminalInput, sendTerminalScroll } from './usePaneSession';
 export { getLastDimensions, recordDimensions } from './lastDimensions';
 export { useSettingsStore, type SettingsStore } from './settingsStore';

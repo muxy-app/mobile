@@ -13,7 +13,6 @@ import { bytesToBase64, stringToBase64 } from '@/lib/base64';
 import { getNerdFont, loadNerdFont, type NerdFontBase64 } from '@/lib/nerdFont';
 import {
   recordDimensions,
-  reclaimPane,
   sendTerminalInput,
   sendTerminalScroll,
   useDevicesStore,
@@ -121,16 +120,22 @@ function TerminalSessionView({
 
   const [dimensions, setDimensions] = useState<TerminalDimensions | null>(null);
   const [ready, setReady] = useState(false);
+  const [terminalPresented, setTerminalPresented] = useState(false);
   const [focused, setFocused] = useState(false);
   const [isFollowingBottom, setIsFollowingBottom] = useState(true);
   const autoFocusTerminal = useSettingsStore((s) => s.autoFocusTerminal);
 
-  usePaneSession({
+  const reclaimPane = usePaneSession({
     paneId,
     cols: dimensions?.cols ?? null,
     rows: dimensions?.rows ?? null,
     onSnapshotBytes: (base64) => webRef.current?.loadSnapshot(base64),
-    onTakeover: (replay, snapshot) => webRef.current?.applyTakeover(replay, snapshot),
+    onTakeoverStart: () => {
+      setTerminalPresented(false);
+      webRef.current?.beginTakeover();
+    },
+    onTakeoverWrite: (base64) => webRef.current?.writeTakeover(base64),
+    onTakeoverEnd: (snapshot) => webRef.current?.finishTakeover(snapshot),
     onWrite: (base64) => webRef.current?.write(base64),
   });
 
@@ -143,29 +148,44 @@ function TerminalSessionView({
   const ownershipLost = sessionForUs?.kind === 'lost';
   const failed = sessionForUs?.kind === 'failed';
   const reconnecting = connectionPhase === 'reconnecting' || connectionPhase === 'connecting';
+  const inputReady =
+    connectionPhase === 'connected' && sessionForUs?.kind === 'streaming' && terminalPresented;
+
+  const resetInputCapture = useCallback(() => {
+    lastSentRef.current = '';
+    setInputValue(INPUT_SENTINEL);
+  }, []);
 
   useEffect(() => {
+    resetInputCapture();
+    if (!inputReady) {
+      setFocused(false);
+      return;
+    }
     if (!autoFocusTerminal) return;
     return scheduleTerminalInputFocus(inputRef.current);
-  }, [paneId, autoFocusTerminal]);
+  }, [paneId, autoFocusTerminal, inputReady, resetInputCapture]);
 
   const onResume = () => {
     if (!dimensions) return;
-    reclaimPane(paneId, dimensions.cols, dimensions.rows);
+    reclaimPane();
   };
 
   const handleData = (base64: string) => {
+    if (!inputReady) return;
     sendTerminalInput(paneId, transformWithModifiers(base64));
   };
 
   const handleScroll = useCallback(
     ({ deltaX, deltaY, precise }: TerminalScroll) => {
+      if (!inputReady) return;
       sendTerminalScroll(paneId, deltaX, deltaY, precise);
     },
-    [paneId],
+    [inputReady, paneId],
   );
 
   const handleKeyBarBytes = (base64: string) => {
+    if (!inputReady) return;
     sendTerminalInput(paneId, base64);
   };
 
@@ -173,42 +193,50 @@ function TerminalSessionView({
     (next: string) => {
       const prev = lastSentRef.current;
       const out = buildTerminalInputDiff(prev, next);
-      lastSentRef.current = next;
-      if (out) sendTerminalInput(paneId, transformWithModifiers(stringToBase64(out)));
+      if (!out) {
+        lastSentRef.current = next;
+        return true;
+      }
+      const sent = sendTerminalInput(paneId, transformWithModifiers(stringToBase64(out)));
+      if (sent) lastSentRef.current = next;
+      return sent;
     },
     [paneId],
   );
 
   const handleInputChange = useCallback(
     (text: string) => {
+      if (!inputReady) {
+        resetInputCapture();
+        return;
+      }
       const sentinelIdx = text.lastIndexOf(INPUT_SENTINEL);
       if (sentinelIdx === -1) {
         sendTerminalInput(paneId, bytesToBase64(new Uint8Array([0x7f])));
-        lastSentRef.current = '';
-        setInputValue(INPUT_SENTINEL);
+        resetInputCapture();
         return;
       }
       const body = text.slice(sentinelIdx + INPUT_SENTINEL.length);
       const newlineIdx = body.indexOf('\n');
       if (newlineIdx === -1) {
+        if (!sendInputDiff(body)) {
+          resetInputCapture();
+          return;
+        }
         setInputValue(INPUT_SENTINEL + body);
-        sendInputDiff(body);
         return;
       }
       const before = body.slice(0, newlineIdx);
-      sendInputDiff(before);
-      sendTerminalInput(paneId, stringToBase64('\r'));
-      lastSentRef.current = '';
-      setInputValue(INPUT_SENTINEL);
+      if (sendInputDiff(before)) sendTerminalInput(paneId, stringToBase64('\r'));
+      resetInputCapture();
     },
-    [paneId, sendInputDiff],
+    [inputReady, paneId, resetInputCapture, sendInputDiff],
   );
 
   const handleInputBlur = useCallback(() => {
     setFocused(false);
-    lastSentRef.current = '';
-    setInputValue(INPUT_SENTINEL);
-  }, []);
+    resetInputCapture();
+  }, [resetInputCapture]);
   const handleInputFocus = useCallback(() => setFocused(true), []);
 
   const insets = useSafeAreaInsets();
@@ -267,13 +295,14 @@ function TerminalSessionView({
   }, [ready, setTerminalKeyboardOffset]);
 
   const handleTap = useCallback(() => {
+    if (!inputReady) return;
     if (keyboardVisibleRef.current) {
       Keyboard.dismiss();
       inputRef.current?.blur();
       return;
     }
     inputRef.current?.focus();
-  }, []);
+  }, [inputReady]);
 
   const handleReady = useCallback(() => {
     setReady(true);
@@ -289,7 +318,7 @@ function TerminalSessionView({
         style={safeAreaStyle}
         keyBar={
           <Animated.View style={[styles.keyBarSlot, keyBarSlideStyle]}>
-            {sessionForUs?.kind === 'streaming' ? <KeyBar onBytes={handleKeyBarBytes} /> : null}
+            {inputReady ? <KeyBar onBytes={handleKeyBarBytes} /> : null}
           </Animated.View>
         }>
         <TerminalWebView
@@ -305,6 +334,7 @@ function TerminalSessionView({
           onData={handleData}
           onScroll={handleScroll}
           onFollowingBottomChange={setIsFollowingBottom}
+          onTakeoverComplete={() => setTerminalPresented(true)}
           onTap={handleTap}
           onNewTerminalShortcut={onNewTerminal}
           onSelectTabShortcut={onSelectTabShortcut}
@@ -317,7 +347,7 @@ function TerminalSessionView({
           }}
         />
 
-        {!isFollowingBottom ? (
+        {inputReady && !isFollowingBottom ? (
           <TerminalJumpToBottomButton
             color={terminalTheme.foreground}
             onPress={handleJumpToBottom}
@@ -326,6 +356,7 @@ function TerminalSessionView({
         ) : null}
 
         <TerminalInput
+          key={`${paneId}:${inputReady ? 'ready' : 'paused'}`}
           ref={inputRef}
           value={inputValue}
           onChangeText={handleInputChange}

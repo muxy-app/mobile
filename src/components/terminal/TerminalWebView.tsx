@@ -18,7 +18,9 @@ export type TerminalKeyboardPhase = 'willShow' | 'willHide' | 'didShow' | 'didHi
 
 export type TerminalWebViewHandle = {
   write: (base64: string) => void;
-  applyTakeover: (replay: string[], snapshot: string | null) => void;
+  beginTakeover: () => void;
+  writeTakeover: (base64: string) => void;
+  finishTakeover: (snapshot: string | null) => void;
   loadSnapshot: (base64: string) => void;
   setTheme: (theme: TerminalTheme) => void;
   clear: () => void;
@@ -42,6 +44,7 @@ type Props = {
   onData?: (base64: string) => void;
   onScroll?: (scroll: TerminalScroll) => void;
   onFollowingBottomChange?: (followingBottom: boolean) => void;
+  onTakeoverComplete?: () => void;
   onError?: (message: string) => void;
   onTap?: () => void;
   onNewTerminalShortcut?: () => void;
@@ -59,6 +62,7 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function
     onData,
     onScroll,
     onFollowingBottomChange,
+    onTakeoverComplete,
     onError,
     onTap,
     onNewTerminalShortcut,
@@ -70,6 +74,7 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function
   const webRef = useRef<WebView>(null);
   const queuedWritesRef = useRef<string[]>([]);
   const writeFrameRef = useRef<number | null>(null);
+  const takeoverIdRef = useRef(0);
   const fontFamily = nerdFont ? `'${NERD_FONT_FAMILY}', ${FONT_FAMILY}` : FONT_FAMILY;
 
   const [html] = useState(() =>
@@ -117,10 +122,15 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function
     ref,
     () => ({
       write: queueWrite,
-      applyTakeover: (replay, snapshot) => {
+      beginTakeover: () => {
         cancelQueuedWrites();
-        send({ type: 'takeover', replay, snapshot });
+        takeoverIdRef.current += 1;
+        send({ type: 'takeover', id: takeoverIdRef.current, replay: [] });
       },
+      writeTakeover: (base64) =>
+        send({ type: 'takeoverWrite', id: takeoverIdRef.current, bytes: base64 }),
+      finishTakeover: (snapshot) =>
+        send({ type: 'takeoverEnd', id: takeoverIdRef.current, snapshot }),
       loadSnapshot: (base64) => {
         cancelQueuedWrites();
         send({ type: 'loadSnapshot', bytes: base64 });
@@ -183,6 +193,13 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function
           return;
         case 'info':
           if (msg.renderer) onRenderer?.(msg.renderer, msg.reason);
+          return;
+        case 'takeoverComplete':
+          if (msg.id !== takeoverIdRef.current) return;
+          console.log(
+            `[terminal] takeover presented bytes=${msg.bytes} durationMs=${msg.durationMs}`,
+          );
+          onTakeoverComplete?.();
           return;
       }
     } catch {

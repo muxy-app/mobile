@@ -28,6 +28,7 @@ type LifecycleMap = {
 };
 
 type AnyEventMap = LifecycleMap & EventDataMap;
+type RequestMethodName = Exclude<MethodName, 'terminalInput'>;
 
 export type WSClientOptions = {
   url: string;
@@ -120,13 +121,11 @@ export class WSClient {
     this.setState('closed');
   }
 
-  async request<M extends MethodName>(method: M, params: MethodParams<M>): Promise<MethodResult<M>> {
+  async request<M extends RequestMethodName>(
+    method: M,
+    params: MethodParams<M>,
+  ): Promise<MethodResult<M>> {
     if (this.demo) {
-      if (method === 'terminalInput') {
-        const v = (params as MethodParams<'terminalInput'>)!.value;
-        this.demo.handleTerminalInput(v.paneID, v.bytes);
-        return { type: 'ok' } as MethodResult<M>;
-      }
       try {
         return await this.demo.handle(method, params);
       } catch (err) {
@@ -164,6 +163,22 @@ export class WSClient {
         reject(err instanceof Error ? err : new Error(String(err)));
       }
     });
+  }
+
+  notify(method: 'terminalInput', params: MethodParams<'terminalInput'>): void {
+    if (this.demo) {
+      this.demo.handleTerminalInput(params.value.paneID, params.value.bytes);
+      return;
+    }
+    if (this.state !== 'open' || !this.socket) {
+      throw new WSError(0, `Cannot send "${method}": connection is ${this.state}`);
+    }
+
+    const envelope = {
+      type: 'request',
+      payload: { id: String(this.nextId++), method, params },
+    };
+    this.socket.send(JSON.stringify(envelope));
   }
 
   private cycleConnection(): void {

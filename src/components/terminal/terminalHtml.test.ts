@@ -1,4 +1,5 @@
 import { runInNewContext } from 'node:vm';
+import { Terminal } from '@xterm/xterm';
 
 import { buildTerminalHtml, type TerminalTheme } from './terminalHtml';
 
@@ -30,7 +31,7 @@ function terminalRuntime(html: string): string {
   return html.slice(html.lastIndexOf('<script>'));
 }
 
-function terminalRuntimeFunction<TFunction>(html: string, name: string): TFunction {
+function terminalRuntimeFunctionSource(html: string, name: string): string {
   const runtime = terminalRuntime(html);
   const start = runtime.indexOf(`function ${name}(`);
   const bodyStart = runtime.indexOf('{', start);
@@ -44,11 +45,81 @@ function terminalRuntimeFunction<TFunction>(html: string, name: string): TFuncti
     if (runtime[index] !== '}') continue;
     depth -= 1;
     if (depth === 0) {
-      return runInNewContext(`(${runtime.slice(start, index + 1)})`) as TFunction;
+      return runtime.slice(start, index + 1);
     }
   }
 
   throw new Error(`Runtime function not found: ${name}`);
+}
+
+function terminalRuntimeFunction<TFunction>(html: string, name: string): TFunction {
+  return runInNewContext(`(${terminalRuntimeFunctionSource(html, name)})`) as TFunction;
+}
+
+function createTakeoverRuntime() {
+  const emulator = new Terminal({ cols: 40, rows: 8, scrollback: 5000 });
+  const listeners = new Set<() => void>();
+  const messages: { type: string; id?: number }[] = [];
+  const writes: Uint8Array[] = [];
+  const scrollToBottom = jest.fn(() => emulator.scrollToBottom());
+  const html = buildTerminalHtml({ theme, fontFamily: 'monospace', fontSize: 12 });
+  const runtime = terminalRuntime(html);
+  const handlerStart = runtime.indexOf('terminalHandleMessage = function (msg)');
+  const handlerEnd = runtime.indexOf('\n  setTerminalFocused(terminalFocused);', handlerStart);
+  const functions = [
+    'decodeBase64',
+    'combineWrites',
+    'cancelTakeoverPresentation',
+    'completeTakeover',
+    'writeTakeoverSnapshot',
+  ].map((name) => terminalRuntimeFunctionSource(html, name));
+  const handleMessage = runInNewContext(
+    `${functions.join('\n')}\n${runtime.slice(handlerStart, handlerEnd)}\nterminalHandleMessage;`,
+    {
+      Uint8Array,
+      atob: (value: string) => Buffer.from(value, 'base64').toString('binary'),
+      performance: { now: () => Date.now() },
+      term: {
+        rows: emulator.rows,
+        reset: () => emulator.reset(),
+        write: (bytes: string | Uint8Array, callback?: () => void) => {
+          if (bytes.length > 0) writes.push(Uint8Array.from(Buffer.from(bytes)));
+          emulator.write(bytes, callback);
+        },
+        refresh: () => {},
+        onRender: (listener: () => void) => {
+          listeners.add(listener);
+          return { dispose: () => listeners.delete(listener) };
+        },
+      },
+      root: { setAttribute: () => {}, removeAttribute: () => {} },
+      pendingWrites: [],
+      flushScheduled: false,
+      takeoverInProgress: false,
+      takeoverId: 0,
+      takeoverStartedAt: 0,
+      takeoverByteCount: 0,
+      takeoverWrites: [],
+      takeoverRenderSubscription: null,
+      post: (message: { type: string; id?: number }) => messages.push(message),
+      scrollToBottom,
+      readFollowingBottom: () => emulator.buffer.active.viewportY === emulator.buffer.active.baseY,
+      syncFollowingBottom: () => {},
+      scheduleFocusCursorUpdate: () => {},
+      isAltBuffer: () => emulator.buffer.active.type === 'alternate',
+      reportError: (message: string, error: Error) => { throw error; },
+    },
+  ) as (message: object) => void;
+
+  return {
+    emulator,
+    handleMessage,
+    messages,
+    writes,
+    scrollToBottom,
+    drain: () => new Promise<void>((resolve) => emulator.write('', resolve)),
+    render: () => [...listeners].forEach((listener) => listener()),
+  };
 }
 
 type CursorViewportOffset = (
@@ -67,6 +138,95 @@ type FocusCursorGeometry = (
   screenWidth: number,
   screenHeight: number,
 ) => { left: number; top: number; width: number; height: number } | null;
+
+describe('terminal takeover playback', () => {
+  let runtime: ReturnType<typeof createTakeoverRuntime>;
+
+  beforeEach(() => {
+    runtime = createTakeoverRuntime();
+  });
+
+  afterEach(() => runtime.emulator.dispose());
+
+  it('preserves split UTF-8 and escape sequences in one replay ending at the live screen', async () => {
+    const replay = Buffer.from('\x1b[31mhistory 🌍\x1b[0m\r\n'.repeat(30));
+    const snapshot = Buffer.from('\x1b[2J\x1b[Hlive$ ');
+    runtime.handleMessage({ type: 'takeover', id: 1 });
+    for (let offset = 0; offset < replay.length; offset += 17) {
+      runtime.handleMessage({
+        type: 'takeoverWrite',
+        id: 1,
+        bytes: replay.subarray(offset, offset + 17).toString('base64'),
+      });
+    }
+    await runtime.drain();
+
+    expect(runtime.writes).toHaveLength(0);
+    expect(runtime.emulator.buffer.active.getLine(0)?.translateToString(true)).toBe('');
+
+    runtime.handleMessage({ type: 'takeoverEnd', id: 1, snapshot: snapshot.toString('base64') });
+    await runtime.drain();
+
+    expect(runtime.writes).toHaveLength(1);
+    expect(Buffer.from(runtime.writes[0] ?? [])).toEqual(Buffer.concat([replay, snapshot]));
+    const buffer = runtime.emulator.buffer.active;
+    expect(buffer.baseY).toBeGreaterThan(0);
+    expect(buffer.viewportY).toBe(buffer.baseY);
+    expect(buffer.getLine(buffer.viewportY)?.translateToString(true)).toBe('live$ ');
+    expect(buffer.getLine(buffer.baseY - 1)?.translateToString(true)).toBe('history 🌍');
+    expect(runtime.messages).toHaveLength(0);
+
+    runtime.render();
+    expect(runtime.messages).toEqual([expect.objectContaining({ type: 'takeoverComplete', id: 1 })]);
+  });
+
+  it('ignores stale chunks and completion callbacks when takeover is replaced', async () => {
+    runtime.handleMessage({ type: 'takeover', id: 1 });
+    runtime.handleMessage({ type: 'takeoverWrite', id: 1, bytes: Buffer.from('old\r\n'.repeat(50)).toString('base64') });
+    runtime.handleMessage({ type: 'takeoverEnd', id: 1, snapshot: null });
+    runtime.handleMessage({ type: 'takeover', id: 2 });
+    runtime.handleMessage({ type: 'takeoverWrite', id: 1, bytes: Buffer.from('stale').toString('base64') });
+    runtime.handleMessage({ type: 'takeoverEnd', id: 2, snapshot: Buffer.from('current').toString('base64') });
+    await runtime.drain();
+    runtime.render();
+
+    expect(runtime.emulator.buffer.active.getLine(0)?.translateToString(true)).toBe('current');
+    expect(runtime.emulator.buffer.active.baseY).toBe(0);
+    expect(runtime.messages).toEqual([expect.objectContaining({ type: 'takeoverComplete', id: 2 })]);
+  });
+
+  it('completes empty takeovers and stops forcing the viewport after presentation', async () => {
+    runtime.handleMessage({ type: 'takeover', id: 1 });
+    runtime.handleMessage({ type: 'takeoverEnd', id: 1, snapshot: null });
+    await runtime.drain();
+    runtime.render();
+    expect(runtime.messages).toHaveLength(1);
+
+    runtime.handleMessage({ type: 'takeover', id: 2 });
+    runtime.handleMessage({ type: 'takeoverWrite', id: 2, bytes: Buffer.from('history\r\n'.repeat(50)).toString('base64') });
+    runtime.handleMessage({ type: 'takeoverEnd', id: 2, snapshot: null });
+    await runtime.drain();
+    runtime.render();
+    runtime.scrollToBottom.mockClear();
+    runtime.render();
+
+    expect(runtime.scrollToBottom).not.toHaveBeenCalled();
+    expect(runtime.messages).toHaveLength(2);
+  });
+
+  it('positions snapshot-only updates after parsing finishes', async () => {
+    runtime.emulator.write('history\r\n'.repeat(50));
+    await runtime.drain();
+    runtime.handleMessage({ type: 'loadSnapshot', bytes: Buffer.from('\x1b[2J\x1b[Hlive$ ').toString('base64') });
+
+    expect(runtime.scrollToBottom).not.toHaveBeenCalled();
+    await runtime.drain();
+    expect(runtime.scrollToBottom).toHaveBeenCalledTimes(1);
+    const buffer = runtime.emulator.buffer.active;
+    expect(buffer.viewportY).toBe(buffer.baseY);
+    expect(buffer.getLine(buffer.viewportY)?.translateToString(true)).toBe('live$ ');
+  });
+});
 
 describe('buildTerminalHtml', () => {
   it('can disable WebView command shortcuts when native menu commands own them', () => {
