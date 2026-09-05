@@ -2,6 +2,7 @@ import { create } from 'zustand';
 
 export type PaneSession =
   | { kind: 'idle' }
+  | { kind: 'disconnected'; paneId: string }
   | { kind: 'taking-over'; paneId: string }
   | { kind: 'streaming'; paneId: string }
   | { kind: 'lost'; paneId: string; takenBy?: string }

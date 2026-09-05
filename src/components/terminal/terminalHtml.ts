@@ -452,6 +452,12 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
   var pendingClientY = 0;
   var flushRaf = 0;
   var lastFollowingBottom = null;
+  var takeoverInProgress = false;
+  var takeoverId = 0;
+  var takeoverStartedAt = 0;
+  var takeoverByteCount = 0;
+  var takeoverWrites = [];
+  var takeoverRenderSubscription = null;
 
   function getLineHeightPx() {
     var fontSize = term.options.fontSize || INITIAL.fontSize;
@@ -483,10 +489,48 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
     }
   }
   function syncFollowingBottom() {
+    if (takeoverInProgress) return;
     var followingBottom = readFollowingBottom();
     if (followingBottom === lastFollowingBottom) return;
     lastFollowingBottom = followingBottom;
     post({ type: 'followingBottom', value: followingBottom });
+  }
+  function cancelTakeoverPresentation() {
+    if (takeoverRenderSubscription) takeoverRenderSubscription.dispose();
+    takeoverRenderSubscription = null;
+  }
+  function completeTakeover(id) {
+    if (!takeoverInProgress || id !== takeoverId) return;
+    cancelTakeoverPresentation();
+    scrollToBottom();
+    takeoverRenderSubscription = term.onRender(function () {
+      takeoverRenderSubscription.dispose();
+      takeoverRenderSubscription = null;
+      if (id !== takeoverId) return;
+      if (!readFollowingBottom()) {
+        completeTakeover(id);
+        return;
+      }
+      takeoverInProgress = false;
+      root.removeAttribute('aria-busy');
+      syncFollowingBottom();
+      scheduleFocusCursorUpdate();
+      post({
+        type: 'takeoverComplete',
+        id: id,
+        bytes: takeoverByteCount,
+        durationMs: Math.round(performance.now() - takeoverStartedAt),
+      });
+    });
+    term.refresh(0, term.rows - 1);
+  }
+  function writeTakeoverSnapshot(snapshot, id) {
+    var bytes = snapshot ? decodeBase64(snapshot) : new Uint8Array(0);
+    takeoverByteCount += bytes.length;
+    takeoverWrites.push(bytes);
+    var combined = combineWrites(takeoverWrites);
+    takeoverWrites = [];
+    term.write(combined, function () { completeTakeover(id); });
   }
   function sendArrowKeys(lines) {
     if (lines === 0) return;
@@ -730,25 +774,25 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
 
   var pendingWrites = [];
   var flushScheduled = false;
+  function combineWrites(writes) {
+    if (writes.length === 1) return writes[0];
+    var total = 0;
+    for (var i = 0; i < writes.length; i++) total += writes[i].length;
+    var combined = new Uint8Array(total);
+    var offset = 0;
+    for (var j = 0; j < writes.length; j++) {
+      combined.set(writes[j], offset);
+      offset += writes[j].length;
+    }
+    return combined;
+  }
   function scheduleFlush() {
     if (flushScheduled) return;
     flushScheduled = true;
     requestAnimationFrame(function () {
       flushScheduled = false;
       if (pendingWrites.length === 0) return;
-      var combined;
-      if (pendingWrites.length === 1) {
-        combined = pendingWrites[0];
-      } else {
-        var total = 0;
-        for (var i = 0; i < pendingWrites.length; i++) total += pendingWrites[i].length;
-        combined = new Uint8Array(total);
-        var off = 0;
-        for (var j = 0; j < pendingWrites.length; j++) {
-          combined.set(pendingWrites[j], off);
-          off += pendingWrites[j].length;
-        }
-      }
+      var combined = combineWrites(pendingWrites);
       pendingWrites = [];
       term.write(combined);
     });
@@ -780,22 +824,50 @@ html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: ${ini
           if (isAltBuffer()) {
             term.reset();
           }
-          if (msg.bytes) term.write(decodeBase64(msg.bytes));
-          scrollToBottom();
+          if (msg.bytes) {
+            term.write(decodeBase64(msg.bytes), scrollToBottom);
+          } else {
+            scrollToBottom();
+          }
           break;
         case 'takeover':
           pendingWrites = [];
           flushScheduled = false;
-          term.reset();
+          cancelTakeoverPresentation();
+          takeoverInProgress = true;
+          takeoverId = msg.id;
+          takeoverStartedAt = performance.now();
+          takeoverByteCount = 0;
+          takeoverWrites = [];
+          root.setAttribute('aria-busy', 'true');
+          var resetTakeoverId = takeoverId;
+          term.write('', function () {
+            if (resetTakeoverId !== takeoverId) return;
+            term.reset();
+          });
           if (Array.isArray(msg.replay)) {
             for (var replayIndex = 0; replayIndex < msg.replay.length; replayIndex++) {
-              term.write(decodeBase64(msg.replay[replayIndex]));
+              var replayBytes = decodeBase64(msg.replay[replayIndex]);
+              takeoverByteCount += replayBytes.length;
+              takeoverWrites.push(replayBytes);
             }
           }
           if (msg.snapshot) {
-            term.write(decodeBase64(msg.snapshot));
+            writeTakeoverSnapshot(msg.snapshot, takeoverId);
+          } else if (msg.complete) {
+            writeTakeoverSnapshot(null, takeoverId);
           }
           scrollToBottom();
+          break;
+        case 'takeoverWrite':
+          if (!takeoverInProgress || msg.id !== takeoverId) break;
+          var takeoverBytes = decodeBase64(msg.bytes);
+          takeoverByteCount += takeoverBytes.length;
+          takeoverWrites.push(takeoverBytes);
+          break;
+        case 'takeoverEnd':
+          if (!takeoverInProgress || msg.id !== takeoverId) break;
+          writeTakeoverSnapshot(msg.snapshot, takeoverId);
           break;
         case 'setTheme':
           term.options.theme = msg.theme;

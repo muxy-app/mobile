@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { client } from './connection';
 import { useDevicesStore } from './devicesStore';
@@ -6,7 +6,9 @@ import { type PaneSession, usePaneSessionStore } from './paneSessionStore';
 
 export type PaneSessionCallbacks = {
   onSnapshotBytes: (base64: string) => void;
-  onTakeover: (replay: string[], snapshot: string | null) => void;
+  onTakeoverStart: () => void;
+  onTakeoverWrite: (base64: string) => void;
+  onTakeoverEnd: (snapshot: string | null) => void;
   onWrite: (base64: string) => void;
 };
 
@@ -17,7 +19,7 @@ export type UsePaneSessionOptions = PaneSessionCallbacks & {
 };
 
 const TAKEOVER_GRACE_MS = 2000;
-const SNAPSHOT_WAIT_MS = 1500;
+const SNAPSHOT_IDLE_MS = 1500;
 
 let lastTakeOverAt = 0;
 
@@ -33,23 +35,41 @@ function withinTakeOverGrace(): boolean {
   return Date.now() - lastTakeOverAt < TAKEOVER_GRACE_MS;
 }
 
-function waitForSnapshot(paneId: string, timeoutMs: number): Promise<string | null> {
-  return new Promise((resolve) => {
-    let resolved = false;
-    const off = client.on('terminalSnapshot', (event) => {
-      if (resolved || event.value.paneID !== paneId) return;
-      resolved = true;
-      off();
-      clearTimeout(timer);
-      resolve(event.value.bytes);
-    });
-    const timer = setTimeout(() => {
-      if (resolved) return;
-      resolved = true;
-      off();
-      resolve(null);
-    }, timeoutMs);
+function waitForSnapshot(paneId: string, timeoutMs: number) {
+  let settled = false;
+  let timeoutStarted = false;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let resolveSnapshot: (bytes: string | null) => void = () => {};
+  const snapshot = new Promise<string | null>((resolve) => {
+    resolveSnapshot = resolve;
   });
+
+  const finish = (bytes: string | null) => {
+    if (settled) return;
+    settled = true;
+    if (timer !== null) clearTimeout(timer);
+    offSnapshot();
+    offOutput();
+    resolveSnapshot(bytes);
+  };
+
+  const startTimeout = () => {
+    if (settled) return;
+    timeoutStarted = true;
+    if (timer !== null) clearTimeout(timer);
+    timer = setTimeout(() => finish(null), timeoutMs);
+  };
+
+  const offSnapshot = client.on('terminalSnapshot', (event) => {
+    if (event.value.paneID !== paneId) return;
+    finish(event.value.bytes);
+  });
+  const offOutput = client.on('terminalOutput', (event) => {
+    if (event.value.paneID !== paneId || !timeoutStarted) return;
+    startTimeout();
+  });
+
+  return { snapshot, startTimeout, cancel: () => finish(null) };
 }
 
 export function usePaneSession({
@@ -57,13 +77,28 @@ export function usePaneSession({
   cols,
   rows,
   onSnapshotBytes,
-  onTakeover,
+  onTakeoverStart,
+  onTakeoverWrite,
+  onTakeoverEnd,
   onWrite,
 }: UsePaneSessionOptions) {
   const connectionPhase = useDevicesStore((s) => s.connectionPhase);
+  const [takeoverAttempt, setTakeoverAttempt] = useState(0);
 
-  const callbacksRef = useRef<PaneSessionCallbacks>({ onSnapshotBytes, onTakeover, onWrite });
-  callbacksRef.current = { onSnapshotBytes, onTakeover, onWrite };
+  const callbacksRef = useRef<PaneSessionCallbacks>({
+    onSnapshotBytes,
+    onTakeoverStart,
+    onTakeoverWrite,
+    onTakeoverEnd,
+    onWrite,
+  });
+  callbacksRef.current = {
+    onSnapshotBytes,
+    onTakeoverStart,
+    onTakeoverWrite,
+    onTakeoverEnd,
+    onWrite,
+  };
 
   const dimsRef = useRef<{ cols: number; rows: number } | null>(null);
   if (cols !== null && rows !== null && cols > 0 && rows > 0) {
@@ -71,13 +106,11 @@ export function usePaneSession({
   }
   const dimsReady = cols !== null && rows !== null && cols > 0 && rows > 0;
 
-  const takeoverOutputBufferRef = useRef<string[]>([]);
-
   useEffect(() => {
     const offOutput = client.on('terminalOutput', (event) => {
       const session = usePaneSessionStore.getState().session;
       if (session.kind === 'taking-over' && event.value.paneID === session.paneId) {
-        takeoverOutputBufferRef.current.push(event.value.bytes);
+        callbacksRef.current.onTakeoverWrite(event.value.bytes);
         return;
       }
       if (session.kind !== 'streaming' || event.value.paneID !== session.paneId) return;
@@ -145,19 +178,24 @@ export function usePaneSession({
       }
       return;
     }
-    if (connectionPhase !== 'connected') return;
+    if (connectionPhase !== 'connected') {
+      const current = usePaneSessionStore.getState().session;
+      if (current.kind !== 'disconnected' || current.paneId !== paneId) {
+        transition({ kind: 'disconnected', paneId });
+      }
+      return;
+    }
     if (!dimsReady) return;
     const dims = dimsRef.current;
     if (!dims) return;
 
     let cancelled = false;
+    const snapshotWait = waitForSnapshot(paneId, SNAPSHOT_IDLE_MS);
 
     const run = async () => {
       transition({ kind: 'taking-over', paneId });
       markTakeOver();
-      takeoverOutputBufferRef.current = [];
-
-      const snapshotPromise = waitForSnapshot(paneId, SNAPSHOT_WAIT_MS);
+      callbacksRef.current.onTakeoverStart();
 
       try {
         await client.request('takeOverPane', {
@@ -165,6 +203,7 @@ export function usePaneSession({
           value: { paneID: paneId, cols: dims.cols, rows: dims.rows },
         });
       } catch (err) {
+        snapshotWait.cancel();
         if (cancelled) return;
         const session = usePaneSessionStore.getState().session;
         if (session.kind === 'taking-over' && session.paneId === paneId) {
@@ -179,12 +218,11 @@ export function usePaneSession({
 
       if (cancelled) return;
       markTakeOver();
+      snapshotWait.startTimeout();
 
-      const snapshot = await snapshotPromise;
+      const snapshot = await snapshotWait.snapshot;
       if (cancelled) return;
-      const buffered = takeoverOutputBufferRef.current;
-      takeoverOutputBufferRef.current = [];
-      callbacksRef.current.onTakeover(buffered, snapshot);
+      callbacksRef.current.onTakeoverEnd(snapshot);
 
       const session = usePaneSessionStore.getState().session;
       if (session.kind === 'taking-over' && session.paneId === paneId) {
@@ -196,23 +234,33 @@ export function usePaneSession({
 
     return () => {
       cancelled = true;
-      takeoverOutputBufferRef.current = [];
+      snapshotWait.cancel();
       client
         .request('releasePane', { type: 'releasePane', value: { paneID: paneId } })
         .catch(() => {});
     };
-  }, [paneId, connectionPhase, dimsReady]);
+  }, [paneId, connectionPhase, dimsReady, takeoverAttempt]);
+
+  return useCallback(() => {
+    setTakeoverAttempt((attempt) => attempt + 1);
+  }, []);
 }
 
-export function sendTerminalInput(paneId: string, base64: string): void {
+export function sendTerminalInput(paneId: string, base64: string): boolean {
+  if (useDevicesStore.getState().connectionPhase !== 'connected') return false;
   const session = usePaneSessionStore.getState().session;
-  if (session.kind !== 'streaming' || session.paneId !== paneId) return;
-  client
-    .request('terminalInput', {
+  if (session.kind !== 'streaming' || session.paneId !== paneId) return false;
+
+  try {
+    client.notify('terminalInput', {
       type: 'terminalInput',
       value: { paneID: paneId, bytes: base64 },
-    })
-    .catch(() => {});
+    });
+    return true;
+  } catch (error) {
+    console.warn(`[terminal] input send failed: ${String(error)}`);
+    return false;
+  }
 }
 
 export function sendTerminalScroll(
@@ -229,25 +277,4 @@ export function sendTerminalScroll(
       value: { paneID: paneId, deltaX, deltaY, precise },
     })
     .catch(() => {});
-}
-
-export function reclaimPane(paneId: string, cols: number, rows: number): void {
-  transition({ kind: 'taking-over', paneId });
-  markTakeOver();
-  client
-    .request('takeOverPane', { type: 'takeOverPane', value: { paneID: paneId, cols, rows } })
-    .then(() => {
-      markTakeOver();
-      const session = usePaneSessionStore.getState().session;
-      if (session.kind === 'taking-over' && session.paneId === paneId) {
-        transition({ kind: 'streaming', paneId });
-      }
-    })
-    .catch((err) => {
-      transition({
-        kind: 'failed',
-        paneId,
-        reason: err instanceof Error ? err.message : 'Could not take control',
-      });
-    });
 }
