@@ -1,3 +1,4 @@
+import OSLog
 import QuartzCore
 import SwiftTerm
 import UIKit
@@ -87,6 +88,7 @@ final class TerminalViewportHostView: UIView, UIGestureRecognizerDelegate {
         positionKeyboardOcclusion()
         guard lockTerminalSizeIfStable() else { return }
         positionTerminal()
+        placeCursorAboveKeyboard()
     }
 
     func applyBackgroundColor(_ color: UIColor) {
@@ -105,6 +107,12 @@ final class TerminalViewportHostView: UIView, UIGestureRecognizerDelegate {
 
     func cancelMomentum() {
         stopMomentum()
+    }
+
+    func prepareForKeyboardPresentation() {
+        stopMomentum()
+        viewportState.followCursor()
+        setNeedsLayout()
     }
 
     override func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
@@ -156,6 +164,7 @@ final class TerminalViewportHostView: UIView, UIGestureRecognizerDelegate {
         terminalSize = pendingTerminalSize
         self.pendingTerminalSize = nil
         positionTerminal()
+        placeCursorAboveKeyboard()
     }
 
     private func terminalDimensionsAreUsable(for size: CGSize) -> Bool {
@@ -176,7 +185,18 @@ final class TerminalViewportHostView: UIView, UIGestureRecognizerDelegate {
             stopMomentum()
             viewportState.updateKeyboardOffset(nextOffset)
             reportKeyboardOffset(nextOffset)
+            Log.terminal.debug("keyboard overlap=\(nextOffset, privacy: .public)")
         }
+    }
+
+    private func placeCursorAboveKeyboard() {
+        guard viewportState.needsCursorPlacement else { return }
+        terminalView.layoutIfNeeded()
+        let previousOffset = viewportState.viewportOffset
+        viewportState.placeCursor(in: terminalView.cursorViewportFrame, viewportHeight: bounds.height)
+        guard viewportState.viewportOffset != previousOffset else { return }
+        Log.terminal.debug("keyboard cursor placement offset=\(self.viewportState.viewportOffset, privacy: .public)")
+        positionTerminal()
     }
 
     private func reportKeyboardOffset(_ offset: CGFloat) {
@@ -219,6 +239,7 @@ final class TerminalViewportHostView: UIView, UIGestureRecognizerDelegate {
         switch gesture.state {
         case .began:
             stopMomentum()
+            viewportState.stopFollowingCursor()
             captureRenderedViewportOffset()
             lineAccumulator = 0
         case .changed:

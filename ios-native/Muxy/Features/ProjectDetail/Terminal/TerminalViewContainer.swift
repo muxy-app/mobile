@@ -160,6 +160,23 @@ final class FollowAwareTerminalView: TerminalView {
         isTracking || isDragging || isDecelerating || viewportHost?.isInteracting == true
     }
 
+    var cursorViewportFrame: CGRect? {
+        let terminal = getTerminal()
+        guard bounds.width > 0, bounds.height > 0, terminal.rows > 0, terminal.cols > 0 else { return nil }
+        let gridSize = getOptimalFrameSize().size
+        let rowHeight = gridSize.height / CGFloat(terminal.rows)
+        let columnWidth = gridSize.width / CGFloat(terminal.cols)
+        guard rowHeight > 0, columnWidth > 0 else { return nil }
+        let cursor = terminal.getCursorLocation()
+        let scrollbackHeight = max(0, contentSize.height - gridSize.height)
+        return CGRect(
+            x: CGFloat(min(cursor.x, terminal.cols - 1)) * columnWidth - contentOffset.x,
+            y: scrollbackHeight + CGFloat(cursor.y) * rowHeight - contentOffset.y,
+            width: columnWidth,
+            height: rowHeight
+        )
+    }
+
     func cancelViewportMomentum() {
         viewportHost?.cancelMomentum()
     }
@@ -200,6 +217,9 @@ final class FollowAwareTerminalView: TerminalView {
 
     private func toggleKeyboard() {
         keyboardHidden.toggle()
+        if !keyboardHidden {
+            viewportHost?.prepareForKeyboardPresentation()
+        }
         accessoryBar.setKeyboardVisible(!keyboardHidden)
         inputView = keyboardHidden ? hiddenKeyboardPlaceholder : nil
         if !isFirstResponder { _ = becomeFirstResponder() }
