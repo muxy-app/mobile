@@ -16,9 +16,15 @@ actor DemoBackend {
     private let personalProjectsWorkspaceID = UUID(uuidString: "00000000-0000-4000-8000-000000000702")!
     private var workspaces: [UUID: Workspace] = [:]
     private var gitStatuses: [UUID: VCSStatus] = [:]
+    private var fileStores: [UUID: DemoFileStore] = [:]
+    private var pendingFileEvents: [EventEnvelope] = []
     private var tabCounter = 2
 
     init() {
+        fileStores = [
+            muxyProjectID: DemoFileStore(projectName: "Muxy"),
+            webProjectID: DemoFileStore(projectName: "Web App"),
+        ]
         workspaces = [
             muxyProjectID: Self.makeWorkspace(
                 projectID: muxyProjectID,
@@ -70,11 +76,29 @@ actor DemoBackend {
     }
 
     func request<P: Codable & Sendable>(_ method: Method, params: P?) throws -> RawTagged {
+        if DemoFileStore.handles(method) { return try handleFiles(method, params: params) }
         if let result = try handleProject(method, params: params) { return result }
         if let result = try handleTab(method, params: params) { return result }
         if let result = try handleTerminal(method) { return result }
         if let result = try handleVCS(method, params: params) { return result }
         throw DemoError.notFound
+    }
+
+    private func handleFiles<P: Codable & Sendable>(_ method: Method, params: P?) throws -> RawTagged {
+        let context = try decode(VCSProjectParams.self, from: params)
+        let projectID = try projectID(from: context.projectID)
+        guard var store = fileStores[projectID] else { throw DemoError.notFound }
+        let result = try store.request(method, params: params)
+        fileStores[projectID] = store
+        if !store.changedPaths.isEmpty {
+            pendingFileEvents.append(try event(EventName.fileChanged, EventType.fileChanged, FileChangedEvent(
+                projectID: projectID,
+                worktreeID: workspaces[projectID]?.worktreeID,
+                paths: store.changedPaths,
+                truncated: false
+            )))
+        }
+        return result
     }
 
     private func handleProject<P: Codable & Sendable>(_ method: Method, params: P?) throws -> RawTagged? {
@@ -169,6 +193,11 @@ actor DemoBackend {
     }
 
     func events<P: Codable & Sendable>(for method: Method, params: P?) throws -> [EventEnvelope] {
+        if DemoFileStore.handles(method) {
+            let events = pendingFileEvents
+            pendingFileEvents = []
+            return events
+        }
         switch method {
         case .createTab:
             let params = try decode(CreateTabParams.self, from: params)

@@ -6,6 +6,7 @@ struct ProjectDetailView: View {
     @State var viewModel: ProjectDetailViewModel
     @State private var isGitPresented = false
     @State private var isWorktreesPresented = false
+    @State private var isFilesPresented = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -34,9 +35,17 @@ struct ProjectDetailView: View {
             }
             ToolbarItemGroup(placement: .primaryAction) {
                 Button {
-                    isWorktreesPresented = true
+                    isFilesPresented = true
                 } label: {
                     Image(systemName: "folder")
+                }
+                .tint(theme.foreground)
+                .accessibilityLabel("Files")
+
+                Button {
+                    isWorktreesPresented = true
+                } label: {
+                    Image(systemName: "square.3.layers.3d")
                 }
                 .tint(theme.foreground)
                 .accessibilityLabel("Worktrees")
@@ -55,6 +64,9 @@ struct ProjectDetailView: View {
         }
         .sheet(isPresented: $isWorktreesPresented) {
             WorktreesSheetView(viewModel: viewModel.makeGitViewModel())
+        }
+        .sheet(isPresented: $isFilesPresented) {
+            FileSheetView(viewModel: viewModel.makeFileManagerViewModel())
         }
         .task { await viewModel.connect() }
         .onChange(of: scenePhase) { _, phase in

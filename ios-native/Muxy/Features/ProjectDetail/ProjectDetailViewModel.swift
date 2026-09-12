@@ -64,6 +64,10 @@ final class ProjectDetailViewModel {
         gitViewModel
     }
 
+    func makeFileManagerViewModel() -> FileManagerViewModel {
+        FileManagerViewModel(project: project, worktreeID: workspace?.worktreeID, channel: connectionManager)
+    }
+
     func connect() async {
         observeState()
         subscribeToEvents()

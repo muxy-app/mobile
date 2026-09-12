@@ -12,6 +12,14 @@ enum Method: String, Sendable {
     case closeTab
     case selectTab
     case getProjectLogo
+    case filesList
+    case filesRead
+    case filesStat
+    case filesWrite
+    case filesMkdir
+    case filesRename
+    case filesMove
+    case filesDelete
     case takeOverPane
     case releasePane
     case setClientTheme
@@ -44,6 +52,10 @@ nonisolated enum ResultType {
     static let vcsBranches = "vcsBranches"
     static let vcsPRCreated = "vcsPRCreated"
     static let vcsDiff = "vcsDiff"
+    static let files = "files"
+    static let fileContent = "fileContent"
+    static let fileStat = "fileStat"
+    static let filePaths = "filePaths"
 }
 
 nonisolated enum EventName {
@@ -53,6 +65,7 @@ nonisolated enum EventName {
     static let terminalSnapshot = "terminalSnapshot"
     static let paneOwnershipChanged = "paneOwnershipChanged"
     static let themeChanged = "themeChanged"
+    static let fileChanged = "fileChanged"
 }
 
 nonisolated enum EventType {
@@ -62,6 +75,7 @@ nonisolated enum EventType {
     static let terminalSnapshot = "terminalSnapshot"
     static let paneOwnership = "paneOwnership"
     static let deviceTheme = "deviceTheme"
+    static let fileChanged = "fileChanged"
 }
 
 nonisolated struct AuthParams: Codable, Sendable {
