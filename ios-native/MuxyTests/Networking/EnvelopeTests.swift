@@ -85,9 +85,6 @@ struct EnvelopeTests {
         let pairing = try result.decode(PairingResult.self)
         #expect(pairing.clientID == "client-9")
         #expect(pairing.deviceName == "iPhone")
-        #expect(pairing.themeFg == 16777215)
-        #expect(pairing.themeBg == 197379)
-        #expect(pairing.themePalette == [0, 16711680, 65280])
     }
 
     @Test func pairingResultWithoutThemeDecodes() throws {
@@ -102,9 +99,8 @@ struct EnvelopeTests {
             return
         }
         let pairing = try #require(response.result).decode(PairingResult.self)
-        #expect(pairing.themeFg == nil)
-        #expect(pairing.themeBg == nil)
-        #expect(pairing.themePalette == nil)
+        #expect(pairing.clientID == "c")
+        #expect(pairing.deviceName == "d")
     }
 
     @Test func responseWithErrorDecodes() throws {

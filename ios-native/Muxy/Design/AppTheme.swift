@@ -11,16 +11,15 @@ nonisolated struct AppTheme: Equatable, Sendable {
     let selectionBackground: Color
     let selectionForeground: Color
     let isDark: Bool
-    let event: DeviceThemeEvent
+    let palette: ThemePalette
 
-    static let muxy = AppTheme(event: DeviceThemeEvent.muxy)
+    static let muxy = AppTheme(palette: .muxy)
 
-    init(event: DeviceThemeEvent) {
-        self.event = event
-        let background = AppColor(rgb: event.bg)
-        let foreground = AppColor(rgb: event.fg)
-        let palette = event.palette ?? []
-        let accent = AppTheme.accentColor(from: palette)
+    init(palette: ThemePalette) {
+        self.palette = palette
+        let background = AppColor(rgb: palette.background)
+        let foreground = AppColor(rgb: palette.foreground)
+        let accent = AppTheme.accentColor(from: palette.ansi)
 
         self.background = background.color
         surface = background.elevated.color
@@ -34,9 +33,9 @@ nonisolated struct AppTheme: Equatable, Sendable {
         isDark = background.isDark
     }
 
-    private static func accentColor(from palette: [UInt32]) -> AppColor {
-        guard palette.indices.contains(AppTheme.accentIndex) else { return AppColor(rgb: AppTheme.brandRGB) }
-        return AppColor(rgb: palette[AppTheme.accentIndex])
+    private static func accentColor(from ansi: [UInt32]) -> AppColor {
+        guard ansi.indices.contains(AppTheme.accentIndex) else { return AppColor(rgb: AppTheme.brandRGB) }
+        return AppColor(rgb: ansi[AppTheme.accentIndex])
     }
 
     private static let brandRGB: UInt32 = 0xA74BA7
@@ -46,20 +45,7 @@ nonisolated struct AppTheme: Equatable, Sendable {
     private static let separatorOpacity = 0.18
 }
 
-extension DeviceThemeEvent {
-    static let muxy = DeviceThemeEvent(
-        fg: 0xC9C2D9,
-        bg: 0x19171F,
-        palette: [
-            0x141219, 0xEC4899, 0x34D399, 0xE0AF68,
-            0xC370D3, 0x6366F1, 0x22D3EE, 0xA9B1D6,
-            0x2E2B34, 0xF472B6, 0x6EE7B7, 0xFBBF24,
-            0xD99BE5, 0x818CF8, 0x67E8F9, 0xC9C2D9
-        ]
-    )
-}
-
-private struct AppColor {
+nonisolated private struct AppColor {
     let red: Double
     let green: Double
     let blue: Double

@@ -49,28 +49,12 @@ actor DemoBackend {
 
     var currentClientID: UUID { clientID }
 
-    var currentTheme: DeviceThemeEvent {
-        DeviceThemeEvent(
-            fg: 0xe5e7eb,
-            bg: 0x101216,
-            palette: [
-                0x1f2937, 0xef4444, 0x22c55e, 0xeab308,
-                0x3b82f6, 0xa855f7, 0x06b6d4, 0xf9fafb,
-                0x4b5563, 0xf87171, 0x4ade80, 0xfacc15,
-                0x60a5fa, 0xc084fc, 0x22d3ee, 0xffffff
-            ]
-        )
-    }
-
     func authenticate() throws -> RawTagged {
         try tagged(
             ResultType.pairing,
             PairingResult(
                 clientID: clientID.uuidString,
-                deviceName: DemoConnection.connection.name,
-                themeFg: Int(currentTheme.fg),
-                themeBg: Int(currentTheme.bg),
-                themePalette: currentTheme.palette?.map(Int.init)
+                deviceName: DemoConnection.connection.name
             )
         )
     }

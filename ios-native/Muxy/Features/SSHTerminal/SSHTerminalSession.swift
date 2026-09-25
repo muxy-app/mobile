@@ -11,7 +11,7 @@ final class SSHTerminalSession: TerminalIO {
 
     private(set) var isFollowingBottom = true
     private(set) var title = ""
-    private(set) var theme = TerminalTheme(clientTheme: .dark)
+    private(set) var theme = TerminalTheme(clientTheme: ClientTerminalTheme(palette: .muxy))
     private(set) var activeModifier: TerminalModifier = .ctrl
     private(set) var modifierArmed = false
     private(set) var state: SSHConnectionState = .idle
@@ -26,7 +26,7 @@ final class SSHTerminalSession: TerminalIO {
     @ObservationIgnored private var isActive = false
     @ObservationIgnored private var hasStarted = false
     @ObservationIgnored private var lastReportedSize: (cols: Int, rows: Int)?
-    @ObservationIgnored private var clientTheme: ClientTerminalTheme = .dark
+    @ObservationIgnored private var clientTheme = ClientTerminalTheme(palette: .muxy)
 
     private static let resizeDebounce = Duration.milliseconds(120)
     private static let minimumUsableCols = 20
@@ -99,6 +99,12 @@ final class SSHTerminalSession: TerminalIO {
 
     func sendText(_ text: String) {
         transmit(Array(text.utf8))
+    }
+
+    func sendKey(_ key: TerminalKey) {
+        let applicationCursor = view?.getTerminal().applicationCursor ?? false
+        guard let bytes = TerminalInputEncoding.bytes(for: key, applicationCursor: applicationCursor) else { return }
+        transmit(bytes)
     }
 
     func paste() {

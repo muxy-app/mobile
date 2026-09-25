@@ -8,6 +8,7 @@ SCHEME="Muxy"
 APP_ID="com.muxy.app"
 APP_NAME="Muxy.app"
 DERIVED="$PWD/.build/xcode"
+SDK_DIR="$PWD/MuxyMobileSDK/Build"
 ACTION="${1:-run}"
 
 usage() {
@@ -22,9 +23,11 @@ Usage: scripts/run.sh [command]
   test                    Run unit tests in Simulator
   stop                    Stop the app in the selected simulator
   restart                 Rebuild and relaunch in the selected simulator
+  sdk                     Build the Muxy mobile SDK from the Muxy repository in MUXY_REPO
   help                    Show this help
 
 Environment:
+  MUXY_REPO         Path to the Muxy repository the SDK is built from (required by sdk)
   SIM_NAME          Select a simulator by name, creating it if needed
   SIM_ID            Select an existing simulator by UDID (overrides SIM_NAME)
   DEVICE_ID         Select a paired device when no name or ID argument is given
@@ -40,7 +43,7 @@ fail() {
 case "$ACTION" in
   help|-h|--help) usage; exit 0 ;;
   device|build-device) [ "$#" -le 2 ] || fail "Too many arguments. Use scripts/run.sh help." ;;
-  run|build|devices|test|stop|restart) [ "$#" -le 1 ] || fail "Too many arguments. Use scripts/run.sh help." ;;
+  run|build|devices|test|stop|restart|sdk) [ "$#" -le 1 ] || fail "Too many arguments. Use scripts/run.sh help." ;;
   *) usage >&2; fail "Unknown command: $ACTION" ;;
 esac
 
@@ -53,12 +56,33 @@ if [ "$ACTION" = "devices" ]; then
   exit 0
 fi
 
+build_sdk() {
+  [ -n "${MUXY_REPO:-}" ] || fail "Set MUXY_REPO to your Muxy repository, for example: MUXY_REPO=~/Projects/muxy scripts/run.sh sdk"
+  [ -f "$MUXY_REPO/scripts/build-mobile-sdk.sh" ] || fail "$MUXY_REPO has no scripts/build-mobile-sdk.sh. Point MUXY_REPO at a Muxy 2 checkout."
+  bash "$MUXY_REPO/scripts/build-mobile-sdk.sh" "$SDK_DIR"
+  git -C "$MUXY_REPO" describe --always --dirty > "$SDK_DIR/REVISION" 2>/dev/null || echo "unknown" > "$SDK_DIR/REVISION"
+  echo "Muxy SDK $(cat "$SDK_DIR/REVISION") written to $SDK_DIR"
+}
+
+require_sdk() {
+  if [ -d "$SDK_DIR/MuxyMobile.xcframework" ] && [ -f "$SDK_DIR/swift/muxy_mobile.swift" ]; then
+    return
+  fi
+  fail "The Muxy SDK is missing. Build it first: MUXY_REPO=<path to your Muxy repository> scripts/run.sh sdk"
+}
+
+if [ "$ACTION" = "sdk" ]; then
+  build_sdk
+  exit 0
+fi
+
 BUILD_ARGS=(-project "$PROJECT" -scheme "$SCHEME" -configuration Debug -derivedDataPath "$DERIVED")
 
 build_app() {
   local sdk="$1"
   local destination="$2"
   shift 2
+  require_sdk
   echo "Building Muxy ($sdk)..."
   xcodebuild "${BUILD_ARGS[@]}" -sdk "$sdk" -destination "$destination" "$@" build -quiet || return $?
   echo "Built: $DERIVED/Build/Products/Debug-$sdk/$APP_NAME"
@@ -89,7 +113,7 @@ if [ "$ACTION" = "device" ] || [ "$ACTION" = "build-device" ]; then
     fail "Launch failed. Unlock the device, enable Settings > Privacy & Security > Developer Mode, and trust the developer under Settings > General > VPN & Device Management if prompted."
   fi
   LOCAL_IP=$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || echo "<your Mac's LAN IP>")
-  echo "Muxy running on device. Connect to your Mac at $LOCAL_IP:4865 on the same network."
+  echo "Muxy running on device. Muxy 1: connect to your Mac at $LOCAL_IP:4865 on the same network. Muxy 2: scan the code from Muxy > Settings > Mobile or muxy mobile pair."
   exit 0
 fi
 
@@ -102,6 +126,7 @@ fi
 SIM_ID=$(python3 scripts/destinations.py simulator)
 
 if [ "$ACTION" = "test" ]; then
+  require_sdk
   echo "Testing Muxy (unit tests)..."
   xcodebuild "${BUILD_ARGS[@]}" -destination "id=$SIM_ID" -only-testing:MuxyTests test -quiet
   echo "Tests passed"
@@ -114,4 +139,4 @@ open -a Simulator --args -CurrentDeviceUDID "$SIM_ID"
 xcrun simctl install "$SIM_ID" "$DERIVED/Build/Products/Debug-iphonesimulator/$APP_NAME"
 xcrun simctl launch --terminate-running-process "$SIM_ID" "$APP_ID"
 
-echo "Muxy running in Simulator. Connect to your Mac at 127.0.0.1:4865."
+echo "Muxy running in Simulator. Muxy 1: connect to your Mac at 127.0.0.1:4865. Muxy 2: paste the link from Muxy > Settings > Mobile > Copy Link or muxy mobile pair."

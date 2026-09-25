@@ -9,30 +9,18 @@ struct ProjectDetailView: View {
     @State private var isFilesPresented = false
 
     var body: some View {
-        VStack(spacing: 0) {
-            if !viewModel.tabs.isEmpty {
-                TabStripView(
-                    tabs: viewModel.tabs,
-                    selectedTabID: viewModel.selectedTabID,
-                    onSelect: { viewModel.select($0) },
-                    onClose: { viewModel.closeTab($0) },
-                    onCreate: { viewModel.createTab() }
-                )
-            }
-
-            content
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(theme.background)
-        .ignoresSafeArea(.keyboard)
-        .navigationTitle(viewModel.projectName)
-        .navigationBarTitleDisplayMode(.inline)
+        ProjectTabsScreen(
+            title: viewModel.projectName,
+            connectionName: viewModel.connection.name,
+            tabs: viewModel.tabs,
+            selectedTabID: viewModel.selectedTabID,
+            status: status,
+            onSelect: { viewModel.select($0) },
+            onClose: { viewModel.closeTab($0) },
+            onCreate: { viewModel.createTab() },
+            page: tabView(for:)
+        )
         .toolbar {
-            ToolbarItem(placement: .principal) {
-                Text(viewModel.projectName)
-                    .font(.headline)
-                    .foregroundStyle(theme.foreground)
-            }
             ToolbarItemGroup(placement: .primaryAction) {
                 Button {
                     isFilesPresented = true
@@ -78,24 +66,17 @@ struct ProjectDetailView: View {
         }
     }
 
-    @ViewBuilder
-    private var content: some View {
-        if viewModel.tabs.isEmpty {
-            emptyState
-        } else {
-            tabContent
+    private var status: ProjectTabsStatus {
+        switch viewModel.state {
+        case .connecting, .authenticating:
+            return .loading
+        case .connected where viewModel.hasLoaded:
+            return .ready
+        case .connected:
+            return .loading
+        default:
+            return .disconnected
         }
-    }
-
-    private var tabContent: some View {
-        TabView(selection: selectionBinding) {
-            ForEach(viewModel.tabs) { tab in
-                tabView(for: tab)
-                    .tag(Optional(tab.id))
-            }
-        }
-        .tabViewStyle(.page(indexDisplayMode: .never))
-        .background(theme.background.ignoresSafeArea())
     }
 
     @ViewBuilder
@@ -105,48 +86,6 @@ struct ProjectDetailView: View {
         } else {
             UnsupportedTabView(title: tab.title)
         }
-    }
-
-    @ViewBuilder
-    private var emptyState: some View {
-        switch viewModel.state {
-        case .connecting, .authenticating:
-            loadingState
-        case .connected where viewModel.hasLoaded:
-            ThemedEmptyState(
-                title: "No Tabs",
-                systemImage: "macwindow",
-                message: "Create a tab to get started."
-            ) {
-                Button("New Tab") { viewModel.createTab() }
-                    .buttonStyle(ThemedProminentButtonStyle())
-            }
-        case .connected:
-            loadingState
-        default:
-            ThemedEmptyState(
-                title: "Not Connected",
-                systemImage: "wifi.slash",
-                message: "Reconnect to \(viewModel.connection.name) to see this project."
-            )
-        }
-    }
-
-    private var loadingState: some View {
-        ProgressView()
-            .tint(theme.accent)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(theme.background)
-    }
-
-    private var selectionBinding: Binding<UUID?> {
-        Binding(
-            get: { viewModel.selectedTabID },
-            set: { newValue in
-                guard let newValue, let tab = viewModel.tabs.first(where: { $0.id == newValue }) else { return }
-                viewModel.select(tab)
-            }
-        )
     }
 }
 

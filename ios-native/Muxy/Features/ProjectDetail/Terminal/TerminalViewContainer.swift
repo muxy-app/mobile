@@ -183,7 +183,8 @@ final class FollowAwareTerminalView: TerminalView {
 
     func configureAccessoryBar() {
         inputAccessoryView = accessoryBar
-        accessoryBar.onKey = { [weak self] text in self?.session?.sendText(text) }
+        accessoryBar.onKey = { [weak self] key in self?.session?.sendKey(key) }
+        accessoryBar.onText = { [weak self] text in self?.session?.sendText(text) }
         accessoryBar.onPaste = { [weak self] in self?.session?.paste() }
         accessoryBar.onCopy = { [weak self] in self?.session?.copySelection() }
         accessoryBar.onModifierToggle = { [weak self] armed in self?.session?.setModifierArmed(armed) }

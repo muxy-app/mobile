@@ -2,6 +2,7 @@ import Foundation
 
 nonisolated enum ConnectionKind: String, Codable, Sendable {
     case device
+    case server
     case ssh
 }
 
@@ -15,6 +16,7 @@ nonisolated struct Connection: Codable, Identifiable, Sendable, Equatable, Hasha
     var serviceName: String?
     var discoverySource: DiscoverySource
     var sshConfig: SSHConfig?
+    var serverID: String?
 
     var endpoint: Endpoint {
         Endpoint(host: host, port: port)
@@ -29,7 +31,8 @@ nonisolated struct Connection: Codable, Identifiable, Sendable, Equatable, Hasha
         pairingState: PairingState = .notPaired,
         serviceName: String? = nil,
         discoverySource: DiscoverySource = .manual,
-        sshConfig: SSHConfig? = nil
+        sshConfig: SSHConfig? = nil,
+        serverID: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -40,6 +43,7 @@ nonisolated struct Connection: Codable, Identifiable, Sendable, Equatable, Hasha
         self.serviceName = serviceName
         self.discoverySource = discoverySource
         self.sshConfig = sshConfig
+        self.serverID = serverID
     }
 
     init(from decoder: Decoder) throws {
@@ -53,5 +57,6 @@ nonisolated struct Connection: Codable, Identifiable, Sendable, Equatable, Hasha
         serviceName = try container.decodeIfPresent(String.self, forKey: .serviceName)
         discoverySource = try container.decode(DiscoverySource.self, forKey: .discoverySource)
         sshConfig = try container.decodeIfPresent(SSHConfig.self, forKey: .sshConfig)
+        serverID = try container.decodeIfPresent(String.self, forKey: .serverID)
     }
 }

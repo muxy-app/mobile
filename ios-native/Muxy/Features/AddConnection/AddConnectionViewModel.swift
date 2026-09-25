@@ -30,6 +30,7 @@ final class AddConnectionViewModel {
     private var serviceName: String?
 
     let browser: any BonjourBrowsing
+    let serverPairing: ServerPairingModel
 
     private let store: ConnectionStore
     private let keychain: KeychainStore
@@ -43,7 +44,8 @@ final class AddConnectionViewModel {
         connectionManager: ConnectionManager,
         validator: ConnectionInputValidator,
         tokenGenerator: TokenGenerating,
-        browser: any BonjourBrowsing
+        browser: any BonjourBrowsing,
+        serverPairing: ServerPairingModel
     ) {
         self.store = store
         self.keychain = keychain
@@ -51,9 +53,11 @@ final class AddConnectionViewModel {
         self.validator = validator
         self.tokenGenerator = tokenGenerator
         self.browser = browser
+        self.serverPairing = serverPairing
     }
 
     var isWorking: Bool {
+        if serverPairing.isPairing { return true }
         switch status {
         case .connecting, .authenticating, .awaitingApproval:
             return true
@@ -69,9 +73,18 @@ final class AddConnectionViewModel {
         switch kind {
         case .device:
             return (try? validator.validate(name: name, host: host, portText: portText).get()) != nil
+        case .server:
+            return serverPairing.canPair
         case .ssh:
             return (try? validatedSSH().get()) != nil
         }
+    }
+
+    var displayedStatus: Status {
+        guard kind == .server else { return status }
+        if serverPairing.isPairing { return .connecting }
+        guard let failure = serverPairing.failure else { return .idle }
+        return .failed(failure)
     }
 
     var discoveredServices: [DiscoveredService] {
@@ -105,6 +118,19 @@ final class AddConnectionViewModel {
         isShowingScanner = false
     }
 
+    func applyPairingCode(_ code: String, source: DiscoverySource) -> Bool {
+        isShowingScanner = false
+        if serverPairing.accepts(code) {
+            selectKind(.server)
+            serverPairing.receive(link: code, source: source)
+            return true
+        }
+        guard let uri = try? PairingURI.parse(code) else { return false }
+        selectKind(.device)
+        applyScan(uri)
+        return true
+    }
+
     func applyDiscovered(_ service: DiscoveredService) {
         name = service.name
         host = service.host
@@ -117,6 +143,9 @@ final class AddConnectionViewModel {
         switch kind {
         case .device:
             await pairDevice(onAdded: onAdded)
+        case .server:
+            guard let connection = await serverPairing.pair() else { return }
+            onAdded(connection)
         case .ssh:
             await addSSH(onAdded: onAdded)
         }

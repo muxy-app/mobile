@@ -4,7 +4,6 @@ enum TerminalModifier: String, CaseIterable, Identifiable {
     case ctrl
     case shift
     case alt
-    case cmd
 
     var id: String { rawValue }
     var title: String { rawValue }
@@ -14,7 +13,6 @@ enum TerminalModifier: String, CaseIterable, Identifiable {
         case .ctrl: "Control"
         case .shift: "Shift"
         case .alt: "Option"
-        case .cmd: "Command"
         }
     }
 
@@ -23,14 +21,13 @@ enum TerminalModifier: String, CaseIterable, Identifiable {
         case .ctrl: "⌃"
         case .shift: "⇧"
         case .alt: "⌥"
-        case .cmd: "⌘"
         }
     }
 }
 
 struct DPadControl: View {
     let tint: SwiftUI.Color
-    let onDirection: (String) -> Void
+    let onDirection: (TerminalKey) -> Void
 
     private let outerSize: CGFloat = 44
     private let thumbSize: CGFloat = 18
@@ -46,12 +43,12 @@ struct DPadControl: View {
         case left
         case right
 
-        var payload: String {
+        var key: TerminalKey {
             switch self {
-            case .up: "\u{1B}[A"
-            case .down: "\u{1B}[B"
-            case .left: "\u{1B}[D"
-            case .right: "\u{1B}[C"
+            case .up: .up
+            case .down: .down
+            case .left: .left
+            case .right: .right
             }
         }
 
@@ -122,11 +119,11 @@ struct DPadControl: View {
 
     private func startRepeating(direction: Direction) {
         stopRepeating()
-        onDirection(direction.payload)
+        onDirection(direction.key)
         repeatTask = Task {
             try? await Task.sleep(for: .milliseconds(300))
             while !Task.isCancelled {
-                onDirection(direction.payload)
+                onDirection(direction.key)
                 try? await Task.sleep(for: .milliseconds(60))
             }
         }

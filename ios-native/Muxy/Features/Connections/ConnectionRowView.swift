@@ -29,7 +29,14 @@ struct ConnectionRowView: View {
     }
 
     private var iconName: String {
-        connection.kind == .ssh ? "terminal" : "desktopcomputer"
+        switch connection.kind {
+        case .device:
+            return "desktopcomputer"
+        case .server:
+            return "server.rack"
+        case .ssh:
+            return "terminal"
+        }
     }
 
     private var subtitle: String {

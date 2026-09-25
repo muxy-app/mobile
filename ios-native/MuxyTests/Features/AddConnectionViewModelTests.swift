@@ -1,4 +1,5 @@
 import Foundation
+import MuxyMobile
 import Testing
 @testable import Muxy
 
@@ -13,7 +14,17 @@ struct AddConnectionViewModelTests {
             connectionManager: ConnectionManager(makeTransport: { _ in MockTransport() }),
             validator: ConnectionInputValidator(),
             tokenGenerator: TokenGenerator(),
-            browser: MockBonjourBrowser(services: services)
+            browser: MockBonjourBrowser(services: services),
+            serverPairing: makeServerPairing()
+        )
+    }
+
+    private func makeServerPairing() -> ServerPairingModel {
+        ServerPairingModel(
+            pairing: StubPairingService(parsed: .failure(.InvalidLink), paired: .failure(.InvalidLink)),
+            credentials: InMemoryCredentialStore(),
+            store: InMemoryConnectionStore(),
+            deviceName: "iPhone"
         )
     }
 
@@ -71,7 +82,8 @@ struct AddConnectionViewModelTests {
             connectionManager: ConnectionManager(makeTransport: { _ in MockTransport() }),
             validator: ConnectionInputValidator(),
             tokenGenerator: TokenGenerator(),
-            browser: browser
+            browser: browser,
+            serverPairing: makeServerPairing()
         )
         viewModel.startDiscovery()
         #expect(browser.isBrowsing)

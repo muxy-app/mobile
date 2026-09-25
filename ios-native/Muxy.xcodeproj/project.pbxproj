@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		574700012FD7000000000001 /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = 574700002FD7000000000001 /* SwiftTerm */; };
 		574700012FD7000000000002 /* Citadel in Frameworks */ = {isa = PBXBuildFile; productRef = 574700002FD7000000000002 /* Citadel */; };
+		574700012FD7000000000003 /* MuxyMobile in Frameworks */ = {isa = PBXBuildFile; productRef = 574700002FD7000000000003 /* MuxyMobile */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -59,6 +60,7 @@
 			files = (
 				574700012FD7000000000001 /* SwiftTerm in Frameworks */,
 				574700012FD7000000000002 /* Citadel in Frameworks */,
+				574700012FD7000000000003 /* MuxyMobile in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -112,6 +114,7 @@
 			packageProductDependencies = (
 				574700002FD7000000000001 /* SwiftTerm */,
 				574700002FD7000000000002 /* Citadel */,
+				574700002FD7000000000003 /* MuxyMobile */,
 			);
 			productName = Muxy;
 			productReference = 30F745E92FD6C28A003FC767 /* Muxy.app */;
@@ -171,6 +174,7 @@
 			packageReferences = (
 				574700022FD7000000000001 /* XCRemoteSwiftPackageReference "SwiftTerm" */,
 				574700022FD7000000000002 /* XCRemoteSwiftPackageReference "Citadel" */,
+				574700022FD7000000000003 /* XCLocalSwiftPackageReference "MuxyMobileSDK" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 30F745EA2FD6C28A003FC767 /* Products */;
@@ -494,6 +498,13 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		574700022FD7000000000003 /* XCLocalSwiftPackageReference "MuxyMobileSDK" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = MuxyMobileSDK;
+		};
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCRemoteSwiftPackageReference section */
 		574700022FD7000000000001 /* XCRemoteSwiftPackageReference "SwiftTerm" */ = {
 			isa = XCRemoteSwiftPackageReference;
@@ -523,6 +534,10 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 574700022FD7000000000002 /* XCRemoteSwiftPackageReference "Citadel" */;
 			productName = Citadel;
+		};
+		574700002FD7000000000003 /* MuxyMobile */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = MuxyMobile;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

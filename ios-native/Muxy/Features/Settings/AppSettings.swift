@@ -16,6 +16,14 @@ final class AppSettings {
         didSet { defaults.set(demoMode, forKey: Key.demoMode) }
     }
 
+    var themeName: String {
+        didSet { defaults.set(themeName, forKey: Key.themeName) }
+    }
+
+    var themePalette: ThemePalette {
+        ThemeCatalog.named(themeName)
+    }
+
     private let defaults: UserDefaults
 
     init(defaults: UserDefaults = .standard) {
@@ -23,6 +31,7 @@ final class AppSettings {
         useNerdFont = AppSettings.storedUseNerdFont(defaults: defaults)
         autoFocusTerminal = defaults.bool(forKey: Key.autoFocusTerminal)
         demoMode = defaults.bool(forKey: Key.demoMode)
+        themeName = defaults.string(forKey: Key.themeName) ?? ThemePalette.muxy.name
     }
 
     static func storedUseNerdFont(defaults: UserDefaults = .standard) -> Bool {
@@ -34,6 +43,7 @@ enum AppSettingKey {
     static let useNerdFont = "muxy.settings.useNerdFont"
     static let autoFocusTerminal = "muxy.settings.autoFocusTerminal"
     static let demoMode = "muxy.settings.demoMode"
+    static let themeName = "muxy.settings.theme"
 }
 
 private typealias Key = AppSettingKey

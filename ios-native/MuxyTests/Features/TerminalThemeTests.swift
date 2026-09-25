@@ -4,19 +4,6 @@ import UIKit
 @testable import Muxy
 
 struct TerminalThemeTests {
-    @Test func defaultBackgroundTracksSystemColorScheme() {
-        assertEqual(
-            TerminalTheme.default.background,
-            .systemBackground,
-            style: .light
-        )
-        assertEqual(
-            TerminalTheme.default.background,
-            .systemBackground,
-            style: .dark
-        )
-    }
-
     @Test func uiColorFromRGBExtractsChannels() {
         let color = TerminalTheme.uiColor(fromRGB: 0xFF8040)
         var red: CGFloat = 0
@@ -40,65 +27,29 @@ struct TerminalThemeTests {
         #expect(color.green == UInt16(0x80) * 257)
     }
 
-    @Test func themeFromEventBuildsPalette() {
-        let event = DeviceThemeEvent(fg: 0xFFFFFF, bg: 0x000000, palette: [0xFF0000, 0x00FF00])
-        let theme = TerminalTheme(event: event)
-        #expect(theme.palette.count == 2)
-        #expect(theme.palette[0] == SwiftTerm.Color(red: 65535, green: 0, blue: 0))
-        #expect(theme.palette[1] == SwiftTerm.Color(red: 0, green: 65535, blue: 0))
-    }
-
-    @Test func themeFromEventUsesDeviceBackground() {
-        let event = DeviceThemeEvent(fg: 0xFFFFFF, bg: 0x123456, palette: nil)
-        let theme = TerminalTheme(event: event)
-        assertEqual(theme.background, TerminalTheme.uiColor(fromRGB: 0x123456), style: .light)
-        assertEqual(theme.background, TerminalTheme.uiColor(fromRGB: 0x123456), style: .dark)
-    }
-
-    @Test func clientThemeFromEventDerivesCursorAndSelection() {
-        let event = DeviceThemeEvent.muxy
-        let clientTheme = ClientTerminalTheme(event: event)
-        #expect(clientTheme.fg == event.fg)
-        #expect(clientTheme.bg == event.bg)
-        #expect(clientTheme.palette.count == 16)
-        #expect(clientTheme.cursorColor == event.palette?[4])
-        #expect(clientTheme.cursorText == event.bg)
-        #expect(clientTheme.selectionBackground == event.palette?[8])
-        #expect(clientTheme.selectionForeground == event.fg)
-    }
-
-    @Test func themeWithoutPaletteIsEmpty() {
-        let event = DeviceThemeEvent(fg: 0xFFFFFF, bg: 0x000000, palette: nil)
-        let theme = TerminalTheme(event: event)
-        #expect(theme.palette.isEmpty)
-    }
-
-    @Test func darkClientThemeMatchesAppTerminalPalette() {
-        let theme = ClientTerminalTheme.dark
-        #expect(theme.bg == 0x000000)
-        #expect(theme.fg == 0xF2F2F7)
+    @Test func themeFromClientThemeBuildsPalette() {
+        let theme = TerminalTheme(clientTheme: ClientTerminalTheme(palette: .muxy))
         #expect(theme.palette.count == 16)
-        #expect(theme.palette[1] == 0xFF453A)
-        #expect(theme.palette[4] == 0x0A84FF)
-        #expect(theme.cursorColor == 0xF2F2F7)
-        #expect(theme.selectionBackground == 0x2C2C2E)
+        #expect(theme.palette[1] == TerminalTheme.terminalColor(fromRGB: 0xEC4899))
     }
 
-    @Test func lightClientThemeHasSixteenColorPalette() {
-        let theme = ClientTerminalTheme.light
-        #expect(theme.bg == 0xFFFFFF)
-        #expect(theme.fg == 0x000000)
-        #expect(theme.palette.count == 16)
-        #expect(theme.palette[4] == 0x007AFF)
-        #expect(theme.palette[1] == 0xFF3B30)
-        #expect(theme.cursorText == 0xFFFFFF)
+    @Test func clientThemeFromPaletteUsesThemeCursorAndSelection() {
+        let palette = ThemePalette.catppuccinMocha
+        let clientTheme = ClientTerminalTheme(palette: palette)
+        #expect(clientTheme.fg == palette.foreground)
+        #expect(clientTheme.bg == palette.background)
+        #expect(clientTheme.palette == palette.ansi)
+        #expect(clientTheme.cursorColor == palette.cursor)
+        #expect(clientTheme.cursorText == palette.cursorText)
+        #expect(clientTheme.selectionBackground == palette.selectionBackground)
+        #expect(clientTheme.selectionForeground == palette.selectionForeground)
     }
 
     @Test func terminalThemeCanBeBuiltFromClientTheme() {
-        let theme = TerminalTheme(clientTheme: .light)
+        let theme = TerminalTheme(clientTheme: ClientTerminalTheme(palette: .muxyLight))
         #expect(theme.palette.count == 16)
-        assertEqual(theme.background, TerminalTheme.uiColor(fromRGB: 0xFFFFFF), style: .light)
-        assertEqual(theme.foreground, TerminalTheme.uiColor(fromRGB: 0x000000), style: .light)
+        assertEqual(theme.background, TerminalTheme.uiColor(fromRGB: 0xF0F0F5), style: .light)
+        assertEqual(theme.foreground, TerminalTheme.uiColor(fromRGB: 0x1E1E2E), style: .light)
     }
 
     private func assertEqual(_ color: UIColor, _ expected: UIColor, style: UIUserInterfaceStyle) {

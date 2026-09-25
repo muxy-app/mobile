@@ -10,7 +10,6 @@ actor ConnectionManager {
 
     private var client: MuxyClient?
     private var connectedDeviceID: Connection.ID?
-    private var theme: DeviceThemeEvent?
     private var clientID: UUID?
     private var state: ConnectionState = .idle {
         didSet { broadcast(state) }
@@ -27,16 +26,6 @@ actor ConnectionManager {
 
     var currentState: ConnectionState {
         state
-    }
-
-    var currentTheme: DeviceThemeEvent? {
-        get async {
-            if connectedDeviceID == DemoConnection.id {
-                await demoBackend.currentTheme
-            } else {
-                theme
-            }
-        }
     }
 
     var currentClientID: UUID? {
@@ -182,13 +171,11 @@ actor ConnectionManager {
         guard result.type == ResultType.pairing else { return }
         guard let pairing = try? result.decode(PairingResult.self) else { return }
         clientID = UUID(uuidString: pairing.clientID)
-        theme = pairing.deviceTheme
     }
 
     func disconnect() async {
         await teardownClient()
         connectedDeviceID = nil
-        theme = nil
         clientID = nil
         state = .disconnected
     }
@@ -253,7 +240,6 @@ actor ConnectionManager {
         await endedClient.stop()
         client = nil
         guard connectedDeviceID != nil else { return }
-        theme = nil
         clientID = nil
         state = .disconnected
     }
@@ -265,17 +251,9 @@ actor ConnectionManager {
     }
 
     private func broadcastEvent(_ event: EventEnvelope) {
-        cacheThemeIfNeeded(event)
         for continuation in eventContinuations.values {
             continuation.yield(event)
         }
-    }
-
-    private func cacheThemeIfNeeded(_ event: EventEnvelope) {
-        guard event.event == EventName.themeChanged else { return }
-        guard let data = event.data, data.type == EventType.deviceTheme else { return }
-        guard let deviceTheme = try? data.decode(DeviceThemeEvent.self) else { return }
-        theme = deviceTheme
     }
 
     private func removeContinuation(_ id: UUID) {

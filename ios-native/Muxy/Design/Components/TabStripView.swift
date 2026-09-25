@@ -1,10 +1,15 @@
 import SwiftUI
 
-struct TabStripView: View {
-    let tabs: [Tab]
-    let selectedTabID: UUID?
-    let onSelect: (Tab) -> Void
-    let onClose: (Tab) -> Void
+protocol TabStripItem: Identifiable {
+    var title: String { get }
+    var systemImage: String { get }
+}
+
+struct TabStripView<Item: TabStripItem>: View {
+    let tabs: [Item]
+    let selectedTabID: Item.ID?
+    let onSelect: (Item) -> Void
+    let onClose: (Item) -> Void
     let onCreate: () -> Void
 
     @Environment(\.appTheme) private var theme
@@ -31,6 +36,7 @@ struct TabStripView: View {
                             .background(Circle().fill(theme.surface))
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("New Tab")
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)

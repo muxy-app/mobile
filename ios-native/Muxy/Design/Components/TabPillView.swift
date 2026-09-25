@@ -1,7 +1,7 @@
 import SwiftUI
 
-struct TabPillView: View {
-    let tab: Tab
+struct TabPillView<Item: TabStripItem>: View {
+    let tab: Item
     let isSelected: Bool
     let onSelect: () -> Void
     let onClose: () -> Void
@@ -10,7 +10,7 @@ struct TabPillView: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            Image(systemName: icon)
+            Image(systemName: tab.systemImage)
                 .font(.footnote)
                 .foregroundStyle(secondaryForeground)
 
@@ -26,6 +26,7 @@ struct TabPillView: View {
                     .foregroundStyle(secondaryForeground)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Close \(tab.title)")
         }
         .padding(.leading, 12)
         .padding(.trailing, 10)
@@ -43,16 +44,5 @@ struct TabPillView: View {
 
     private var secondaryForeground: Color {
         isSelected ? theme.selectionForeground.opacity(0.7) : theme.secondaryForeground
-    }
-
-    private var icon: String {
-        switch tab.kind {
-        case .terminal:
-            return "terminal"
-        case .vcs:
-            return "arrow.triangle.branch"
-        case .unsupported:
-            return "questionmark.circle"
-        }
     }
 }

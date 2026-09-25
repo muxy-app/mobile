@@ -10,6 +10,22 @@ struct SettingsView: View {
         NavigationStack {
             Form {
                 Section {
+                    NavigationLink {
+                        ThemePickerView(settings: settings)
+                    } label: {
+                        HStack {
+                            Text("Theme")
+                                .foregroundStyle(theme.foreground)
+                            Spacer()
+                            Text(settings.themePalette.name)
+                                .foregroundStyle(theme.secondaryForeground)
+                        }
+                    }
+                } header: {
+                    sectionHeader("Appearance")
+                }
+
+                Section {
                     toggle(
                         isOn: $settings.useNerdFont,
                         title: "Use Nerd Font",

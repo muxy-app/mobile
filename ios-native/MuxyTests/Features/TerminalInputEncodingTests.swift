@@ -2,11 +2,6 @@ import Testing
 @testable import Muxy
 
 struct TerminalInputEncodingTests {
-    @Test func passthroughWithoutModifiers() {
-        let result = TerminalInputEncoding.apply(.cmd, to: "a")
-        #expect(result == "a")
-    }
-
     @Test func controlMapsToControlCode() {
         let result = TerminalInputEncoding.apply(.ctrl, to: "c")
         #expect(result == "\u{03}")
@@ -43,5 +38,23 @@ struct TerminalInputEncodingTests {
     @Test func arrowApplicationCursorMode() {
         #expect(TerminalInputEncoding.arrow(.up, applicationCursor: true) == [0x1b, 0x4f, 0x41])
         #expect(TerminalInputEncoding.arrow(.left, applicationCursor: true) == [0x1b, 0x4f, 0x44])
+    }
+
+    @Test func accessoryKeysEncodeToTheirBytes() {
+        #expect(TerminalInputEncoding.bytes(for: .escape, applicationCursor: false) == [0x1b])
+        #expect(TerminalInputEncoding.bytes(for: .tab, applicationCursor: false) == [0x09])
+        #expect(TerminalInputEncoding.bytes(for: .enter, applicationCursor: false) == [0x0d])
+        #expect(TerminalInputEncoding.bytes(for: .backspace, applicationCursor: false) == [0x7f])
+        #expect(TerminalInputEncoding.bytes(for: .character("~"), applicationCursor: false) == [0x7e])
+    }
+
+    @Test func accessoryArrowsFollowTheCursorMode() {
+        #expect(TerminalInputEncoding.bytes(for: .up, applicationCursor: false) == [0x1b, 0x5b, 0x41])
+        #expect(TerminalInputEncoding.bytes(for: .up, applicationCursor: true) == [0x1b, 0x4f, 0x41])
+    }
+
+    @Test func keysTheAccessoryBarNeverSendsAreIgnored() {
+        #expect(TerminalInputEncoding.bytes(for: .pageUp, applicationCursor: false) == nil)
+        #expect(TerminalInputEncoding.bytes(for: .function(1), applicationCursor: false) == nil)
     }
 }

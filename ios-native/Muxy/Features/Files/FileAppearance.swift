@@ -15,7 +15,8 @@ enum FileTint {
         case .image: index = 2
         case .destructive: index = 1
         }
-        guard let palette = theme.event.palette, palette.indices.contains(index) else { return theme.accent }
+        let palette = theme.palette.ansi
+        guard palette.indices.contains(index) else { return theme.accent }
         let rgb = palette[index]
         let color = Color(
             .sRGB,

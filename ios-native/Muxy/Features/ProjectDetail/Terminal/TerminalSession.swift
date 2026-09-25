@@ -20,7 +20,7 @@ final class TerminalSession: TerminalIO, TerminalScrollForwarding {
     private(set) var ownership: Ownership = .idle
     private(set) var isFollowingBottom = true
     private(set) var title = ""
-    private(set) var theme = TerminalTheme(clientTheme: .dark)
+    private(set) var theme = TerminalTheme(clientTheme: ClientTerminalTheme(palette: .muxy))
     private(set) var activeModifier: TerminalModifier = .ctrl
     private(set) var modifierArmed = false
 
@@ -37,7 +37,7 @@ final class TerminalSession: TerminalIO, TerminalScrollForwarding {
     @ObservationIgnored private var lastTakeOverAt: Date?
     @ObservationIgnored private var lastReportedSize: (cols: Int, rows: Int)?
     @ObservationIgnored private var pendingTakeoverSize: (cols: Int, rows: Int)?
-    @ObservationIgnored private var clientTheme: ClientTerminalTheme = .dark
+    @ObservationIgnored private var clientTheme = ClientTerminalTheme(palette: .muxy)
     @ObservationIgnored private var lastSentClientTheme: ClientTerminalTheme?
 
     private static let followEpsilon = 0.001
@@ -239,6 +239,12 @@ final class TerminalSession: TerminalIO, TerminalScrollForwarding {
         transmit(Array(text.utf8))
     }
 
+    func sendKey(_ key: TerminalKey) {
+        let applicationCursor = view?.getTerminal().applicationCursor ?? false
+        guard let bytes = TerminalInputEncoding.bytes(for: key, applicationCursor: applicationCursor) else { return }
+        transmit(bytes)
+    }
+
     @discardableResult
     func forwardTerminalScroll(deltaX: Double, deltaY: Double, precise: Bool) -> Bool {
         guard ownership == .owned || ownership == .takingOver else { return false }
@@ -358,8 +364,6 @@ final class TerminalSession: TerminalIO, TerminalScrollForwarding {
             handleBytes(event, expectedType: EventType.terminalSnapshot, isSnapshot: true)
         case EventName.paneOwnershipChanged:
             handleOwnership(event)
-        case EventName.themeChanged:
-            handleTheme(event)
         default:
             break
         }
@@ -430,17 +434,6 @@ final class TerminalSession: TerminalIO, TerminalScrollForwarding {
         case let .remote(_, deviceName):
             return deviceName
         }
-    }
-
-    private func handleTheme(_ event: EventEnvelope) {
-        guard let data = event.data, data.type == EventType.deviceTheme else { return }
-        guard let payload = try? data.decode(DeviceThemeEvent.self) else { return }
-        applyTheme(payload)
-    }
-
-    private func applyTheme(_ event: DeviceThemeEvent) {
-        guard lastSentClientTheme == nil else { return }
-        theme = TerminalTheme(event: event)
     }
 
     private func sendClientThemeIfNeeded(force: Bool) {

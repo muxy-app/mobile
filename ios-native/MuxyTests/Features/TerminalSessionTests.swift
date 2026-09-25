@@ -31,7 +31,7 @@ struct TerminalSessionTests {
         let recorded = await channel.requests
         let themeCall = try #require(recorded.first { $0.method == .setClientTheme })
         let params = try #require(themeCall.params as? SetClientThemeParams)
-        #expect(params.theme == .dark)
+        #expect(params.theme == ClientTerminalTheme(palette: .muxy))
     }
 
     @Test func clientThemeFailureDoesNotBlockTakeover() async throws {
@@ -95,6 +95,8 @@ struct TerminalSessionTests {
     @Test func sendBytesAppliesControlChordOnce() async throws {
         let channel = MockTerminalChannel()
         let session = TerminalSession(paneID: UUID(), channel: channel)
+        session.activate()
+        session.bootstrapTakeover(cols: 80, rows: 24)
 
         session.setModifierArmed(true)
         #expect(session.modifierArmed)

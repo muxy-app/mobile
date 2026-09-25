@@ -2,22 +2,27 @@ import SwiftUI
 
 struct AddConnectionView: View {
     @State var viewModel: AddConnectionViewModel
+    let pairingCode: String?
     let onAdded: (Connection) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.appTheme) private var theme
     @State private var scanError: String?
+    @State private var hasAppliedPairingCode = false
 
     var body: some View {
         NavigationStack {
             Form {
                 kindSection
-                if viewModel.kind == .device {
+                switch viewModel.kind {
+                case .device:
                     deviceSections
-                } else {
+                case .server:
+                    serverSections
+                case .ssh:
                     sshSections
                 }
-                if viewModel.status != .idle {
+                if viewModel.displayedStatus != .idle {
                     statusSection
                 }
             }
@@ -47,16 +52,21 @@ struct AddConnectionView: View {
             } message: {
                 Text(scanError ?? "")
             }
-            .task { viewModel.startDiscovery() }
+            .task {
+                applyInitialPairingCode()
+                viewModel.startDiscovery()
+            }
             .onDisappear { viewModel.stopDiscovery() }
         }
+        .interactiveDismissDisabled(viewModel.isWorking)
     }
 
     private var kindSection: some View {
         Section {
             Picker("Type", selection: kindBinding) {
-                Text("Mac").tag(ConnectionKind.device)
-                Text("SSH Server").tag(ConnectionKind.ssh)
+                Text("Muxy 1").tag(ConnectionKind.device)
+                Text("Muxy 2").tag(ConnectionKind.server)
+                Text("SSH").tag(ConnectionKind.ssh)
             }
             .pickerStyle(.segmented)
             .disabled(viewModel.isWorking)
@@ -68,6 +78,50 @@ struct AddConnectionView: View {
         nearbySection
         scanSection
         manualSection
+    }
+
+    @ViewBuilder
+    private var serverSections: some View {
+        Section {
+            Button {
+                viewModel.isShowingScanner = true
+            } label: {
+                Label("Scan QR Code", systemImage: "qrcode.viewfinder")
+                    .foregroundStyle(theme.foreground)
+            }
+            .buttonStyle(.plain)
+
+            PasteButton(payloadType: String.self) { links in
+                guard let link = links.first else { return }
+                viewModel.serverPairing.receive(link: link, source: .manual)
+            }
+            .tint(theme.accent)
+        }
+        .disabled(viewModel.isWorking)
+
+        if let target = viewModel.serverPairing.target {
+            Section {
+                LabeledContent("Address", value: target.address)
+                    .foregroundStyle(theme.foreground)
+            } header: {
+                sectionHeader("Computer")
+            } footer: {
+                Text("Only pair with a code shown on your own computer. A paired phone can do anything a terminal on that computer can.")
+                    .foregroundStyle(theme.secondaryForeground)
+            }
+
+            Section {
+                TextField("Device Name", text: deviceNameBinding)
+                    .textInputAutocapitalization(.words)
+                    .foregroundStyle(theme.foreground)
+            } header: {
+                sectionHeader("This Phone")
+            } footer: {
+                Text("Your computer lists this phone under this name in Settings → Mobile.")
+                    .foregroundStyle(theme.secondaryForeground)
+            }
+            .disabled(viewModel.isWorking)
+        }
     }
 
     @ViewBuilder
@@ -184,7 +238,7 @@ struct AddConnectionView: View {
 
     private var statusSection: some View {
         Section {
-            StatusRow(status: viewModel.status)
+            StatusRow(status: viewModel.displayedStatus)
         }
     }
 
@@ -195,6 +249,13 @@ struct AddConnectionView: View {
         .disabled(!viewModel.canSubmit)
     }
 
+    private var deviceNameBinding: Binding<String> {
+        Binding(
+            get: { viewModel.serverPairing.deviceName },
+            set: { viewModel.serverPairing.deviceName = $0 }
+        )
+    }
+
     private var kindBinding: Binding<ConnectionKind> {
         Binding(
             get: { viewModel.kind },
@@ -202,14 +263,15 @@ struct AddConnectionView: View {
         )
     }
 
-    private func handleScan(_ result: Result<PairingURI, PairingURIError>) {
-        switch result {
-        case let .success(uri):
-            viewModel.applyScan(uri)
-        case .failure:
-            viewModel.isShowingScanner = false
-            scanError = "That code isn't a Muxy pairing code."
-        }
+    private func handleScan(_ code: String) {
+        guard !viewModel.applyPairingCode(code, source: .qr) else { return }
+        scanError = "That code isn't a Muxy pairing code."
+    }
+
+    private func applyInitialPairingCode() {
+        guard !hasAppliedPairingCode, let pairingCode else { return }
+        hasAppliedPairingCode = true
+        handleScan(pairingCode)
     }
 
     private var scanErrorBinding: Binding<Bool> {

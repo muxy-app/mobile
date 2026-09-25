@@ -1,8 +1,7 @@
 import SwiftUI
 
 struct ProjectRowView: View {
-    let project: Project
-    let logoData: Data?
+    let item: ProjectListItem
 
     @Environment(\.appTheme) private var theme
 
@@ -12,10 +11,10 @@ struct ProjectRowView: View {
                 .frame(width: 32, height: 32)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(project.name)
+                Text(item.name)
                     .font(.headline)
                     .foregroundStyle(theme.foreground)
-                Text(project.path)
+                Text(item.path)
                     .font(.subheadline)
                     .foregroundStyle(theme.secondaryForeground)
                     .lineLimit(1)
@@ -25,21 +24,30 @@ struct ProjectRowView: View {
             Spacer()
         }
         .padding(.vertical, 4)
+        .padding(.leading, item.isNested ? Self.nestedIndent : 0)
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
     }
 
     @ViewBuilder
     private var icon: some View {
-        if let logoData, let image = UIImage(data: logoData) {
+        if let logo = item.logo, let image = UIImage(data: logo) {
             Image(uiImage: image)
                 .resizable()
                 .scaledToFit()
                 .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
         } else {
-            Image(systemName: project.icon ?? "folder")
-                .font(.title2)
-                .foregroundStyle(ProjectIconColor.color(for: project.iconColor, fallback: theme.foreground))
+            switch item.icon {
+            case let .symbol(name):
+                Image(systemName: name)
+                    .font(.title2)
+                    .foregroundStyle(ProjectIconColor.color(for: item.iconColor, fallback: theme.foreground))
+            case let .emoji(emoji):
+                Text(emoji)
+                    .font(.title2)
+            }
         }
     }
+
+    private static let nestedIndent: CGFloat = 24
 }

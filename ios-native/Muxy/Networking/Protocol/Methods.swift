@@ -64,7 +64,6 @@ nonisolated enum EventName {
     static let terminalOutput = "terminalOutput"
     static let terminalSnapshot = "terminalSnapshot"
     static let paneOwnershipChanged = "paneOwnershipChanged"
-    static let themeChanged = "themeChanged"
     static let fileChanged = "fileChanged"
 }
 
@@ -74,7 +73,6 @@ nonisolated enum EventType {
     static let terminalOutput = "terminalOutput"
     static let terminalSnapshot = "terminalSnapshot"
     static let paneOwnership = "paneOwnership"
-    static let deviceTheme = "deviceTheme"
     static let fileChanged = "fileChanged"
 }
 
@@ -87,27 +85,9 @@ nonisolated struct AuthParams: Codable, Sendable {
 nonisolated struct PairingResult: Codable, Sendable {
     let clientID: String
     let deviceName: String
-    let themeFg: Int?
-    let themeBg: Int?
-    let themePalette: [Int]?
 
     var pairing: Pairing {
-        Pairing(
-            clientID: clientID,
-            deviceName: deviceName,
-            themeForeground: themeFg,
-            themeBackground: themeBg,
-            themePalette: themePalette
-        )
-    }
-
-    var deviceTheme: DeviceThemeEvent? {
-        guard let themeFg, let themeBg else { return nil }
-        return DeviceThemeEvent(
-            fg: UInt32(truncatingIfNeeded: themeFg),
-            bg: UInt32(truncatingIfNeeded: themeBg),
-            palette: themePalette?.map { UInt32(truncatingIfNeeded: $0) }
-        )
+        Pairing(clientID: clientID, deviceName: deviceName)
     }
 }
 
@@ -306,12 +286,6 @@ nonisolated enum PaneOwner: Codable, Sendable, Equatable {
             try container.encode(RemoteOwner(deviceID: deviceID, deviceName: deviceName), forKey: .remote)
         }
     }
-}
-
-nonisolated struct DeviceThemeEvent: Codable, Sendable, Equatable {
-    let fg: UInt32
-    let bg: UInt32
-    let palette: [UInt32]?
 }
 
 nonisolated struct ProjectsResult: Codable, Sendable {

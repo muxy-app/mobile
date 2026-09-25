@@ -35,7 +35,7 @@ struct AppThemeTests {
     }
 
     @Test func surfaceDarkensBelowLightBackground() {
-        let theme = AppTheme(event: DeviceThemeEvent(fg: 0x000000, bg: 0xFFFFFF, palette: nil))
+        let theme = AppTheme(palette: palette(fg: 0x000000, bg: 0xFFFFFF))
         let (surfaceRed, _, _) = rgb(theme.surface)
         #expect(surfaceRed < 1)
     }
@@ -49,22 +49,22 @@ struct AppThemeTests {
     }
 
     @Test func lightBackgroundIsNotDark() {
-        let theme = AppTheme(event: DeviceThemeEvent(fg: 0x000000, bg: 0xFFFFFF, palette: nil))
+        let theme = AppTheme(palette: palette(fg: 0x000000, bg: 0xFFFFFF))
         #expect(!theme.isDark)
     }
 
     @Test func darkBackgroundIsDark() {
-        let theme = AppTheme(event: DeviceThemeEvent(fg: 0xFFFFFF, bg: 0x000000, palette: nil))
+        let theme = AppTheme(palette: palette(fg: 0xFFFFFF, bg: 0x000000))
         #expect(theme.isDark)
     }
 
     @Test func accentFallsBackToBrandWhenPaletteMissing() {
-        let theme = AppTheme(event: DeviceThemeEvent(fg: 0xFFFFFF, bg: 0x000000, palette: nil))
+        let theme = AppTheme(palette: palette(fg: 0xFFFFFF, bg: 0x000000))
         expectColor(theme.accent, equals: 0xA74BA7)
     }
 
     @Test func surfaceLightensAboveDarkBackground() {
-        let theme = AppTheme(event: DeviceThemeEvent(fg: 0xFFFFFF, bg: 0x000000, palette: nil))
+        let theme = AppTheme(palette: palette(fg: 0xFFFFFF, bg: 0x000000))
         let (red, green, blue) = rgb(theme.surface)
         #expect(red > 0.02)
         #expect(green > 0.02)
@@ -72,15 +72,28 @@ struct AppThemeTests {
     }
 
     @Test func onAccentContrastsWithAccent() {
-        let darkAccent = AppTheme(event: DeviceThemeEvent(fg: 0xFFFFFF, bg: 0x000000, palette: paletteWithAccent(0x101010)))
-        let lightAccent = AppTheme(event: DeviceThemeEvent(fg: 0xFFFFFF, bg: 0x000000, palette: paletteWithAccent(0xF0F0F0)))
+        let darkAccent = AppTheme(palette: palette(fg: 0xFFFFFF, bg: 0x000000, ansi: ansiWithAccent(0x101010)))
+        let lightAccent = AppTheme(palette: palette(fg: 0xFFFFFF, bg: 0x000000, ansi: ansiWithAccent(0xF0F0F0)))
         expectColor(darkAccent.onAccent, equals: 0xFFFFFF)
         expectColor(lightAccent.onAccent, equals: 0x000000)
     }
 
-    private func paletteWithAccent(_ accent: UInt32) -> [UInt32] {
-        var palette = Array(repeating: UInt32(0), count: 16)
-        palette[4] = accent
-        return palette
+    private func palette(fg: UInt32, bg: UInt32, ansi: [UInt32] = []) -> ThemePalette {
+        ThemePalette(
+            name: "Test",
+            foreground: fg,
+            background: bg,
+            ansi: ansi,
+            cursor: fg,
+            cursorText: bg,
+            selectionBackground: fg,
+            selectionForeground: bg
+        )
+    }
+
+    private func ansiWithAccent(_ accent: UInt32) -> [UInt32] {
+        var ansi = Array(repeating: UInt32(0), count: 16)
+        ansi[4] = accent
+        return ansi
     }
 }

@@ -4,6 +4,7 @@
 
 - Xcode with an iOS SDK and simulator runtime supporting iOS 26.2 or newer.
 - Python 3, used by the runner to discover devices.
+- `rustup` and a Muxy 2 checkout, used to build the Muxy SDK.
 - Internet access for the first build to resolve Swift packages. CocoaPods and an Expo server are not required.
 
 Check the selected Xcode installation with `xcodebuild -version`. If it points to Command Line Tools instead of Xcode, select Xcode:
@@ -13,6 +14,16 @@ sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 ```
 
 Run the following commands from `ios-native/`, or prefix them with `ios-native/` from the repository root.
+
+## Muxy SDK
+
+The app embeds the Muxy mobile SDK, a Rust library with generated Swift bindings. The SDK is built from a Muxy 2 checkout and isn't committed, because its XCFramework is too large for git. Build it before the first app build:
+
+```sh
+MUXY_REPO=~/Projects/muxy scripts/run.sh sdk
+```
+
+The runner writes the SDK to `MuxyMobileSDK/Build/`, including a `REVISION` file naming the Muxy commit it came from. During the beta, the SDK and the Muxy server the app connects to must come from the same Muxy build. Run the command again after updating Muxy. If the app then crashes with a UniFFI checksum mismatch, clean the build folder and build again.
 
 ## Simulator
 
@@ -70,6 +81,7 @@ DEVELOPER_DIR="/Applications/Xcode-beta.app/Contents/Developer" ./scripts/run.sh
 
 | Command | Action |
 | --- | --- |
+| `./scripts/run.sh sdk` | Build the Muxy SDK from the Muxy repository in `MUXY_REPO` |
 | `./scripts/run.sh build` | Build for Simulator without booting, installing, or launching |
 | `./scripts/run.sh build-device` | Build for a paired device without installing or launching |
 | `./scripts/run.sh test` | Run unit tests in Simulator |
@@ -80,11 +92,21 @@ DEVELOPER_DIR="/Applications/Xcode-beta.app/Contents/Developer" ./scripts/run.sh
 
 Build products are stored in `.build/xcode/`. The first build can take several minutes while Swift packages compile.
 
-## Connect to your Mac
+## Connect to Muxy 1
 
-In the macOS Muxy app, open **Settings > Mobile** and enable **Allow mobile device connection**.
+In the macOS Muxy app, open **Settings > Mobile** and enable **Allow mobile device connection**. In the app, choose **Add Connection > Muxy 1**.
 
 - Simulator: connect to `127.0.0.1:4865`.
 - Physical device: use your Mac's LAN IP and port `4865`, with both devices on the same network. Allow local network access when prompted.
 
 Use the configured port if you changed it, then approve the connection on your Mac.
+
+## Pair with Muxy 2
+
+The app connects to a Muxy 2 server built from the same Muxy commit as the SDK.
+
+1. On the computer, open Muxy **Settings > Mobile**, turn on **Allow mobile devices**, and choose **Show Pairing Code**. Without the desktop app, run `muxy mobile enable` and then `muxy mobile pair`.
+2. In the app, choose **Add Connection > Muxy 2** and scan the code, or open the `muxy://pair` link from the Camera app. In Simulator, use **Copy Link** on the computer and paste it in the app.
+3. Confirm the address and the device name, then tap **Add**.
+
+The phone and the computer must be on the same network or connected through a VPN such as Tailscale. Allow local network access when iOS asks. To try the app without a computer, turn on **Settings > Demo Mode**.

@@ -55,4 +55,7 @@ app-example
 .venv-play-upload/
 
 ios-native/.build
+ios-native/MuxyMobileSDK/Build
+ios-native/MuxyMobileSDK/.build
+ios-native/MuxyMobileSDK/.swiftpm
 /ios

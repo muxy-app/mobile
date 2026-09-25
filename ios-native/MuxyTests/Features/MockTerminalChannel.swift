@@ -9,7 +9,6 @@ actor MockTerminalChannel: TerminalChannel {
 
     private(set) var requests: [Call] = []
     private(set) var notifications: [Call] = []
-    var currentTheme: DeviceThemeEvent?
     var currentClientID: UUID?
 
     private var continuation: AsyncStream<EventEnvelope>.Continuation?

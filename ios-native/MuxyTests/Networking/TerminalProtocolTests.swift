@@ -66,19 +66,6 @@ struct TerminalProtocolTests {
         #expect(payload.owner == .mac(deviceName: "MacBook"))
     }
 
-    @Test func deviceThemeDecodes() throws {
-        let event = try event(from: """
-        { "type": "event", "payload": { "event": "themeChanged",
-          "data": { "type": "deviceTheme", "value": { "fg": 16777215, "bg": 197379, "palette": [0, 16711680] } } } }
-        """)
-
-        #expect(event.data?.type == EventType.deviceTheme)
-        let payload = try #require(event.data).decode(DeviceThemeEvent.self)
-        #expect(payload.fg == 16777215)
-        #expect(payload.bg == 197379)
-        #expect(payload.palette == [0, 16711680])
-    }
-
     @Test func terminalInputParamsEncodeBytesAsBase64() throws {
         let params = TerminalInputParams(paneID: "pane-1", bytes: Data([0x03]))
         let object = try JSONSerialization.jsonObject(with: JSONEncoder().encode(params)) as? [String: Any]
@@ -94,15 +81,15 @@ struct TerminalProtocolTests {
     }
 
     @Test func setClientThemeParamsEncodeTheme() throws {
-        let params = SetClientThemeParams(theme: .dark)
+        let params = SetClientThemeParams(theme: ClientTerminalTheme(palette: .muxy))
         let object = try JSONSerialization.jsonObject(with: JSONEncoder().encode(params)) as? [String: Any]
         let theme = try #require(object?["theme"] as? [String: Any])
         let palette = try #require(theme["palette"] as? [Int])
-        #expect(theme["fg"] as? Int == 0xF2F2F7)
-        #expect(theme["bg"] as? Int == 0x000000)
+        #expect(theme["fg"] as? Int == 0xC9C2D9)
+        #expect(theme["bg"] as? Int == 0x19171F)
         #expect(palette.count == 16)
-        #expect(theme["cursorColor"] as? Int == 0xF2F2F7)
-        #expect(theme["selectionForeground"] as? Int == 0xFFFFFF)
+        #expect(theme["cursorColor"] as? Int == 0xC370D3)
+        #expect(theme["selectionForeground"] as? Int == 0x19171F)
     }
 }
 

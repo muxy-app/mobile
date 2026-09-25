@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 @MainActor
 final class AppContainer {
@@ -9,10 +10,12 @@ final class AppContainer {
     let validator: ConnectionInputValidator
     let tokenGenerator: TokenGenerating
     let settings: AppSettings
-    let themeStore: ThemeStore
+    let credentials: CredentialStore
+    let directory: ServerDirectory
 
     private let workspaceSelectionStore: WorkspaceSelectionStore
     private let makeBrowser: @MainActor () -> any BonjourBrowsing
+    private let serverPairing: ServerPairingService
 
     init(
         connectionStore: ConnectionStore = UserDefaultsConnectionStore(),
@@ -22,7 +25,10 @@ final class AppContainer {
         tokenGenerator: TokenGenerating = TokenGenerator(),
         settings: AppSettings? = nil,
         workspaceSelectionStore: WorkspaceSelectionStore = UserDefaultsWorkspaceSelectionStore(),
-        makeBrowser: @escaping @MainActor () -> any BonjourBrowsing = { BonjourBrowser() }
+        makeBrowser: @escaping @MainActor () -> any BonjourBrowsing = { BonjourBrowser() },
+        credentials: CredentialStore = KeychainCredentialStore(),
+        serverPairing: ServerPairingService = SDKPairingService(),
+        serverConnector: ServerConnector = SDKServerConnector()
     ) {
         self.connectionStore = connectionStore
         self.keychain = keychain
@@ -32,16 +38,18 @@ final class AppContainer {
         self.settings = settings ?? AppSettings()
         self.workspaceSelectionStore = workspaceSelectionStore
         self.makeBrowser = makeBrowser
+        self.credentials = credentials
+        self.serverPairing = serverPairing
+        directory = ServerDirectory(credentials: credentials, connector: serverConnector)
         let connectionManager = ConnectionManager(
             makeTransport: { url in WebSocketTransport(url: url) },
             pairingService: pairingService
         )
         self.connectionManager = connectionManager
-        themeStore = ThemeStore(connectionManager: connectionManager)
     }
 
     func makeConnectionsListViewModel() -> ConnectionsListViewModel {
-        ConnectionsListViewModel(store: connectionStore, keychain: keychain)
+        ConnectionsListViewModel(store: connectionStore, keychain: keychain, credentials: credentials, directory: directory)
     }
 
     func makeAddConnectionViewModel() -> AddConnectionViewModel {
@@ -51,7 +59,13 @@ final class AppContainer {
             connectionManager: connectionManager,
             validator: validator,
             tokenGenerator: tokenGenerator,
-            browser: makeBrowser()
+            browser: makeBrowser(),
+            serverPairing: ServerPairingModel(
+                pairing: serverPairing,
+                credentials: credentials,
+                store: connectionStore,
+                deviceName: UIDevice.current.name
+            )
         )
     }
 

@@ -2,99 +2,55 @@ import SwiftUI
 
 struct ProjectsView: View {
     @Environment(\.scenePhase) private var scenePhase
-    @Environment(\.appTheme) private var theme
     @State var viewModel: ProjectsViewModel
     let onSelect: (Project) -> Void
 
     var body: some View {
-        content
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(theme.background)
-            .navigationTitle(viewModel.connection.name)
-            .navigationBarTitleDisplayMode(.inline)
-            .task { await viewModel.connect() }
-            .onChange(of: scenePhase) { _, phase in
-                guard phase == .active else { return }
-                Task { await viewModel.reconnect() }
-            }
-    }
-
-    @ViewBuilder
-    private var content: some View {
-        if viewModel.projects.isEmpty {
-            emptyState
-        } else {
-            VStack(spacing: 0) {
-                if viewModel.workspaces.count > 1 {
-                    WorkspaceFilterBar(
-                        workspaces: viewModel.workspaces,
-                        selectedWorkspaceID: $viewModel.selectedWorkspaceID
-                    )
-                }
-
-                projectList
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var projectList: some View {
-        if viewModel.filteredProjects.isEmpty {
-            ThemedEmptyState(
-                title: "No Projects",
-                systemImage: "folder",
-                message: "This workspace has no projects."
-            )
-        } else {
-            List(viewModel.filteredProjects) { project in
-                Button {
-                    onSelect(project)
-                } label: {
-                    ProjectRowView(project: project, logoData: viewModel.logoData(for: project))
-                }
-                .buttonStyle(.plain)
-            }
-            .themedSurface()
-        }
-    }
-
-    @ViewBuilder
-    private var emptyState: some View {
-        switch viewModel.state {
-        case .connecting, .authenticating:
-            ProgressView()
-                .tint(theme.accent)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(theme.background)
-        case .connected where viewModel.loadFailed:
-            ThemedEmptyState(
-                title: "Couldn't Load Projects",
-                systemImage: "exclamationmark.triangle",
-                message: "Something went wrong loading projects from \(viewModel.connection.name)."
-            ) {
-                retryButton
-            }
-        case .connected:
-            ThemedEmptyState(
-                title: "No Projects",
-                systemImage: "folder",
-                message: "Projects on \(viewModel.connection.name) will appear here."
-            )
-        default:
-            ThemedEmptyState(
-                title: "Not Connected",
-                systemImage: "wifi.slash",
-                message: "Connect to \(viewModel.connection.name) to see its projects."
-            ) {
-                retryButton
-            }
-        }
-    }
-
-    private var retryButton: some View {
-        Button("Retry") {
+        ProjectListScreen(
+            title: viewModel.connection.name,
+            connectionName: viewModel.connection.name,
+            items: viewModel.filteredProjects.map(listItem(for:)),
+            hasProjects: !viewModel.projects.isEmpty,
+            workspaces: viewModel.workspaces,
+            selectedWorkspaceID: $viewModel.selectedWorkspaceID,
+            status: status,
+            onSelect: select,
+            onRetry: { Task { await viewModel.reconnect() } }
+        )
+        .task { await viewModel.connect() }
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else { return }
             Task { await viewModel.reconnect() }
         }
-        .buttonStyle(ThemedBorderedButtonStyle())
+    }
+
+    private var status: ProjectListStatus {
+        switch viewModel.state {
+        case .connecting, .authenticating:
+            return .loading
+        case .connected where viewModel.loadFailed:
+            return .loadFailed
+        case .connected:
+            return .empty
+        default:
+            return .disconnected(message: nil)
+        }
+    }
+
+    private func listItem(for project: Project) -> ProjectListItem {
+        ProjectListItem(
+            id: project.id.uuidString,
+            name: project.name,
+            path: project.path,
+            icon: .symbol(project.icon ?? "folder"),
+            iconColor: project.iconColor,
+            logo: viewModel.logoData(for: project),
+            isNested: false
+        )
+    }
+
+    private func select(_ item: ProjectListItem) {
+        guard let project = viewModel.projects.first(where: { $0.id.uuidString == item.id }) else { return }
+        onSelect(project)
     }
 }

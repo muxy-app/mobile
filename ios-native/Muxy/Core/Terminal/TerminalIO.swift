@@ -15,6 +15,7 @@ protocol TerminalIO: AnyObject {
     func terminalDidResize(cols: Int, rows: Int)
     func sendBytes(_ slice: ArraySlice<UInt8>)
     func sendText(_ text: String)
+    func sendKey(_ key: TerminalKey)
     func paste()
     func copySelection()
     func setModifierArmed(_ armed: Bool)

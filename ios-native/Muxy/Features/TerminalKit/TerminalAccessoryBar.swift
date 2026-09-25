@@ -10,7 +10,8 @@ final class TerminalAccessoryModel: ObservableObject {
     @Published var canCopySelection: Bool = false
     @Published var foreground: SwiftUI.Color = .primary
 
-    var onKey: ((String) -> Void)?
+    var onKey: ((TerminalKey) -> Void)?
+    var onText: ((String) -> Void)?
     var onModifierToggle: ((Bool) -> Void)?
     var onModifierChange: ((TerminalModifier) -> Void)?
     var onKeyboardToggle: (() -> Void)?
@@ -46,9 +47,14 @@ final class TerminalAccessoryModel: ObservableObject {
 }
 
 final class TerminalAccessoryBar: UIInputView {
-    var onKey: ((String) -> Void)? {
+    var onKey: ((TerminalKey) -> Void)? {
         get { model.onKey }
         set { model.onKey = newValue }
+    }
+
+    var onText: ((String) -> Void)? {
+        get { model.onText }
+        set { model.onText = newValue }
     }
 
     var onModifierToggle: ((Bool) -> Void)? {
@@ -152,8 +158,8 @@ struct TerminalAccessoryView: View {
             keyPill
             Spacer(minLength: 6)
             keyboardButton
-            DPadControl(tint: fg) { payload in
-                model.onKey?(payload)
+            DPadControl(tint: fg) { key in
+                model.onKey?(key)
             }
         }
         .padding(.horizontal, 12)
@@ -163,15 +169,15 @@ struct TerminalAccessoryView: View {
     private var keyPill: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
-                key("esc", payload: "\u{1B}")
+                key("esc", action: { model.onKey?(.escape) })
                 modifierKey
-                key("tab", payload: "\t")
+                key("tab", action: { model.onKey?(.tab) })
                 actionIcon("doc.on.clipboard", label: "Paste", action: { model.onPaste?() })
                 actionIcon("doc.on.doc", label: "Copy", enabled: model.canCopySelection, action: { model.onCopy?() })
-                key("~", payload: "~")
-                key("|", payload: "|")
-                key("/", payload: "/")
-                key("-", payload: "-")
+                symbol("~")
+                symbol("|")
+                symbol("/")
+                symbol("-")
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
@@ -180,10 +186,12 @@ struct TerminalAccessoryView: View {
         .glassEffect(.regular, in: Capsule())
     }
 
-    private func key(_ title: String, payload: String) -> some View {
-        Button {
-            model.onKey?(payload)
-        } label: {
+    private func symbol(_ text: String) -> some View {
+        key(text, action: { model.onText?(text) })
+    }
+
+    private func key(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
             Text(title)
                 .font(.system(size: 14, weight: .medium, design: .monospaced))
                 .foregroundStyle(fg)

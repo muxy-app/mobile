@@ -2,7 +2,7 @@ import AVFoundation
 import SwiftUI
 
 struct QRScannerView: View {
-    let onScan: (Result<PairingURI, PairingURIError>) -> Void
+    let onScan: (String) -> Void
     let onCancel: () -> Void
 
     @State private var authorization = AVCaptureDevice.authorizationStatus(for: .video)
@@ -25,9 +25,7 @@ struct QRScannerView: View {
     private var content: some View {
         switch authorization {
         case .authorized:
-            ScannerRepresentable { code in
-                onScan(parse(code))
-            }
+            ScannerRepresentable(onCode: onScan)
             .ignoresSafeArea(edges: .bottom)
         case .notDetermined:
             ProgressView()
@@ -47,14 +45,6 @@ struct QRScannerView: View {
                 UIApplication.shared.open(url)
             }
             .buttonStyle(.borderedProminent)
-        }
-    }
-
-    private func parse(_ code: String) -> Result<PairingURI, PairingURIError> {
-        do {
-            return .success(try PairingURI.parse(code))
-        } catch {
-            return .failure(error)
         }
     }
 

@@ -11,9 +11,9 @@ struct SSHTerminalTabView: View {
 
     var body: some View {
         terminalSurface
-            .onAppear { session.useClientTheme(ClientTerminalTheme(event: appTheme.event)) }
+            .onAppear { session.useClientTheme(ClientTerminalTheme(palette: appTheme.palette)) }
             .onChange(of: appTheme) { _, newValue in
-                session.useClientTheme(ClientTerminalTheme(event: newValue.event))
+                session.useClientTheme(ClientTerminalTheme(palette: newValue.palette))
             }
             .onDisappear { session.dismissKeyboard() }
     }

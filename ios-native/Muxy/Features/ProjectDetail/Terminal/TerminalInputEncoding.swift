@@ -18,6 +18,31 @@ nonisolated enum TerminalInputEncoding {
         return prefix + [letter(for: arrow)]
     }
 
+    static func bytes(for key: TerminalKey, applicationCursor: Bool) -> [UInt8]? {
+        switch key {
+        case .escape:
+            return escape
+        case .tab:
+            return tab
+        case .enter:
+            return enter
+        case .backspace:
+            return backspace
+        case .up:
+            return arrow(.up, applicationCursor: applicationCursor)
+        case .down:
+            return arrow(.down, applicationCursor: applicationCursor)
+        case .left:
+            return arrow(.left, applicationCursor: applicationCursor)
+        case .right:
+            return arrow(.right, applicationCursor: applicationCursor)
+        case let .character(text):
+            return Array(text.utf8)
+        case .backTab, .insert, .delete, .home, .end, .pageUp, .pageDown, .function:
+            return nil
+        }
+    }
+
     static func apply(_ modifier: TerminalModifier, to text: String) -> String? {
         switch modifier {
         case .ctrl:
@@ -26,8 +51,6 @@ nonisolated enum TerminalInputEncoding {
             return text.uppercased()
         case .alt:
             return "\u{1b}" + text
-        case .cmd:
-            return text
         }
     }
 
