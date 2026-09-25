@@ -1,9 +1,31 @@
 import MuxyMobile
+import OSLog
+import QuartzCore
 import UIKit
 
-final class TerminalSurfaceView: UIView, UIScrollViewDelegate {
+final class TerminalSurfaceView: UIView, UIScrollViewDelegate, UIGestureRecognizerDelegate {
+    var onKeyboardOffsetChange: ((CGFloat) -> Void)?
+
     private let controller: TerminalController
     private let scrollView = UIScrollView()
+    private let keyboardOcclusionView = UIView()
+    private let keyboardGuideProbe = UIView()
+    private lazy var viewportPanGesture = TerminalSurfacePanGestureRecognizer(
+        target: self,
+        action: #selector(handleViewportPan)
+    ) { [weak self] in
+        self?.stopMomentum()
+    }
+    private var viewportState = TerminalViewportState()
+    private var terminalSize: CGSize?
+    private var pendingTerminalSize: CGSize?
+    private var terminalSizeConfirmationScheduled = false
+    private var cursorFrame: CGRect?
+    private var lastReportedKeyboardOffset: CGFloat = 0
+    private var momentumDriver: DisplayLinkDriver?
+    private var momentumVelocity: CGFloat = 0
+    private var momentumTimestamp: CFTimeInterval = 0
+    private var historyPullDistance: CGFloat = 0
     private let canvas: TerminalCanvasView
     private let input = TerminalInputView()
     private let accessoryBar = TerminalAccessoryBar()
@@ -65,6 +87,8 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate {
     override func didMoveToWindow() {
         super.didMoveToWindow()
         guard window != nil else {
+            stopMomentum()
+            historyPullDistance = 0
             displayLink?.stop()
             displayLink = nil
             input.resignFirstResponder()
@@ -80,10 +104,205 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        positionCanvas()
+        guard bounds.width > 0, bounds.height > 0 else { return }
+        syncKeyboardOffset()
+        positionKeyboardOcclusion()
+        guard lockTerminalSizeIfStable() else { return }
+        positionTerminal()
         reportViewport()
-        guard controller.isFollowing else { return }
-        revealCursor(animated: false)
+        if controller.isFollowing, !isViewportInteracting {
+            revealCursor(animated: false)
+        }
+        placeCursorAboveKeyboard()
+    }
+
+    override func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        guard gestureRecognizer === viewportPanGesture else { return true }
+        guard viewportState.keyboardOffset > 0, selection == nil else { return false }
+        let velocity = viewportPanGesture.velocity(in: self)
+        return abs(velocity.y) > abs(velocity.x)
+    }
+
+    private func lockTerminalSizeIfStable() -> Bool {
+        if terminalSize != nil { return true }
+        guard terminalDimensionsAreUsable else { return false }
+        pendingTerminalSize = bounds.size
+        guard !terminalSizeConfirmationScheduled else { return false }
+        terminalSizeConfirmationScheduled = true
+        DispatchQueue.main.async { [weak self] in
+            self?.confirmTerminalSize()
+        }
+        return false
+    }
+
+    private var terminalDimensionsAreUsable: Bool {
+        guard let size = metrics.gridSize(fitting: bounds.size) else { return false }
+        return size.columns >= 20 && size.rows >= 4
+    }
+
+    private func confirmTerminalSize() {
+        terminalSizeConfirmationScheduled = false
+        guard terminalSize == nil, let pendingTerminalSize else { return }
+        guard pendingTerminalSize == bounds.size, terminalDimensionsAreUsable else {
+            setNeedsLayout()
+            return
+        }
+        terminalSize = pendingTerminalSize
+        self.pendingTerminalSize = nil
+        setNeedsLayout()
+    }
+
+    private func syncKeyboardOffset() {
+        let guideFrame = keyboardLayoutGuide.layoutFrame
+        let nextOffset = guideFrame == .zero
+            ? 0
+            : min(bounds.height, max(0, bounds.maxY - guideFrame.minY))
+        guard abs(nextOffset - viewportState.keyboardOffset) > 0.5 else { return }
+        stopMomentum()
+        historyPullDistance = 0
+        scrollView.setContentOffset(scrollView.contentOffset, animated: false)
+        viewportState.updateKeyboardOffset(nextOffset)
+        reportKeyboardOffset(nextOffset)
+        Log.terminal.debug("keyboard overlap=\(nextOffset, privacy: .public)")
+    }
+
+    private func reportKeyboardOffset(_ offset: CGFloat) {
+        guard abs(offset - lastReportedKeyboardOffset) > 0.5 else { return }
+        lastReportedKeyboardOffset = offset
+        DispatchQueue.main.async { [weak self] in
+            guard let self, abs(self.lastReportedKeyboardOffset - offset) <= 0.5 else { return }
+            self.onKeyboardOffsetChange?(offset)
+        }
+    }
+
+    private func placeCursorAboveKeyboard() {
+        guard terminalSize != nil, viewportState.needsCursorPlacement else { return }
+        guard displayedHistory == nil else {
+            viewportState.stopFollowingCursor()
+            return
+        }
+        guard let cursorFrame else { return }
+        let previousOffset = viewportState.viewportOffset
+        viewportState.placeCursor(
+            in: cursorFrame.offsetBy(dx: -scrollView.contentOffset.x, dy: -scrollView.contentOffset.y),
+            viewportHeight: bounds.height
+        )
+        guard viewportState.viewportOffset != previousOffset else { return }
+        Log.terminal.debug("keyboard cursor placement offset=\(self.viewportState.viewportOffset, privacy: .public)")
+        positionTerminal()
+    }
+
+    private func positionTerminal() {
+        guard let terminalSize else { return }
+        scrollView.frame = CGRect(
+            x: 0,
+            y: -viewportState.viewportOffset,
+            width: terminalSize.width,
+            height: terminalSize.height
+        )
+        positionCanvas()
+    }
+
+    private func positionKeyboardOcclusion() {
+        let height = viewportState.keyboardOffset
+        keyboardOcclusionView.frame = CGRect(
+            x: bounds.minX,
+            y: bounds.maxY - height,
+            width: bounds.width,
+            height: height
+        )
+    }
+
+    private var isViewportInteracting: Bool {
+        viewportPanGesture.state == .began || viewportPanGesture.state == .changed || momentumDriver != nil
+    }
+
+    @objc private func handleViewportPan(_ gesture: UIPanGestureRecognizer) {
+        switch gesture.state {
+        case .began:
+            stopMomentum()
+            viewportState.stopFollowingCursor()
+            controller.setFollowing(false)
+            historyPullDistance = 0
+            if let renderedFrame = scrollView.layer.presentation()?.frame {
+                viewportState.captureRenderedOffset(-renderedFrame.minY)
+                scrollView.layer.removeAllAnimations()
+                positionTerminal()
+            }
+        case .changed:
+            let translation = gesture.translation(in: self)
+            gesture.setTranslation(.zero, in: self)
+            routeViewportScroll(delta: -translation.y)
+        case .ended:
+            startMomentum(velocity: -gesture.velocity(in: self).y)
+        case .cancelled, .failed:
+            stopMomentum()
+            historyPullDistance = 0
+            settleScrolling()
+        default:
+            break
+        }
+    }
+
+    @discardableResult
+    private func routeViewportScroll(delta: CGFloat) -> Bool {
+        let previousOffset = viewportState.viewportOffset
+        let residual = viewportState.consume(delta)
+        positionTerminal()
+        let viewportMoved = previousOffset != viewportState.viewportOffset
+        guard residual != 0 else { return viewportMoved }
+        let currentOffset = scrollView.contentOffset.y
+        let maxOffset = max(0, scrollView.contentSize.height - scrollView.bounds.height)
+        let nextOffset = min(max(0, currentOffset + residual), maxOffset)
+        scrollView.contentOffset.y = nextOffset
+        if displayedHistory == nil, residual < 0, nextOffset == 0 {
+            historyPullDistance += max(0, -(currentOffset + residual))
+            if historyPullDistance > metrics.cellHeight * 2 {
+                requestHistory()
+            }
+        } else {
+            historyPullDistance = 0
+        }
+        if displayedHistory != nil, nextOffset < metrics.cellHeight * Self.olderHistoryThresholdRows {
+            loadOlderHistory()
+        }
+        return viewportMoved || nextOffset != currentOffset
+    }
+
+    private func startMomentum(velocity: CGFloat) {
+        guard abs(velocity) > 100 else {
+            settleScrolling()
+            return
+        }
+        momentumVelocity = velocity
+        momentumTimestamp = CACurrentMediaTime()
+        let driver = DisplayLinkDriver { [weak self] in self?.stepMomentum() }
+        driver.start()
+        driver.requestFrame()
+        momentumDriver = driver
+    }
+
+    private func stepMomentum() {
+        let timestamp = CACurrentMediaTime()
+        let elapsed = min(timestamp - momentumTimestamp, 1.0 / 30.0)
+        momentumTimestamp = timestamp
+        guard routeViewportScroll(delta: momentumVelocity * elapsed) else {
+            stopMomentum()
+            settleScrolling()
+            return
+        }
+        momentumVelocity *= CGFloat(pow(0.96, elapsed / (1.0 / 60.0)))
+        if abs(momentumVelocity) < 30 {
+            stopMomentum()
+            settleScrolling()
+        }
+    }
+
+    private func stopMomentum() {
+        momentumDriver?.stop()
+        momentumDriver = nil
+        momentumVelocity = 0
+        momentumTimestamp = 0
     }
 
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
@@ -99,6 +318,8 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate {
     }
 
     func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+        historyPullDistance = 0
+        viewportState.stopFollowingCursor()
         controller.setFollowing(false)
     }
 
@@ -114,7 +335,7 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate {
     private static let olderHistoryThresholdRows: CGFloat = 40
 
     private func configureViews() {
-        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        clipsToBounds = true
         scrollView.delegate = self
         scrollView.alwaysBounceVertical = true
         scrollView.contentInsetAdjustmentBehavior = .never
@@ -124,12 +345,18 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate {
         scrollView.addSubview(canvas)
         addSubview(scrollView)
         addSubview(input)
+        keyboardOcclusionView.isUserInteractionEnabled = false
+        addSubview(keyboardOcclusionView)
         keyboardLayoutGuide.followsUndockedKeyboard = false
+        keyboardLayoutGuide.usesBottomSafeArea = false
+        keyboardGuideProbe.isUserInteractionEnabled = false
+        keyboardGuideProbe.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(keyboardGuideProbe)
         NSLayoutConstraint.activate([
-            scrollView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            scrollView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            scrollView.topAnchor.constraint(equalTo: topAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: keyboardLayoutGuide.topAnchor),
+            keyboardGuideProbe.leadingAnchor.constraint(equalTo: leadingAnchor),
+            keyboardGuideProbe.trailingAnchor.constraint(equalTo: trailingAnchor),
+            keyboardGuideProbe.topAnchor.constraint(equalTo: keyboardLayoutGuide.topAnchor),
+            keyboardGuideProbe.heightAnchor.constraint(equalToConstant: 0),
         ])
         isAccessibilityElement = true
         accessibilityLabel = "Terminal"
@@ -152,6 +379,11 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate {
     }
 
     private func configureGestures() {
+        viewportPanGesture.delegate = self
+        viewportPanGesture.maximumNumberOfTouches = 1
+        scrollView.addGestureRecognizer(viewportPanGesture)
+        scrollView.panGestureRecognizer.require(toFail: viewportPanGesture)
+
         let tap = UITapGestureRecognizer(target: self, action: #selector(handleTap))
         addGestureRecognizer(tap)
 
@@ -169,6 +401,7 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate {
         let background = UIColor(cgColor: canvas.renderer.backgroundColor)
         backgroundColor = background
         scrollView.backgroundColor = background
+        keyboardOcclusionView.backgroundColor = background
         accessoryBar.applyTheme(
             background: background,
             foreground: UIColor(rgb: theme.foreground)
@@ -188,7 +421,7 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate {
     }
 
     private func reportViewport() {
-        guard let size = metrics.gridSize(fitting: bounds.size) else { return }
+        guard let terminalSize, let size = metrics.gridSize(fitting: terminalSize) else { return }
         controller.viewportDidChange(size)
     }
 
@@ -216,6 +449,10 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate {
             columnCount = Int(screen.columns)
         }
         liveHistoryRows = screen.historyRows
+        cursorFrame = metrics.cellRect(
+            row: Int(screen.cursor.row),
+            column: min(Int(screen.cursor.column), max(columnCount - 1, 0))
+        )
         cursor = screen.cursor.visible ? TerminalCursorMark(
             row: Int(screen.cursor.row),
             column: min(Int(screen.cursor.column), max(columnCount - 1, 0)),
@@ -224,8 +461,10 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate {
         lines = screenLines
         canvas.update(lines: screenLines, columnCount: columnCount, cursor: cursor)
         updateContentSize()
-        guard controller.isFollowing else { return }
-        revealCursor(animated: false)
+        if controller.isFollowing, !isViewportInteracting {
+            revealCursor(animated: false)
+        }
+        placeCursorAboveKeyboard()
     }
 
     private func updateContentSize() {
@@ -287,8 +526,11 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate {
         guard let cursor else { return isScrolledToBottom }
         return TerminalScrollMath.isVisible(
             metrics.cellRect(row: cursor.row, column: cursor.column),
-            offset: scrollView.contentOffset,
-            visibleSize: scrollView.bounds.size,
+            offset: CGPoint(
+                x: scrollView.contentOffset.x,
+                y: scrollView.contentOffset.y + viewportState.viewportOffset
+            ),
+            visibleSize: CGSize(width: bounds.width, height: max(0, bounds.height - viewportState.keyboardOffset)),
             tolerance: CGSize(width: metrics.cellWidth / 2, height: metrics.cellHeight / 2)
         )
     }
@@ -318,7 +560,8 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate {
         cursor = nil
         canvas.update(lines: lines, columnCount: columnCount, cursor: nil)
         updateContentSize()
-        scrollView.contentOffset.y += shift
+        scrollView.contentOffset.y = max(0, scrollView.contentOffset.y + shift - historyPullDistance)
+        historyPullDistance = 0
         positionCanvas()
     }
 
@@ -368,6 +611,11 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate {
     }
 
     private func toggleSoftKeyboard() {
+        if input.softKeyboardHidden {
+            stopMomentum()
+            viewportState.followCursor()
+            setNeedsLayout()
+        }
         input.toggleSoftKeyboard()
         accessoryBar.setKeyboardVisible(!input.softKeyboardHidden)
     }
@@ -411,6 +659,12 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate {
 }
 
 extension TerminalSurfaceView: TerminalDisplay {
+    func prepareForLiveOutput() {
+        stopMomentum()
+        historyPullDistance = 0
+        viewportState.followCursor()
+    }
+
     func screenNeedsRefresh() {
         needsScreen = true
         displayLink?.requestFrame()
@@ -467,5 +721,19 @@ extension TerminalSurfaceView: UIEditMenuInteractionDelegate {
             self?.copySelection()
         }
         return UIMenu(children: [copy])
+    }
+}
+
+private final class TerminalSurfacePanGestureRecognizer: UIPanGestureRecognizer {
+    private let onTouchDown: () -> Void
+
+    init(target: Any?, action: Selector?, onTouchDown: @escaping () -> Void) {
+        self.onTouchDown = onTouchDown
+        super.init(target: target, action: action)
+    }
+
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
+        onTouchDown()
+        super.touchesBegan(touches, with: event)
     }
 }

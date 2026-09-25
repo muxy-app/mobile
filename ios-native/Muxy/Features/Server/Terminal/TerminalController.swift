@@ -6,6 +6,7 @@ import OSLog
 @MainActor
 protocol TerminalDisplay: AnyObject {
     func screenNeedsRefresh()
+    func prepareForLiveOutput()
 }
 
 @MainActor
@@ -265,6 +266,7 @@ final class TerminalController: Identifiable, TabStripItem {
     func returnToLive() {
         leaveHistory()
         setFollowing(true)
+        display?.prepareForLiveOutput()
         display?.screenNeedsRefresh()
     }
 

@@ -6,6 +6,7 @@ struct TerminalScreenView: View {
     let isDisconnected: Bool
 
     @Environment(\.appTheme) private var theme
+    @State private var keyboardOffset: CGFloat = 0
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
@@ -13,13 +14,15 @@ struct TerminalScreenView: View {
                 controller: controller,
                 palette: theme.palette,
                 useNerdFont: settings.useNerdFont,
-                autoFocus: settings.autoFocusTerminal
+                autoFocus: settings.autoFocusTerminal,
+                onKeyboardOffsetChange: { keyboardOffset = $0 }
             )
 
             overlay
 
             if controller.mode == .history || !controller.isFollowing {
                 jumpToLiveButton
+                    .padding(.bottom, keyboardOffset)
             }
         }
         .overlay(alignment: .top) {
@@ -109,14 +112,17 @@ private struct TerminalSurfaceRepresentable: UIViewRepresentable {
     let palette: ThemePalette
     let useNerdFont: Bool
     let autoFocus: Bool
+    let onKeyboardOffsetChange: (CGFloat) -> Void
 
     func makeUIView(context: Context) -> TerminalSurfaceView {
         let view = TerminalSurfaceView(controller: controller, theme: palette, useNerdFont: useNerdFont)
+        view.onKeyboardOffsetChange = onKeyboardOffsetChange
         view.update(theme: palette, useNerdFont: useNerdFont, autoFocus: autoFocus)
         return view
     }
 
     func updateUIView(_ view: TerminalSurfaceView, context: Context) {
+        view.onKeyboardOffsetChange = onKeyboardOffsetChange
         view.update(theme: palette, useNerdFont: useNerdFont, autoFocus: autoFocus)
     }
 
