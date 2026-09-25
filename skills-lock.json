@@ -14,6 +14,13 @@
       "skillPath": "skills/code-review/SKILL.md",
       "computedHash": "463959fea7d8ba03738b9f21840f713496d853b2001d247df8115b23364515b7"
     },
+    "implement": {
+      "source": "saeedvaziry/skills",
+      "ref": "main",
+      "sourceType": "github",
+      "skillPath": "skills/implement/SKILL.md",
+      "computedHash": "05e6cefe03f075aa46c262cc9bd547647fb3328526861fff4bc47b6535c884af"
+    },
     "react-native-best-practices": {
       "source": "callstackincubator/agent-skills",
       "sourceType": "github",
