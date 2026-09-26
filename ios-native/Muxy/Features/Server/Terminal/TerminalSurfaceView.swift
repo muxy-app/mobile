@@ -40,6 +40,7 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate, UIGestureRecogniz
     private var liveHistoryRows: UInt64 = 0
     private var displayedHistory: HistoryDocument?
     private var isRequestingHistory = false
+    private var isLoadingOlderHistory = false
     private var needsScreen = true
     private var selection: TerminalSelection? {
         didSet {
@@ -223,6 +224,7 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate, UIGestureRecogniz
             stopMomentum()
             viewportState.stopFollowingCursor()
             controller.setFollowing(false)
+            controller.discardOutdatedHistoryPrefetch()
             historyPullDistance = 0
             if let renderedFrame = scrollView.layer.presentation()?.frame {
                 viewportState.captureRenderedOffset(-renderedFrame.minY)
@@ -246,6 +248,9 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate, UIGestureRecogniz
 
     @discardableResult
     private func routeViewportScroll(delta: CGFloat) -> Bool {
+        if delta < 0 {
+            prefetchHistory()
+        }
         let previousOffset = viewportState.viewportOffset
         let residual = viewportState.consume(delta)
         positionTerminal()
@@ -257,16 +262,12 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate, UIGestureRecogniz
         scrollView.contentOffset.y = nextOffset
         if displayedHistory == nil, residual < 0, nextOffset == 0 {
             historyPullDistance += max(0, -(currentOffset + residual))
-            if historyPullDistance > metrics.cellHeight * 2 {
-                requestHistory()
-            }
+            pullIntoHistory(distance: historyPullDistance, canWait: true)
         } else {
             historyPullDistance = 0
         }
-        if displayedHistory != nil, nextOffset < metrics.cellHeight * Self.olderHistoryThresholdRows {
-            loadOlderHistory()
-        }
-        return viewportMoved || nextOffset != currentOffset
+        prefetchOlderHistory()
+        return viewportMoved || scrollView.contentOffset.y != currentOffset
     }
 
     private func startMomentum(velocity: CGFloat) {
@@ -309,18 +310,17 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate, UIGestureRecogniz
         positionCanvas()
         reportHistoryTop()
         guard scrollView.isDragging || scrollView.isDecelerating else { return }
-        if displayedHistory == nil, scrollView.isDragging, scrollView.contentOffset.y < -metrics.cellHeight * 2 {
-            requestHistory()
+        if displayedHistory == nil, scrollView.contentOffset.y < 0 {
+            pullIntoHistory(distance: -scrollView.contentOffset.y, canWait: scrollView.isDragging)
         }
-        if displayedHistory != nil, scrollView.contentOffset.y < metrics.cellHeight * Self.olderHistoryThresholdRows {
-            loadOlderHistory()
-        }
+        prefetchOlderHistory()
     }
 
     func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
         historyPullDistance = 0
         viewportState.stopFollowingCursor()
         controller.setFollowing(false)
+        controller.discardOutdatedHistoryPrefetch()
     }
 
     func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
@@ -332,7 +332,8 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate, UIGestureRecogniz
         settleScrolling()
     }
 
-    private static let olderHistoryThresholdRows: CGFloat = 40
+    private static let historyPullThresholdRows: CGFloat = 2
+    private static let olderHistoryLookaheadRows: CGFloat = 500
 
     private func configureViews() {
         clipsToBounds = true
@@ -540,6 +541,22 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate, UIGestureRecogniz
         controller.setAtHistoryTop(scrollView.contentOffset.y <= metrics.cellHeight / 2)
     }
 
+    private func prefetchHistory() {
+        guard displayedHistory == nil, liveHistoryRows > 0 else { return }
+        controller.prefetchHistory()
+    }
+
+    private func pullIntoHistory(distance: CGFloat, canWait: Bool) {
+        guard distance > 0 else { return }
+        prefetchHistory()
+        if let document = controller.enterPrefetchedHistory() {
+            show(document)
+            return
+        }
+        guard canWait, distance > metrics.cellHeight * Self.historyPullThresholdRows else { return }
+        requestHistory()
+    }
+
     private func requestHistory() {
         guard !isRequestingHistory, liveHistoryRows > 0, controller.isLive else { return }
         isRequestingHistory = true
@@ -563,13 +580,17 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate, UIGestureRecogniz
         scrollView.contentOffset.y = max(0, scrollView.contentOffset.y + shift - historyPullDistance)
         historyPullDistance = 0
         positionCanvas()
+        prefetchOlderHistory()
     }
 
-    private func loadOlderHistory() {
-        guard let history = displayedHistory, !history.isLoading, !history.reachedStart else { return }
+    private func prefetchOlderHistory() {
+        guard let history = displayedHistory, !isLoadingOlderHistory, !history.reachedStart else { return }
+        guard scrollView.contentOffset.y < metrics.cellHeight * Self.olderHistoryLookaheadRows else { return }
+        isLoadingOlderHistory = true
         Task { [weak self] in
             guard let self else { return }
             let added = await controller.loadOlderHistory()
+            isLoadingOlderHistory = false
             guard added > 0, displayedHistory === history else { return }
             lines = history.lines
             canvas.update(lines: lines, columnCount: columnCount, cursor: nil)
@@ -582,6 +603,7 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate, UIGestureRecogniz
                     head: TerminalCellPosition(row: current.head.row + added, column: current.head.column)
                 )
             }
+            prefetchOlderHistory()
         }
     }
 

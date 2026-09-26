@@ -54,6 +54,10 @@ final class TerminalController: Identifiable, TabStripItem {
     @ObservationIgnored private var requestedSize: TerminalGridSize?
     @ObservationIgnored private var resizeTask: Task<Void, Never>?
     @ObservationIgnored private(set) var history: HistoryDocument?
+    @ObservationIgnored private var historyPrefetch: ScrollbackRequest?
+    @ObservationIgnored private var historyPrefetchRevision = 0
+    @ObservationIgnored private var historyEntry: ScrollbackRequest?
+    @ObservationIgnored private var screenRevision = 0
     @ObservationIgnored private(set) var activeModifier: TerminalModifier = .ctrl
     @ObservationIgnored private(set) var modifierArmed = false
     @ObservationIgnored private(set) var isRetired = false
@@ -83,6 +87,7 @@ final class TerminalController: Identifiable, TabStripItem {
     }
 
     func screenDidChange() {
+        screenRevision += 1
         display?.screenNeedsRefresh()
     }
 
@@ -231,23 +236,32 @@ final class TerminalController: Identifiable, TabStripItem {
         setModifierState(modifier, armed: false)
     }
 
+    func prefetchHistory() {
+        guard mode == .live, historyPrefetch == nil, historyEntry == nil, let channel else { return }
+        historyPrefetch = ScrollbackRequest(channel: channel, maxRows: Self.historyPageRows)
+        historyPrefetchRevision = screenRevision
+    }
+
+    func discardOutdatedHistoryPrefetch() {
+        guard historyPrefetchRevision != screenRevision else { return }
+        historyPrefetch = nil
+    }
+
+    func enterPrefetchedHistory() -> HistoryDocument? {
+        guard mode == .live, let snapshot = historyPrefetch?.snapshot else { return nil }
+        return openHistory(with: snapshot)
+    }
+
     func enterHistory() async -> HistoryDocument? {
-        guard mode == .live, history == nil, let channel else { return nil }
-        let screenRows = Int(cachedScreen?.rows ?? 0)
-        do {
-            let snapshot = try await channel.scrollback(maxRows: Self.historyPageRows)
-            guard self.channel === channel else { return nil }
-            let document = HistoryDocument(snapshot: snapshot, screenRows: screenRows)
-            history = document
-            historyReachedStart = document.reachedStart
-            isAtHistoryTop = false
-            mode = .history
-            setFollowing(false)
-            return document
-        } catch {
-            Log.terminal.error("Scrollback failed: \(String(describing: ServerFailure(error)), privacy: .public)")
-            return nil
-        }
+        guard mode == .live, history == nil, historyEntry == nil, let channel else { return nil }
+        let entry = historyPrefetch ?? ScrollbackRequest(channel: channel, maxRows: Self.historyPageRows)
+        historyPrefetch = nil
+        historyEntry = entry
+        let snapshot = await entry.waitForSnapshot()
+        guard historyEntry === entry else { return nil }
+        historyEntry = nil
+        guard let snapshot else { return nil }
+        return openHistory(with: snapshot)
     }
 
     func loadOlderHistory() async -> Int {
@@ -305,8 +319,21 @@ final class TerminalController: Identifiable, TabStripItem {
         requestedSize = nil
     }
 
+    private func openHistory(with snapshot: any ScrollbackSnapshot) -> HistoryDocument {
+        historyPrefetch = nil
+        let document = HistoryDocument(snapshot: snapshot, screenRows: Int(cachedScreen?.rows ?? 0))
+        history = document
+        historyReachedStart = document.reachedStart
+        isAtHistoryTop = false
+        mode = .history
+        setFollowing(false)
+        return document
+    }
+
     private func leaveHistory() {
         history = nil
+        historyPrefetch = nil
+        historyEntry = nil
         mode = .live
         historyReachedStart = false
         isAtHistoryTop = false
