@@ -28,8 +28,7 @@ struct AddConnectionView: View {
             }
             .themedSurface()
             .tint(theme.accent)
-            .navigationTitle("Add Connection")
-            .navigationBarTitleDisplayMode(.inline)
+            .screenTitle("Add Connection")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }

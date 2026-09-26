@@ -6,8 +6,7 @@ struct GitSheetView: View {
     var body: some View {
         NavigationStack {
             GitOverviewView(viewModel: viewModel)
-                .navigationTitle("Git")
-                .navigationBarTitleDisplayMode(.inline)
+                .screenTitle("Git")
         }
         .task {
             if viewModel.status == nil {
@@ -200,8 +199,7 @@ struct GitCommitView: View {
             }
         }
         .themedSurface()
-        .navigationTitle("Commit")
-        .navigationBarTitleDisplayMode(.inline)
+        .screenTitle("Commit")
     }
 
     private var canCommit: Bool {
@@ -273,8 +271,7 @@ struct GitBranchesView: View {
             }
         }
         .themedSurface()
-        .navigationTitle("Branches")
-        .navigationBarTitleDisplayMode(.inline)
+        .screenTitle("Branches")
         .task {
             if viewModel.branches == nil {
                 await viewModel.refreshBranches()
@@ -320,8 +317,7 @@ struct GitNewBranchView: View {
             }
         }
         .themedSurface()
-        .navigationTitle("New Branch")
-        .navigationBarTitleDisplayMode(.inline)
+        .screenTitle("New Branch")
     }
 
     private func submit() {
@@ -392,8 +388,7 @@ struct GitWorktreesView: View {
             }
         }
         .themedSurface()
-        .navigationTitle("Worktrees")
-        .navigationBarTitleDisplayMode(.inline)
+        .screenTitle("Worktrees")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {
@@ -481,8 +476,7 @@ struct GitPullRequestView: View {
             }
         }
         .themedSurface()
-        .navigationTitle("Pull Request")
-        .navigationBarTitleDisplayMode(.inline)
+        .screenTitle("Pull Request")
     }
 
     private func merge() {
@@ -545,8 +539,7 @@ struct GitCreatePullRequestView: View {
             }
         }
         .themedSurface()
-        .navigationTitle("New Pull Request")
-        .navigationBarTitleDisplayMode(.inline)
+        .screenTitle("New Pull Request")
     }
 
     private var defaultBaseBranch: String {
@@ -601,8 +594,7 @@ struct GitNewWorktreeView: View {
             }
         }
         .themedSurface()
-        .navigationTitle("New Worktree")
-        .navigationBarTitleDisplayMode(.inline)
+        .screenTitle("New Worktree")
     }
 
     private var canSubmit: Bool {
@@ -640,8 +632,7 @@ struct GitDiffView: View {
                 }
             }
         }
-        .navigationTitle(fileName(filePath))
-        .navigationBarTitleDisplayMode(.inline)
+        .screenTitle(fileName(filePath))
         .toolbar {
             if let diff = viewModel.diffsByPath[filePath], !diff.isBinary {
                 ToolbarItem(placement: .primaryAction) {

@@ -18,7 +18,7 @@ struct ConnectionsListView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(theme.background)
-        .navigationTitle("Connections")
+        .screenTitle("Connections")
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 Button(action: onSettings) {

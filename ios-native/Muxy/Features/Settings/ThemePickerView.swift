@@ -15,8 +15,7 @@ struct ThemePickerView: View {
             }
         }
         .themedSurface()
-        .navigationTitle("Theme")
-        .navigationBarTitleDisplayMode(.inline)
+        .screenTitle("Theme")
     }
 }
 

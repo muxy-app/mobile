@@ -55,8 +55,7 @@ struct FileSheetView: View {
                 screen
             }
             .background(theme.background)
-            .navigationTitle(title)
-            .navigationBarTitleDisplayMode(.inline)
+            .screenTitle(title)
             .toolbar { toolbar }
         }
         .tint(theme.accent)

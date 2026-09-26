@@ -20,11 +20,8 @@ struct RootView: View {
     var body: some View {
         themedContent
             .environment(\.appTheme, theme)
-            .preferredColorScheme(theme.isDark ? .dark : .light)
             .tint(theme.accent)
-            .themedWindowBackground(theme.background)
-            .onChange(of: theme) { _, newTheme in NavigationBarAppearance.apply(newTheme) }
-            .task { NavigationBarAppearance.apply(theme) }
+            .themedWindow(theme)
             .onOpenURL(perform: open)
             .onChange(of: scenePhase) { _, phase in sceneDidChange(phase) }
     }

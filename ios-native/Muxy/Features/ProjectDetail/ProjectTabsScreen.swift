@@ -36,15 +36,7 @@ struct ProjectTabsScreen<Item: TabStripItem, Page: View>: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(theme.background)
         .ignoresSafeArea(.keyboard)
-        .navigationTitle(title)
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                Text(title)
-                    .font(.headline)
-                    .foregroundStyle(theme.foreground)
-            }
-        }
+        .screenTitle(title)
     }
 
     @ViewBuilder

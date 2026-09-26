@@ -17,8 +17,7 @@ struct ProjectListScreen: View {
         content
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(theme.background)
-            .navigationTitle(title)
-            .navigationBarTitleDisplayMode(.inline)
+            .screenTitle(title)
     }
 
     @ViewBuilder

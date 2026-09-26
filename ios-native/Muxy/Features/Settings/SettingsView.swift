@@ -53,7 +53,7 @@ struct SettingsView: View {
             }
             .themedSurface()
             .tint(theme.accent)
-            .navigationTitle("Settings")
+            .screenTitle("Settings")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done", action: onDone)
