@@ -37,7 +37,7 @@ while [[ $# -gt 0 ]]; do
     *) POSITIONAL+=("$1"); shift ;;
   esac
 done
-set -- "${POSITIONAL[@]}"
+set -- ${POSITIONAL[@]+"${POSITIONAL[@]}"}
 
 cd "$REPO_ROOT"
 
@@ -112,6 +112,10 @@ cleanup() {
 trap cleanup EXIT
 run_started
 
+step "Installing Muxy SDK"
+ios-native/scripts/sdk.sh install
+SDK_VERSION=$(cat ios-native/MuxyMobileSDK/Build/REVISION)
+
 step "Creating temporary build keychain"
 cleanup
 security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
@@ -157,11 +161,9 @@ xcodebuild \
   -configuration Release \
   -destination "generic/platform=iOS" \
   -archivePath "$APP_ARCHIVE_PATH" \
-  CODE_SIGN_STYLE=Manual \
+  -disableAutomaticPackageResolution \
   DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
-  PROVISIONING_PROFILE_SPECIFIER="$PROFILE_UUID" \
-  CODE_SIGN_IDENTITY="Apple Distribution" \
-  PRODUCT_BUNDLE_IDENTIFIER="$BUNDLE_ID" \
+  MUXY_PROVISIONING_PROFILE_SPECIFIER="$PROFILE_UUID" \
   MARKETING_VERSION="$VERSION" \
   CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
   OTHER_CODE_SIGN_FLAGS="--keychain $KEYCHAIN_PATH" \
@@ -187,6 +189,8 @@ cat > "$EXPORT_OPTIONS" <<EOF
     <key>$BUNDLE_ID</key>
     <string>$PROFILE_UUID</string>
   </dict>
+  <key>manageAppVersionAndBuildNumber</key>
+  <false/>
   <key>uploadSymbols</key>
   <true/>
 </dict>
@@ -197,10 +201,7 @@ xcodebuild \
   -exportArchive \
   -archivePath "$APP_ARCHIVE_PATH" \
   -exportPath "$APP_EXPORT_PATH" \
-  -exportOptionsPlist "$EXPORT_OPTIONS" \
-  -authenticationKeyPath "$APP_STORE_CONNECT_API_KEY_PATH" \
-  -authenticationKeyID "$APP_STORE_CONNECT_KEY_ID" \
-  -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID"
+  -exportOptionsPlist "$EXPORT_OPTIONS"
 
 IPA_PATH=$(ls "$APP_EXPORT_PATH"/*.ipa | head -1)
 [[ -f "$IPA_PATH" ]] || die "IPA not found in $APP_EXPORT_PATH"
@@ -228,6 +229,7 @@ fi
 print_summary "iOS Release Summary" \
   "Version" "$VERSION ($BUILD_NUMBER)" \
   "Bundle ID" "$BUNDLE_ID" \
+  "Muxy SDK" "$SDK_VERSION" \
   "IPA" "$IPA_PATH" \
   "Size" "$IPA_SIZE" \
   "Upload" "$UPLOAD_STATUS"

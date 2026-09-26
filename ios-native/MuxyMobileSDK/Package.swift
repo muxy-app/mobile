@@ -12,8 +12,7 @@ let package = Package(
         .target(
             name: "MuxyMobile",
             dependencies: ["muxy_mobileFFI"],
-            path: "Build/swift",
-            exclude: ["muxy_mobileFFI.h", "muxy_mobileFFI.modulemap"]
+            path: "Build/swift"
         ),
     ]
 )

@@ -4,8 +4,7 @@
 
 - Xcode with an iOS SDK and simulator runtime supporting iOS 26.2 or newer.
 - Python 3, used by the runner to discover devices.
-- `rustup` and a Muxy 2 checkout, used to build the Muxy SDK.
-- Internet access for the first build to resolve Swift packages. CocoaPods and an Expo server are not required.
+- Internet access to download the Muxy SDK and, on the first build, to resolve Swift packages. CocoaPods and an Expo server are not required.
 
 Check the selected Xcode installation with `xcodebuild -version`. If it points to Command Line Tools instead of Xcode, select Xcode:
 
@@ -17,13 +16,27 @@ Run the following commands from `ios-native/`, or prefix them with `ios-native/`
 
 ## Muxy SDK
 
-The app embeds the Muxy mobile SDK, a Rust library with generated Swift bindings. The SDK is built from a Muxy 2 checkout and isn't committed, because its XCFramework is too large for git. Build it before the first app build:
+The app embeds the Muxy mobile SDK, a Rust library with generated Swift bindings. The SDK isn't committed, because its XCFramework is too large for git. Instead, `MuxyMobileSDK/SHA256SUMS` pins the Muxy release it comes from and the checksum of its iOS download. Install it before the first app build, and again whenever the pin changes:
 
 ```sh
-MUXY_REPO=~/Projects/muxy scripts/run.sh sdk
+scripts/sdk.sh install
 ```
 
-The runner writes the SDK to `MuxyMobileSDK/Build/`, including a `REVISION` file naming the Muxy commit it came from. During the beta, the SDK and the Muxy server the app connects to must come from the same Muxy build. Run the command again after updating Muxy. If the app then crashes with a UniFFI checksum mismatch, clean the build folder and build again.
+The script checks the download against the pin and writes the SDK to `MuxyMobileSDK/Build/`, with a `REVISION` file naming its version. The runner stops when the SDK is missing and tells you when it isn't the pinned release.
+
+The app connects to any Muxy build that shares a protocol version with its SDK. `muxy --build-info` prints a computer's `protocol` versions, and each Muxy release lists its SDK's in `muxy-mobile-<version>.json`. Pin a newer release by its version, such as `2.0.0-beta-1078`, when the protocol version changes or to use newer SDK features, then build and test the app:
+
+```sh
+scripts/sdk.sh pin <version>
+```
+
+To try SDK changes that aren't released yet, build the SDK from a Muxy 2 checkout. This needs `rustup` and takes a few minutes. When `cargo-ndk` is installed, Muxy's build script also builds Android and needs a working Android NDK.
+
+```sh
+scripts/sdk.sh build ~/Projects/muxy
+```
+
+`scripts/sdk.sh install` switches back to the pinned release. If the app crashes with a UniFFI checksum mismatch after switching, clean the build folder and build again.
 
 ## Simulator
 
@@ -81,7 +94,6 @@ DEVELOPER_DIR="/Applications/Xcode-beta.app/Contents/Developer" ./scripts/run.sh
 
 | Command | Action |
 | --- | --- |
-| `./scripts/run.sh sdk` | Build the Muxy SDK from the Muxy repository in `MUXY_REPO` |
 | `./scripts/run.sh build` | Build for Simulator without booting, installing, or launching |
 | `./scripts/run.sh build-device` | Build for a paired device without installing or launching |
 | `./scripts/run.sh test` | Run unit tests in Simulator |
@@ -91,6 +103,16 @@ DEVELOPER_DIR="/Applications/Xcode-beta.app/Contents/Developer" ./scripts/run.sh
 | `./scripts/run.sh help` | Show commands and environment variables |
 
 Build products are stored in `.build/xcode/`. The first build can take several minutes while Swift packages compile.
+
+## Release
+
+In GitHub Actions, the **Release** workflow ships this app when **Release iOS** is selected, alongside Android. The **Release iOS** workflow releases iOS alone and tags `ios-v<version>`. Both install the pinned Muxy SDK, archive with the App Store profile, and upload the build to App Store Connect for TestFlight. To release from a Mac with the secrets in the repository's `.env`, run from the repository root:
+
+```sh
+scripts/release-ios-native.sh <version>
+```
+
+Use a version higher than the one on the App Store. The app requires iOS 26.2 or newer.
 
 ## Connect to Muxy 1
 
@@ -103,7 +125,7 @@ Use the configured port if you changed it, then approve the connection on your M
 
 ## Pair with Muxy 2
 
-The app connects to a Muxy 2 server built from the same Muxy commit as the SDK.
+The app connects to Muxy 2 builds that share a protocol version with its SDK. See [Muxy SDK](#muxy-sdk).
 
 1. On the computer, open Muxy **Settings > Mobile**, turn on **Allow mobile devices**, and choose **Show Pairing Code**. Without the desktop app, run `muxy mobile enable` and then `muxy mobile pair`.
 2. In the app, choose **Add Connection > Muxy 2** and scan the code, or open the `muxy://pair` link from the Camera app. In Simulator, use **Copy Link** on the computer and paste it in the app.

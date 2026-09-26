@@ -232,7 +232,7 @@ final class ServerController {
         case .sessionsChanged:
             guard connection != nil else { return }
             sessionsRefresh.request { [weak self] in await self?.loadSessions() }
-        case .activityChanged:
+        case .activityChanged, .gitChanged, .filesChanged:
             break
         case .serverRestarting:
             restartPending = true

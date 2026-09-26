@@ -8,6 +8,7 @@ nonisolated enum ServerFailure: Equatable, Sendable {
     case identityMismatch
     case unauthorized
     case incompatibleVersion
+    case unsupported
     case timeout
     case disconnected
     case server(String)
@@ -37,6 +38,8 @@ nonisolated enum ServerFailure: Equatable, Sendable {
             self = .unauthorized
         case .IncompatibleVersion:
             self = .incompatibleVersion
+        case .Unsupported:
+            self = .unsupported
         case .Timeout:
             self = .timeout
         case .Disconnected:
@@ -48,7 +51,7 @@ nonisolated enum ServerFailure: Equatable, Sendable {
 
     var isFatal: Bool {
         switch self {
-        case .invalidCredential, .identityMismatch, .unauthorized, .incompatibleVersion:
+        case .invalidCredential, .identityMismatch, .unauthorized, .incompatibleVersion, .unsupported:
             return true
         case .invalidLink, .unreachable, .timeout, .disconnected, .server, .unknown:
             return false
@@ -59,7 +62,7 @@ nonisolated enum ServerFailure: Equatable, Sendable {
         switch self {
         case .invalidCredential, .identityMismatch, .unauthorized:
             return true
-        case .invalidLink, .unreachable, .incompatibleVersion, .timeout, .disconnected, .server, .unknown:
+        case .invalidLink, .unreachable, .incompatibleVersion, .unsupported, .timeout, .disconnected, .server, .unknown:
             return false
         }
     }
@@ -77,7 +80,9 @@ nonisolated enum ServerFailure: Equatable, Sendable {
         case .unauthorized:
             return unauthorizedMessage(context: context, serverName: serverName)
         case .incompatibleVersion:
-            return "Update Muxy on your phone or computer. During the beta, both must come from the same Muxy build."
+            return "Update Muxy on your phone or computer."
+        case .unsupported:
+            return "Update Muxy on your phone and computer to use this."
         case .timeout:
             return "Muxy isn't responding."
         case .disconnected:

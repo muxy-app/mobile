@@ -14,7 +14,9 @@ extension Fixtures {
             directory: "/Users/demo/muxy",
             historyRows: 0,
             applicationCursorKeys: false,
-            bracketedPaste: false
+            bracketedPaste: false,
+            mouseTracking: false,
+            alternateScroll: false
         )
     }
 

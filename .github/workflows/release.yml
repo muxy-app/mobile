@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       release_ios:
-        description: "Release iOS (React Native)"
+        description: "Release iOS"
         required: true
         type: boolean
         default: true
@@ -46,7 +46,7 @@ jobs:
   ios:
     if: ${{ inputs.release_ios }}
     needs: validate
-    uses: ./.github/workflows/ios-release.yml
+    uses: ./.github/workflows/ios-native-release.yml
     with:
       version: ${{ needs.validate.outputs.version }}
       build_number: ${{ needs.validate.outputs.version_code }}
@@ -78,6 +78,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ needs.validate.outputs.version }}
+          IOS_SDK_VERSION: ${{ needs.ios.outputs.sdk_version }}
         run: |
           PREV_TAG=$(gh release list \
             --repo "${{ github.repository }}" \
@@ -95,6 +96,10 @@ jobs:
 
           if [[ ! -s notes.md ]]; then
             echo "- No changes since ${PREV_TAG:-initial release}" > notes.md
+          fi
+
+          if [[ -n "$IOS_SDK_VERSION" ]]; then
+            printf '\niOS: built with Muxy SDK %s.\n' "$IOS_SDK_VERSION" >> notes.md
           fi
 
           gh release create "v$VERSION" \
