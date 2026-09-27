@@ -4,7 +4,7 @@ struct ThemePickerView: View {
     @Bindable var settings: AppSettings
 
     var body: some View {
-        List {
+        ThemedList {
             ForEach(ThemeCatalog.all, id: \.name) { palette in
                 Button {
                     settings.themeName = palette.name
@@ -14,7 +14,6 @@ struct ThemePickerView: View {
                 .buttonStyle(.plain)
             }
         }
-        .themedSurface()
         .screenTitle("Theme")
     }
 }

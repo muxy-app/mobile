@@ -11,9 +11,9 @@ struct TerminalTabView: View {
 
     var body: some View {
         terminalSurface
-            .onAppear { session.useClientTheme(ClientTerminalTheme(palette: appTheme.palette)) }
+            .onAppear { session.useClientTheme(ClientTerminalTheme(palette: appTheme.terminalPalette)) }
             .onChange(of: appTheme) { _, newValue in
-                session.useClientTheme(ClientTerminalTheme(palette: newValue.palette))
+                session.useClientTheme(ClientTerminalTheme(palette: newValue.terminalPalette))
             }
             .onDisappear { session.dismissKeyboard() }
     }
@@ -50,6 +50,7 @@ struct TerminalTabView: View {
                 systemImage: "wifi.slash",
                 message: "Reconnect to continue using this terminal."
             )
+            .background(appTheme.groupedBackground)
         case .idle, .takingOver, .owned:
             EmptyView()
         }
@@ -86,7 +87,7 @@ struct TerminalTabView: View {
         }
         .padding(32)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(appTheme.background)
+        .background(appTheme.groupedBackground)
     }
 
     private var jumpToBottomButton: some View {

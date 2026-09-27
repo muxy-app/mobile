@@ -34,7 +34,7 @@ struct ProjectTabsScreen<Item: TabStripItem, Page: View>: View {
             content
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(theme.background)
+        .background(theme.groupedBackground)
         .ignoresSafeArea(.keyboard)
         .screenTitle(title)
     }
@@ -56,7 +56,7 @@ struct ProjectTabsScreen<Item: TabStripItem, Page: View>: View {
             }
         }
         .tabViewStyle(.page(indexDisplayMode: .never))
-        .background(theme.background.ignoresSafeArea())
+        .background(theme.groupedBackground.ignoresSafeArea())
     }
 
     @ViewBuilder
@@ -86,7 +86,6 @@ struct ProjectTabsScreen<Item: TabStripItem, Page: View>: View {
         ProgressView()
             .tint(theme.accent)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(theme.background)
     }
 
     private var selectionBinding: Binding<Item.ID?> {

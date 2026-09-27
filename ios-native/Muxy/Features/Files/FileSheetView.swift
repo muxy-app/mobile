@@ -54,7 +54,7 @@ struct FileSheetView: View {
                 status
                 screen
             }
-            .background(theme.background)
+            .background(theme.groupedBackground)
             .screenTitle(title)
             .toolbar { toolbar }
         }

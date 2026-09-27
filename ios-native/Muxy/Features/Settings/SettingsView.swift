@@ -8,7 +8,7 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            ThemedForm {
                 Section {
                     NavigationLink {
                         ThemePickerView(settings: settings)
@@ -22,7 +22,7 @@ struct SettingsView: View {
                         }
                     }
                 } header: {
-                    sectionHeader("Appearance")
+                    ThemedSectionHeader("Appearance")
                 }
 
                 Section {
@@ -38,7 +38,7 @@ struct SettingsView: View {
                         caption: "Focus the terminal automatically when switching or creating tabs. May open the on-screen keyboard."
                     )
                 } header: {
-                    sectionHeader("Terminal")
+                    ThemedSectionHeader("Terminal")
                 }
 
                 Section {
@@ -48,10 +48,9 @@ struct SettingsView: View {
                         caption: "Loads sample data so you can try the app without a desktop. Switching it off restores your real devices."
                     )
                 } header: {
-                    sectionHeader("Demo")
+                    ThemedSectionHeader("Demo")
                 }
             }
-            .themedSurface()
             .tint(theme.accent)
             .screenTitle("Settings")
             .toolbar {
@@ -74,10 +73,5 @@ struct SettingsView: View {
             }
         }
         .tint(theme.accent)
-    }
-
-    private func sectionHeader(_ title: String) -> some View {
-        Text(title)
-            .foregroundStyle(theme.secondaryForeground)
     }
 }

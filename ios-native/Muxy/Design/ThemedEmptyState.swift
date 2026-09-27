@@ -40,6 +40,5 @@ struct ThemedEmptyState<Actions: View>: View {
         }
         .padding(32)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(theme.background)
     }
 }

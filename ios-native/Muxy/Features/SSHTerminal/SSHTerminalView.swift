@@ -19,7 +19,7 @@ struct SSHTerminalView: View {
             content
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(theme.background)
+        .background(theme.groupedBackground)
         .ignoresSafeArea(.keyboard)
         .screenTitle(viewModel.connectionName)
         .task { viewModel.start() }
@@ -43,7 +43,7 @@ struct SSHTerminalView: View {
             }
         }
         .tabViewStyle(.page(indexDisplayMode: .never))
-        .background(theme.background.ignoresSafeArea())
+        .background(theme.groupedBackground.ignoresSafeArea())
     }
 
     private var emptyState: some View {

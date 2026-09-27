@@ -5,11 +5,14 @@ struct QRScannerView: View {
     let onScan: (String) -> Void
     let onCancel: () -> Void
 
+    @Environment(\.appTheme) private var theme
     @State private var authorization = AVCaptureDevice.authorizationStatus(for: .video)
 
     var body: some View {
         NavigationStack {
             content
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(theme.groupedBackground)
                 .screenTitle("Scan QR Code")
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
@@ -36,14 +39,16 @@ struct QRScannerView: View {
     private var cameraDeniedView: some View {
         ContentUnavailableView {
             Label("Camera Access Needed", systemImage: "camera.fill")
+                .foregroundStyle(theme.foreground)
         } description: {
             Text("Allow camera access in Settings to scan the pairing code on your Mac.")
+                .foregroundStyle(theme.secondaryForeground)
         } actions: {
             Button("Open Settings") {
                 guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
                 UIApplication.shared.open(url)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(ThemedProminentButtonStyle())
         }
     }
 

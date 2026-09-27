@@ -56,7 +56,7 @@ private final class WindowThemeView: UIView {
 
     private func applyTheme() {
         guard let window else { return }
-        let background = UIColor(theme.background)
+        let background = UIColor(theme.groupedBackground)
         window.overrideUserInterfaceStyle = theme.isDark ? .dark : .light
         window.backgroundColor = background
         window.rootViewController?.view.backgroundColor = background

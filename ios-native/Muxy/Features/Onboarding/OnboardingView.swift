@@ -166,7 +166,7 @@ private struct OnboardingRowView: View {
                 .font(.system(size: 21, weight: .medium))
                 .foregroundStyle(theme.accent)
                 .frame(width: 44, height: 44)
-                .background(theme.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .background(theme.secondaryBackground, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .overlay {
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
                         .stroke(theme.separator, lineWidth: 0.5)

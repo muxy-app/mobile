@@ -53,7 +53,7 @@ struct FilePreviewView: View {
         .padding(.horizontal, 18)
         .padding(.top, 16)
         .padding(.bottom, 16)
-        .background(theme.background)
+        .background(theme.groupedBackground)
         .safeAreaInset(edge: .bottom, spacing: 0) { footer }
     }
 
@@ -126,7 +126,7 @@ struct FilePreviewView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(.horizontal, 12)
-            .background(theme.surface.opacity(0.6))
+            .background(theme.secondaryBackground)
             theme.separator.frame(height: 1)
             FileTextEditor(
                 text: preview.isEditing ? $preview.draft : .constant(preview.displayText),
@@ -137,7 +137,7 @@ struct FilePreviewView: View {
             if preview.isPreviewShortened && !preview.isEditing {
                 FileGuidance(message: "Preview shortened. Tap Edit file to load the complete text.")
                     .padding(12)
-                    .background(theme.surface.opacity(0.6))
+                    .background(theme.secondaryBackground)
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 12))

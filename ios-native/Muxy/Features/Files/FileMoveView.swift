@@ -73,7 +73,7 @@ struct FileMoveView: View {
             }
             .padding(18)
         }
-        .background(theme.background)
+        .background(theme.groupedBackground)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(alignment: .leading, spacing: 10) {
                 VStack(alignment: .leading, spacing: 3) {

@@ -17,7 +17,7 @@ struct ConnectionsListView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(theme.background)
+        .background(theme.groupedBackground)
         .screenTitle("Connections")
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
@@ -38,7 +38,7 @@ struct ConnectionsListView: View {
     }
 
     private var connectionList: some View {
-        List {
+        ThemedList {
             ForEach(viewModel.connections) { connection in
                 Button {
                     onSelect(connection)
@@ -49,6 +49,5 @@ struct ConnectionsListView: View {
             }
             .onDelete { viewModel.delete(at: $0) }
         }
-        .themedSurface()
     }
 }

@@ -21,7 +21,7 @@ enum NavigationBarAppearance {
 
         let appearance = UINavigationBarAppearance()
         appearance.configureWithOpaqueBackground()
-        appearance.backgroundColor = UIColor(theme.background)
+        appearance.backgroundColor = UIColor(theme.groupedBackground)
         appearance.shadowColor = .clear
         appearance.titleTextAttributes = [.foregroundColor: foreground]
         appearance.largeTitleTextAttributes = [.foregroundColor: foreground]

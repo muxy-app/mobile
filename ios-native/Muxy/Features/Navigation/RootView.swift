@@ -15,9 +15,8 @@ struct RootView: View {
         _connectionsViewModel = State(initialValue: container.makeConnectionsListViewModel())
     }
 
-    private var theme: AppTheme { AppTheme(palette: container.settings.themePalette) }
-
     var body: some View {
+        let theme = AppTheme(palette: container.settings.themePalette)
         themedContent
             .environment(\.appTheme, theme)
             .tint(theme.accent)

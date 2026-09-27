@@ -32,17 +32,17 @@ struct TabPillView<Item: TabStripItem>: View {
         .padding(.trailing, 10)
         .padding(.vertical, 8)
         .frame(maxWidth: 200)
-        .background(Capsule().fill(isSelected ? theme.selectionBackground : theme.surface))
+        .background(Capsule().fill(isSelected ? theme.accent : theme.secondaryGroupedBackground))
         .clipShape(Capsule())
         .contentShape(Capsule())
         .onTapGesture(perform: onSelect)
     }
 
     private var foreground: Color {
-        isSelected ? theme.selectionForeground : theme.foreground
+        isSelected ? theme.onAccent : theme.foreground
     }
 
     private var secondaryForeground: Color {
-        isSelected ? theme.selectionForeground.opacity(0.7) : theme.secondaryForeground
+        isSelected ? theme.onAccent.opacity(0.7) : theme.secondaryForeground
     }
 }

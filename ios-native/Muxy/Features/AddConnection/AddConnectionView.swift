@@ -12,7 +12,7 @@ struct AddConnectionView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            ThemedForm {
                 kindSection
                 switch viewModel.kind {
                 case .device:
@@ -26,7 +26,6 @@ struct AddConnectionView: View {
                     statusSection
                 }
             }
-            .themedSurface()
             .tint(theme.accent)
             .screenTitle("Add Connection")
             .toolbar {
@@ -103,7 +102,7 @@ struct AddConnectionView: View {
                 LabeledContent("Address", value: target.address)
                     .foregroundStyle(theme.foreground)
             } header: {
-                sectionHeader("Computer")
+                ThemedSectionHeader("Computer")
             } footer: {
                 Text("Only pair with a code shown on your own computer. A paired phone can do anything a terminal on that computer can.")
                     .foregroundStyle(theme.secondaryForeground)
@@ -114,7 +113,7 @@ struct AddConnectionView: View {
                     .textInputAutocapitalization(.words)
                     .foregroundStyle(theme.foreground)
             } header: {
-                sectionHeader("This Phone")
+                ThemedSectionHeader("This Phone")
             } footer: {
                 Text("Your computer lists this phone under this name in Settings → Mobile.")
                     .foregroundStyle(theme.secondaryForeground)
@@ -138,7 +137,7 @@ struct AddConnectionView: View {
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
         } header: {
-            sectionHeader("Server")
+            ThemedSectionHeader("Server")
         }
         .foregroundStyle(theme.foreground)
         .disabled(viewModel.isWorking)
@@ -158,7 +157,7 @@ struct AddConnectionView: View {
                 SecureField("Passphrase (optional)", text: $viewModel.passphrase)
             }
         } header: {
-            sectionHeader("Authentication")
+            ThemedSectionHeader("Authentication")
         }
         .foregroundStyle(theme.foreground)
         .disabled(viewModel.isWorking)
@@ -183,7 +182,7 @@ struct AddConnectionView: View {
                 }
             }
         } header: {
-            sectionHeader("Nearby")
+            ThemedSectionHeader("Nearby")
         }
     }
 
@@ -224,15 +223,10 @@ struct AddConnectionView: View {
             TextField("Port", text: $viewModel.portText)
                 .keyboardType(.numberPad)
         } header: {
-            sectionHeader("Mac")
+            ThemedSectionHeader("Mac")
         }
         .foregroundStyle(theme.foreground)
         .disabled(viewModel.isWorking)
-    }
-
-    private func sectionHeader(_ title: String) -> some View {
-        Text(title)
-            .foregroundStyle(theme.secondaryForeground)
     }
 
     private var statusSection: some View {
@@ -297,16 +291,16 @@ private struct StatusRow: View {
         case .awaitingApproval:
             HStack(spacing: 8) {
                 Image(systemName: "hand.raised.fill")
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(theme.yellow)
                 Text("Approve this device on your Mac.")
                     .foregroundStyle(theme.foreground)
             }
         case .succeeded:
             Label("Connected", systemImage: "checkmark.circle.fill")
-                .foregroundStyle(.green)
+                .foregroundStyle(theme.green)
         case let .failed(message):
             Label(message, systemImage: "exclamationmark.triangle.fill")
-                .foregroundStyle(.red)
+                .foregroundStyle(theme.red)
         }
     }
 

@@ -11,9 +11,9 @@ struct SSHTerminalTabView: View {
 
     var body: some View {
         terminalSurface
-            .onAppear { session.useClientTheme(ClientTerminalTheme(palette: appTheme.palette)) }
+            .onAppear { session.useClientTheme(ClientTerminalTheme(palette: appTheme.terminalPalette)) }
             .onChange(of: appTheme) { _, newValue in
-                session.useClientTheme(ClientTerminalTheme(palette: newValue.palette))
+                session.useClientTheme(ClientTerminalTheme(palette: newValue.terminalPalette))
             }
             .onDisappear { session.dismissKeyboard() }
     }
@@ -46,7 +46,7 @@ struct SSHTerminalTabView: View {
             ProgressView()
                 .tint(appTheme.accent)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(appTheme.background)
+                .background(appTheme.groupedBackground)
         case .disconnected:
             stateOverlay(
                 title: "Disconnected",
@@ -70,7 +70,7 @@ struct SSHTerminalTabView: View {
                 .buttonStyle(ThemedBorderedButtonStyle())
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(appTheme.background)
+        .background(appTheme.groupedBackground)
     }
 
     private var jumpToBottomButton: some View {

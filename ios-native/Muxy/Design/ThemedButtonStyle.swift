@@ -23,7 +23,7 @@ struct ThemedBorderedButtonStyle: ButtonStyle {
             .foregroundStyle(theme.accent)
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
-            .background(theme.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .background(theme.secondaryGroupedBackground, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .stroke(theme.separator, lineWidth: 1)

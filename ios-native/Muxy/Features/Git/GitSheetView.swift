@@ -19,8 +19,10 @@ struct GitSheetView: View {
 struct GitOverviewView: View {
     let viewModel: GitViewModel
 
+    @Environment(\.appTheme) private var theme
+
     var body: some View {
-        List {
+        ThemedList {
             if let status = viewModel.status {
                 branchSection(status)
                 actionSection(status)
@@ -31,19 +33,20 @@ struct GitOverviewView: View {
             } else {
                 ContentUnavailableView {
                     Label("No Git Information", systemImage: "arrow.triangle.branch")
+                        .foregroundStyle(theme.foreground)
                 } description: {
                     Text("Git status is not available for this project.")
+                        .foregroundStyle(theme.secondaryForeground)
                 }
             }
 
             if let errorMessage = viewModel.errorMessage {
                 Section {
                     Text(errorMessage)
-                        .foregroundStyle(.red)
+                        .foregroundStyle(theme.red)
                 }
             }
         }
-        .themedSurface()
         .refreshable { await viewModel.refreshStatus() }
     }
 
@@ -52,17 +55,18 @@ struct GitOverviewView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Label(status.branch, systemImage: "arrow.triangle.branch")
                     .font(.headline)
+                    .foregroundStyle(theme.foreground)
                 if status.hasUpstream {
                     HStack(spacing: 16) {
                         Label("\(status.behindCount)", systemImage: "arrow.down")
                         Label("\(status.aheadCount)", systemImage: "arrow.up")
                     }
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.secondaryForeground)
                 } else {
                     Text("No upstream")
                         .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(theme.secondaryForeground)
                 }
             }
             .padding(.vertical, 4)
@@ -89,23 +93,26 @@ struct GitOverviewView: View {
                 GitCommitView(viewModel: viewModel)
             } label: {
                 Label(viewModel.totalChanges > 0 ? "Commit \(viewModel.totalChanges)" : "Commit", systemImage: "checkmark.circle")
+                    .foregroundStyle(viewModel.totalChanges > 0 ? theme.foreground : theme.secondaryForeground)
             }
             .disabled(viewModel.totalChanges == 0)
         }
     }
 
     private func manageSection(_ status: VCSStatus) -> some View {
-        Section("Manage") {
+        Section {
             NavigationLink {
                 GitBranchesView(viewModel: viewModel)
             } label: {
                 Label("Branches", systemImage: "arrow.triangle.branch")
+                    .foregroundStyle(theme.foreground)
             }
 
             NavigationLink {
                 GitWorktreesView(viewModel: viewModel)
             } label: {
                 Label("Worktrees", systemImage: "folder")
+                    .foregroundStyle(theme.foreground)
             }
 
             if let pullRequest = status.pullRequest, let url = URL(string: pullRequest.url) {
@@ -113,6 +120,7 @@ struct GitOverviewView: View {
                     GitPullRequestView(viewModel: viewModel, pullRequest: pullRequest)
                 } label: {
                     Label("Pull Request #\(pullRequest.number)", systemImage: "arrow.triangle.pull")
+                        .foregroundStyle(theme.foreground)
                 }
                 Link(destination: url) {
                     Label("Open Pull Request", systemImage: "safari")
@@ -122,16 +130,19 @@ struct GitOverviewView: View {
                     GitCreatePullRequestView(viewModel: viewModel)
                 } label: {
                     Label("New Pull Request", systemImage: "arrow.triangle.pull")
+                        .foregroundStyle(theme.foreground)
                 }
             }
+        } header: {
+            ThemedSectionHeader("Manage")
         }
     }
 
     private func changesSection(_ status: VCSStatus) -> some View {
-        Section(viewModel.totalChanges > 0 ? "Changes" : "Status") {
+        Section {
             if viewModel.totalChanges == 0 {
                 Label("Working tree clean", systemImage: "checkmark.circle")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.secondaryForeground)
             } else {
                 ForEach(status.stagedFiles) { file in
                     NavigationLink {
@@ -148,6 +159,8 @@ struct GitOverviewView: View {
                     }
                 }
             }
+        } header: {
+            ThemedSectionHeader(viewModel.totalChanges > 0 ? "Changes" : "Status")
         }
     }
 }
@@ -158,16 +171,21 @@ struct GitCommitView: View {
     @State private var stageAll = true
     @State private var isSubmitting = false
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.appTheme) private var theme
 
     var body: some View {
-        List {
-            Section("Commit Message") {
+        ThemedList {
+            Section {
                 TextField("Describe your change", text: $message, axis: .vertical)
                     .lineLimit(3...8)
+                    .foregroundStyle(theme.foreground)
+            } header: {
+                ThemedSectionHeader("Commit Message")
             }
 
             Section {
                 Toggle("Stage all changes", isOn: $stageAll)
+                    .foregroundStyle(theme.foreground)
                 Button {
                     submit()
                 } label: {
@@ -181,24 +199,25 @@ struct GitCommitView: View {
             }
 
             if let status = viewModel.status {
-                Section("Changes") {
+                Section {
                     ForEach(status.stagedFiles) { file in
                         GitFileRow(file: file, isStaged: true)
                     }
                     ForEach(status.changedFiles) { file in
                         GitFileRow(file: file, isStaged: false)
                     }
+                } header: {
+                    ThemedSectionHeader("Changes")
                 }
             }
 
             if let errorMessage = viewModel.errorMessage {
                 Section {
                     Text(errorMessage)
-                        .foregroundStyle(.red)
+                        .foregroundStyle(theme.red)
                 }
             }
         }
-        .themedSurface()
         .screenTitle("Commit")
     }
 
@@ -227,19 +246,21 @@ struct GitCommitView: View {
 struct GitBranchesView: View {
     let viewModel: GitViewModel
     @State private var switchingBranch: String?
+    @Environment(\.appTheme) private var theme
 
     var body: some View {
-        List {
+        ThemedList {
             Section {
                 NavigationLink {
                     GitNewBranchView(viewModel: viewModel)
                 } label: {
                     Label("New Branch", systemImage: "plus")
+                        .foregroundStyle(theme.foreground)
                 }
             }
 
             if let branches = viewModel.branches {
-                Section("Local") {
+                Section {
                     ForEach(branches.locals, id: \.self) { branch in
                         Button {
                             switchBranch(branch)
@@ -252,12 +273,14 @@ struct GitBranchesView: View {
                                 } else if branch == branches.defaultBranch {
                                     Text("default")
                                         .font(.caption)
-                                        .foregroundStyle(.secondary)
+                                        .foregroundStyle(theme.secondaryForeground)
                                 }
                             }
                         }
                         .disabled(branch == branches.current || switchingBranch != nil)
                     }
+                } header: {
+                    ThemedSectionHeader("Local")
                 }
             } else if viewModel.isLoadingBranches {
                 ProgressView()
@@ -266,11 +289,10 @@ struct GitBranchesView: View {
             if let errorMessage = viewModel.errorMessage {
                 Section {
                     Text(errorMessage)
-                        .foregroundStyle(.red)
+                        .foregroundStyle(theme.red)
                 }
             }
         }
-        .themedSurface()
         .screenTitle("Branches")
         .task {
             if viewModel.branches == nil {
@@ -294,13 +316,17 @@ struct GitNewBranchView: View {
     @State private var name = ""
     @State private var isSubmitting = false
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.appTheme) private var theme
 
     var body: some View {
-        Form {
-            Section("Branch Name") {
+        ThemedForm {
+            Section {
                 TextField("feature/name", text: $name)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
+                    .foregroundStyle(theme.foreground)
+            } header: {
+                ThemedSectionHeader("Branch Name")
             }
 
             Section {
@@ -316,7 +342,6 @@ struct GitNewBranchView: View {
                 .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSubmitting)
             }
         }
-        .themedSurface()
         .screenTitle("New Branch")
     }
 
@@ -339,17 +364,18 @@ struct GitWorktreesView: View {
     @State private var removingWorktreeID: UUID?
 
     var body: some View {
-        List {
+        ThemedList {
             Section {
                 NavigationLink {
                     GitNewWorktreeView(viewModel: viewModel)
                 } label: {
                     Label("New Worktree", systemImage: "plus")
+                        .foregroundStyle(theme.foreground)
                 }
             }
 
             if let worktrees = viewModel.worktrees {
-                Section("Worktrees") {
+                Section {
                     ForEach(worktrees) { worktree in
                         Button {
                             select(worktree)
@@ -382,12 +408,13 @@ struct GitWorktreesView: View {
                             }
                         }
                     }
+                } header: {
+                    ThemedSectionHeader("Worktrees")
                 }
             } else if viewModel.isLoadingWorktrees {
                 ProgressView()
             }
         }
-        .themedSurface()
         .screenTitle("Worktrees")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
@@ -437,9 +464,10 @@ struct GitPullRequestView: View {
     @State private var deleteBranch = true
     @State private var isMerging = false
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.appTheme) private var theme
 
     var body: some View {
-        Form {
+        ThemedForm {
             Section {
                 LabeledContent("Number", value: "#\(pullRequest.number)")
                 LabeledContent("State", value: pullRequest.state.lowercased())
@@ -448,14 +476,17 @@ struct GitPullRequestView: View {
                     LabeledContent("Checks", value: checksLabel(checks))
                 }
             }
+            .foregroundStyle(theme.foreground)
 
-            Section("Merge") {
+            Section {
                 Picker("Method", selection: $method) {
                     ForEach(VCSMergeMethod.allCases, id: \.self) { method in
                         Text(method.rawValue.capitalized).tag(method)
                     }
                 }
+                .foregroundStyle(theme.foreground)
                 Toggle("Delete branch", isOn: $deleteBranch)
+                    .foregroundStyle(theme.foreground)
                 Button {
                     merge()
                 } label: {
@@ -466,16 +497,17 @@ struct GitPullRequestView: View {
                     }
                 }
                 .disabled(isMerging)
+            } header: {
+                ThemedSectionHeader("Merge")
             }
 
             if let errorMessage = viewModel.errorMessage {
                 Section {
                     Text(errorMessage)
-                        .foregroundStyle(.red)
+                        .foregroundStyle(theme.red)
                 }
             }
         }
-        .themedSurface()
         .screenTitle("Pull Request")
     }
 
@@ -499,10 +531,11 @@ struct GitCreatePullRequestView: View {
     @State private var draft = false
     @State private var created: VCSPRCreated?
     @State private var isSubmitting = false
+    @Environment(\.appTheme) private var theme
 
     var body: some View {
-        Form {
-            Section("Details") {
+        ThemedForm {
+            Section {
                 TextField("Title", text: $title)
                 TextField("Description", text: $bodyText, axis: .vertical)
                     .lineLimit(3...8)
@@ -510,7 +543,10 @@ struct GitCreatePullRequestView: View {
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                 Toggle("Draft", isOn: $draft)
+            } header: {
+                ThemedSectionHeader("Details")
             }
+            .foregroundStyle(theme.foreground)
 
             Section {
                 Button {
@@ -534,11 +570,10 @@ struct GitCreatePullRequestView: View {
             if let errorMessage = viewModel.errorMessage {
                 Section {
                     Text(errorMessage)
-                        .foregroundStyle(.red)
+                        .foregroundStyle(theme.red)
                 }
             }
         }
-        .themedSurface()
         .screenTitle("New Pull Request")
     }
 
@@ -567,10 +602,11 @@ struct GitNewWorktreeView: View {
     @State private var createBranch = true
     @State private var isSubmitting = false
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.appTheme) private var theme
 
     var body: some View {
-        Form {
-            Section("Worktree") {
+        ThemedForm {
+            Section {
                 TextField("Name", text: $name)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
@@ -578,7 +614,10 @@ struct GitNewWorktreeView: View {
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                 Toggle("Create branch", isOn: $createBranch)
+            } header: {
+                ThemedSectionHeader("Worktree")
             }
+            .foregroundStyle(theme.foreground)
 
             Section {
                 Button {
@@ -593,7 +632,6 @@ struct GitNewWorktreeView: View {
                 .disabled(!canSubmit || isSubmitting)
             }
         }
-        .themedSurface()
         .screenTitle("New Worktree")
     }
 
@@ -629,9 +667,12 @@ struct GitDiffView: View {
             } else {
                 ContentUnavailableView {
                     Label("No Diff", systemImage: "doc.text")
+                        .foregroundStyle(theme.foreground)
                 }
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(theme.groupedBackground)
         .screenTitle(fileName(filePath))
         .toolbar {
             if let diff = viewModel.diffsByPath[filePath], !diff.isBinary {
@@ -658,8 +699,10 @@ struct GitDiffView: View {
         if diff.isBinary {
             ContentUnavailableView {
                 Label("Binary File", systemImage: "doc")
+                    .foregroundStyle(theme.foreground)
             } description: {
                 Text("No preview is available.")
+                    .foregroundStyle(theme.secondaryForeground)
             }
         } else {
             GitCodeDiffViewer(
@@ -685,10 +728,11 @@ struct GitCodeDiffViewer: View {
     var body: some View {
         VStack(spacing: 0) {
             header
-            Divider()
+            theme.separator.frame(height: 1)
             if diff.rows.isEmpty {
                 ContentUnavailableView {
                     Label("No Changes", systemImage: "doc.text")
+                        .foregroundStyle(theme.foreground)
                 }
             } else {
                 GeometryReader { proxy in
@@ -703,11 +747,11 @@ struct GitCodeDiffViewer: View {
                             .frame(minWidth: wrapsLines ? proxy.size.width : max(proxy.size.width, 760), alignment: .leading)
                         }
                     }
-                    .background(theme.background)
+                    .background(theme.groupedBackground)
                 }
             }
         }
-        .background(theme.background)
+        .background(theme.groupedBackground)
     }
 
     private var header: some View {
@@ -727,9 +771,9 @@ struct GitCodeDiffViewer: View {
             Spacer()
             HStack(spacing: 8) {
                 Text("+\(diff.additions)")
-                    .foregroundStyle(.green)
+                    .foregroundStyle(theme.green)
                 Text("-\(diff.deletions)")
-                    .foregroundStyle(.red)
+                    .foregroundStyle(theme.red)
             }
             .font(.caption.monospacedDigit().weight(.semibold))
             if diff.truncated {
@@ -749,7 +793,7 @@ struct GitCodeDiffViewer: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
-        .background(theme.surface)
+        .background(theme.secondaryGroupedBackground)
     }
 }
 
@@ -773,9 +817,10 @@ struct GitFileRow: View {
             VStack(alignment: .trailing, spacing: 4) {
                 Text(statusLabel(file.status))
                     .font(.caption)
+                    .foregroundStyle(theme.foreground)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(statusColor(file.status).opacity(0.18))
+                    .background(statusColor(file.status, in: theme).opacity(0.18))
                     .clipShape(Capsule())
                 if !isStaged {
                     Text("unstaged")
@@ -796,11 +841,11 @@ struct GitDiffRowView: View {
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
             Rectangle()
-                .fill(rowAccent(row.kind))
+                .fill(rowAccent(row.kind, in: theme))
                 .frame(width: 3)
             Text(rowMarker(row.kind))
                 .frame(width: 22, alignment: .center)
-                .foregroundStyle(rowAccent(row.kind))
+                .foregroundStyle(rowAccent(row.kind, in: theme))
             Text(lineNumber(row.oldLineNumber))
                 .frame(width: 42, alignment: .trailing)
                 .padding(.trailing, 8)
@@ -812,7 +857,7 @@ struct GitDiffRowView: View {
                 .foregroundStyle(theme.secondaryForeground)
                 .textSelection(.enabled)
             Text(row.text)
-                .foregroundStyle(rowForeground(row.kind, base: theme.foreground))
+                .foregroundStyle(rowForeground(row.kind, in: theme))
                 .lineLimit(wrapsLine ? nil : 1)
                 .fixedSize(horizontal: !wrapsLine, vertical: true)
                 .textSelection(.enabled)
@@ -823,7 +868,7 @@ struct GitDiffRowView: View {
         }
         .font(.system(size: 12, weight: row.kind == .hunk ? .semibold : .regular, design: .monospaced))
         .padding(.vertical, row.kind == .hunk ? 7 : 4)
-        .background(rowBackground(row.kind, base: theme.background))
+        .background(rowBackground(row.kind, in: theme))
     }
 }
 
@@ -854,16 +899,16 @@ private func statusLabel(_ status: GitFileStatus) -> String {
     }
 }
 
-private func statusColor(_ status: GitFileStatus) -> Color {
+private func statusColor(_ status: GitFileStatus, in theme: AppTheme) -> Color {
     switch status {
     case .added, .copied:
-        return .green
+        return theme.green
     case .modified, .renamed:
-        return .orange
+        return theme.yellow
     case .deleted, .unmerged:
-        return .red
+        return theme.red
     case .untracked:
-        return .blue
+        return theme.cyan
     }
 }
 
@@ -882,44 +927,44 @@ private func rowMarker(_ kind: VCSDiffRowKind) -> String {
     }
 }
 
-private func rowAccent(_ kind: VCSDiffRowKind) -> Color {
+private func rowAccent(_ kind: VCSDiffRowKind, in theme: AppTheme) -> Color {
     switch kind {
     case .addition:
-        return .green
+        return theme.green
     case .deletion:
-        return .red
+        return theme.red
     case .hunk:
-        return .blue
+        return theme.cyan
     case .collapsed:
-        return .secondary
+        return theme.secondaryForeground
     case .context:
         return .clear
     }
 }
 
-private func rowForeground(_ kind: VCSDiffRowKind, base: Color) -> Color {
+private func rowForeground(_ kind: VCSDiffRowKind, in theme: AppTheme) -> Color {
     switch kind {
     case .hunk:
-        return .blue
+        return theme.cyan
     case .collapsed:
-        return .secondary
+        return theme.secondaryForeground
     default:
-        return base
+        return theme.foreground
     }
 }
 
-private func rowBackground(_ kind: VCSDiffRowKind, base: Color) -> Color {
+private func rowBackground(_ kind: VCSDiffRowKind, in theme: AppTheme) -> Color {
     switch kind {
     case .addition:
-        return Color.green.opacity(0.10)
+        return theme.green.opacity(0.10)
     case .deletion:
-        return Color.red.opacity(0.10)
+        return theme.red.opacity(0.10)
     case .hunk:
-        return Color.blue.opacity(0.12)
+        return theme.cyan.opacity(0.12)
     case .collapsed:
-        return Color.secondary.opacity(0.10)
+        return theme.secondaryForeground.opacity(0.10)
     case .context:
-        return base
+        return theme.groupedBackground
     }
 }
 

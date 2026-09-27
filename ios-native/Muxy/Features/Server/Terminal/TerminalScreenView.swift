@@ -12,7 +12,7 @@ struct TerminalScreenView: View {
         ZStack(alignment: .bottomTrailing) {
             TerminalSurfaceRepresentable(
                 controller: controller,
-                palette: theme.palette,
+                palette: theme.terminalPalette,
                 useNerdFont: settings.useNerdFont,
                 autoFocus: settings.autoFocusTerminal,
                 onKeyboardOffsetChange: { keyboardOffset = $0 }
@@ -36,7 +36,7 @@ struct TerminalScreenView: View {
             }
             .allowsHitTesting(false)
         }
-        .background(theme.background)
+        .background(theme.groupedBackground)
     }
 
     @ViewBuilder
@@ -47,6 +47,7 @@ struct TerminalScreenView: View {
                 systemImage: "wifi.slash",
                 message: "Reconnect to continue using this terminal."
             )
+            .background(theme.groupedBackground)
         } else {
             phaseOverlay
         }
@@ -64,6 +65,7 @@ struct TerminalScreenView: View {
                 Button("Try Again", action: controller.retry)
                     .buttonStyle(ThemedBorderedButtonStyle())
             }
+            .background(theme.groupedBackground)
         case .live, .ended:
             EmptyView()
         }
@@ -73,7 +75,7 @@ struct TerminalScreenView: View {
         ProgressView()
             .tint(theme.accent)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(theme.background)
+            .background(theme.groupedBackground)
     }
 
     private var jumpToLiveButton: some View {

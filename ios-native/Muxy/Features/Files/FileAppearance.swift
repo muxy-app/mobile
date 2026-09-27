@@ -8,24 +8,12 @@ enum FileTint {
     case destructive
 
     func color(in theme: AppTheme) -> Color {
-        let index: Int
         switch self {
-        case .folder, .warning: index = 3
-        case .code: index = 6
-        case .image: index = 2
-        case .destructive: index = 1
+        case .folder, .warning: theme.yellow
+        case .code: theme.cyan
+        case .image: theme.green
+        case .destructive: theme.red
         }
-        let palette = theme.palette.ansi
-        guard palette.indices.contains(index) else { return theme.accent }
-        let rgb = palette[index]
-        let color = Color(
-            .sRGB,
-            red: Double((rgb >> 16) & 0xFF) / 255,
-            green: Double((rgb >> 8) & 0xFF) / 255,
-            blue: Double(rgb & 0xFF) / 255,
-            opacity: 1
-        )
-        return color.mix(with: theme.foreground, by: theme.isDark ? 0.15 : 0.4)
     }
 }
 
@@ -88,7 +76,7 @@ private struct FilePanelModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .background(theme.surface.opacity(0.6))
+            .background(theme.secondaryGroupedBackground)
             .clipShape(RoundedRectangle(cornerRadius: 13))
             .overlay {
                 RoundedRectangle(cornerRadius: 13)
@@ -106,7 +94,7 @@ private struct FileFooterModifier: ViewModifier {
             .padding(.horizontal, 18)
             .padding(.vertical, 12)
             .frame(maxWidth: .infinity)
-            .background(theme.background)
+            .background(theme.groupedBackground)
             .overlay(alignment: .top) {
                 theme.separator.frame(height: 1)
             }

@@ -22,18 +22,17 @@ struct WorkspaceFilterBar: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
         }
-        .background(theme.background)
     }
 
     private func chip(title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title)
                 .font(.subheadline.weight(.medium))
-                .foregroundStyle(isSelected ? theme.selectionForeground : theme.foreground)
+                .foregroundStyle(isSelected ? theme.onAccent : theme.foreground)
                 .lineLimit(1)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 7)
-                .background(Capsule().fill(isSelected ? theme.selectionBackground : theme.surface))
+                .background(Capsule().fill(isSelected ? theme.accent : theme.secondaryGroupedBackground))
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(isSelected ? .isSelected : [])

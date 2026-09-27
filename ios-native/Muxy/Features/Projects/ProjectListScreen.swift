@@ -16,7 +16,7 @@ struct ProjectListScreen: View {
     var body: some View {
         content
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(theme.background)
+            .background(theme.groupedBackground)
             .screenTitle(title)
     }
 
@@ -47,15 +47,16 @@ struct ProjectListScreen: View {
                 message: "This workspace has no projects."
             )
         } else {
-            List(items) { item in
-                Button {
-                    onSelect(item)
-                } label: {
-                    ProjectRowView(item: item)
+            ThemedList {
+                ForEach(items) { item in
+                    Button {
+                        onSelect(item)
+                    } label: {
+                        ProjectRowView(item: item)
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
-            .themedSurface()
         }
     }
 
@@ -66,7 +67,6 @@ struct ProjectListScreen: View {
             ProgressView()
                 .tint(theme.accent)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(theme.background)
         case .loadFailed:
             ThemedEmptyState(
                 title: "Couldn't Load Projects",

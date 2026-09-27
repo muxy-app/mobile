@@ -8,7 +8,7 @@ struct UnsupportedTabView: View {
     var body: some View {
         VStack(spacing: 12) {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(theme.surface)
+                .fill(theme.secondaryGroupedBackground)
                 .frame(width: 88, height: 88)
                 .overlay {
                     Image(systemName: "questionmark")
@@ -32,6 +32,6 @@ struct UnsupportedTabView: View {
                 .padding(.top, 4)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(theme.background)
+        .background(theme.groupedBackground)
     }
 }

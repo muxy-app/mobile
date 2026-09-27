@@ -46,7 +46,7 @@ struct FileBrowserView: View {
             }
             .padding(18)
         }
-        .background(theme.background)
+        .background(theme.groupedBackground)
         .refreshable { await viewModel.refreshDirectory() }
         .scrollDismissesKeyboard(.interactively)
         .safeAreaInset(edge: .bottom, spacing: 0) { footer }

@@ -33,7 +33,7 @@ struct TabStripView<Item: TabStripItem>: View {
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(theme.foreground)
                             .frame(width: 32, height: 32)
-                            .background(Circle().fill(theme.surface))
+                            .background(Circle().fill(theme.secondaryGroupedBackground))
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("New Tab")
@@ -46,6 +46,6 @@ struct TabStripView<Item: TabStripItem>: View {
                 }
             }
         }
-        .background(theme.background)
+        .background(theme.groupedBackground)
     }
 }
