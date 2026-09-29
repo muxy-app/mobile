@@ -207,7 +207,9 @@ final class FollowAwareTerminalView: TerminalView {
     override func didMoveToWindow() {
         super.didMoveToWindow()
         guard window != nil else { return }
-        guard autoFocusTerminal else { return }
+        keyboardHidden = !autoFocusTerminal
+        accessoryBar.setKeyboardVisible(!keyboardHidden)
+        inputView = keyboardHidden ? hiddenKeyboardPlaceholder : nil
         _ = becomeFirstResponder()
     }
 

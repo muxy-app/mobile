@@ -99,7 +99,8 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate, UIGestureRecogniz
         link.start()
         displayLink = link
         screenNeedsRefresh()
-        guard autoFocus else { return }
+        input.setSoftKeyboardHidden(!autoFocus)
+        accessoryBar.setKeyboardVisible(autoFocus)
         input.becomeFirstResponder()
     }
 

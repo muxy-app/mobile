@@ -65,12 +65,19 @@ final class TerminalInputView: UIView, UITextInput {
         accessory = view
     }
 
+    func setSoftKeyboardHidden(_ hidden: Bool) {
+        guard isSoftKeyboardHidden != hidden else { return }
+        isSoftKeyboardHidden = hidden
+        if isFirstResponder {
+            reloadInputViews()
+        }
+    }
+
     func toggleSoftKeyboard() {
-        isSoftKeyboardHidden.toggle()
+        setSoftKeyboardHidden(!isSoftKeyboardHidden)
         if !isFirstResponder {
             _ = becomeFirstResponder()
         }
-        reloadInputViews()
     }
 
     @discardableResult
