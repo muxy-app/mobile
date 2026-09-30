@@ -59,4 +59,7 @@ ios-native/build
 ios-native/MuxyMobileSDK/Build
 ios-native/MuxyMobileSDK/.build
 ios-native/MuxyMobileSDK/.swiftpm
+xcuserdata/
 /ios
+
+.plans/
