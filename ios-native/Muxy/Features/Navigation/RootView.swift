@@ -88,7 +88,10 @@ struct RootView: View {
                 connection: connection,
                 server: serverController(for: connection),
                 projectID: projectID,
-                settings: container.settings
+                settings: container.settings,
+                onOpenProject: { openedProjectID in
+                    path = path.opening(.serverProject(connection: connection, projectID: openedProjectID))
+                }
             )
         case let .sshTerminal(connection):
             SSHTerminalView(viewModel: container.makeSSHTerminalViewModel(for: connection))

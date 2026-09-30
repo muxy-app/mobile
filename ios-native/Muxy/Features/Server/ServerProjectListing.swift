@@ -49,7 +49,7 @@ nonisolated enum ServerProjectListing {
         }
     }
 
-    private static func icon(for project: ServerProject) -> ProjectListItem.Icon {
+    static func icon(for project: ServerProject) -> ProjectListItem.Icon {
         guard let icon = project.icon?.trimmingCharacters(in: .whitespacesAndNewlines), !icon.isEmpty else {
             return .symbol(fallbackSymbol(for: project))
         }

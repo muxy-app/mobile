@@ -358,8 +358,8 @@ actor DemoBackend {
             aheadCount: branch == "main" ? 0 : 2,
             behindCount: 0,
             hasUpstream: true,
-            stagedFiles: hasChanges ? [GitFile(path: "ios/Muxy/Features/Git/GitSheetView.swift", status: .added, isUntracked: false)] : [],
-            changedFiles: hasChanges ? [GitFile(path: "ios/Muxy/Networking/Protocol/Methods.swift", status: .modified, isUntracked: false)] : [],
+            stagedFiles: hasChanges ? [VCSFile(path: "ios/Muxy/Features/Git/GitSheetView.swift", status: .added, isUntracked: false)] : [],
+            changedFiles: hasChanges ? [VCSFile(path: "ios/Muxy/Networking/Protocol/Methods.swift", status: .modified, isUntracked: false)] : [],
             defaultBranch: "main",
             pullRequest: branch == "main" ? nil : VCSPullRequest(
                 url: "https://github.com/muxy-app/demo/pull/42",
@@ -369,7 +369,8 @@ actor DemoBackend {
                 baseBranch: "main",
                 mergeable: true,
                 mergeStateStatus: .clean,
-                checks: VCSPRChecks(status: .success, passing: 4, failing: 0, pending: 0, total: 4)
+                checks: VCSPRChecks(status: .success, passing: 4, failing: 0, pending: 0, total: 4),
+                headOid: nil
             )
         )
     }

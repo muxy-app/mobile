@@ -28,6 +28,28 @@ nonisolated struct RemoteFileStat: Codable, Sendable {
     let size: Int
 }
 
+nonisolated struct RemoteTextFile: Sendable, Equatable {
+    let path: String
+    let text: String
+    let size: Int
+}
+
+nonisolated struct FileScope: Hashable, Sendable {
+    static let project = FileScope(worktreeID: nil)
+
+    let worktreeID: UUID?
+}
+
+nonisolated struct FileChange: Sendable, Equatable {
+    let scope: FileScope
+    let paths: [String]
+    let requiresRescan: Bool
+}
+
+nonisolated enum FileLimits {
+    static let maximumBytes = 5 * 1024 * 1024
+}
+
 nonisolated struct FileChangedEvent: Codable, Sendable {
     let projectID: UUID
     let worktreeID: UUID?

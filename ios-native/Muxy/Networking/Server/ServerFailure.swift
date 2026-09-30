@@ -115,3 +115,17 @@ nonisolated enum ServerFailure: Equatable, Sendable {
         return "This code expired, was already used, or was replaced. Show a new code on your computer."
     }
 }
+
+nonisolated struct ServerRequestError: LocalizedError, Equatable {
+    let failure: ServerFailure
+    let serverName: String
+
+    var errorDescription: String? {
+        failure.message(context: .request, serverName: serverName)
+    }
+
+    static func wrapping(_ error: any Error, serverName: String) -> any Error {
+        guard error is MobileError else { return error }
+        return ServerRequestError(failure: ServerFailure(error), serverName: serverName)
+    }
+}

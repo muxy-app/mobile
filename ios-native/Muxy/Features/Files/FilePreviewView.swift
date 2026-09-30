@@ -8,20 +8,20 @@ struct FilePreviewView: View {
     @Environment(\.appTheme) private var theme
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    private var location: String { viewModel.project.workspaceKind == "ssh" ? "remote host" : "Mac" }
+    private var host: FileHost { viewModel.location.host }
 
     private var saveStatus: String {
         if viewModel.isBusy { return "Saving changes…" }
         if preview.isDirty { return "Unsaved changes" }
-        if preview.hasExternalChanges { return "Changed on \(location)" }
+        if preview.hasExternalChanges { return host.changedStatus }
         if preview.isEditing { return "No changes yet" }
-        return "Saved on \(location)"
+        return host.savedStatus
     }
 
     private var fileDetails: String {
         var details = [FilePresentation(entry: preview.entry).typeName]
-        if preview.content?.encoding == .utf8 { details.append("UTF-8") }
-        if let size = preview.stat?.size ?? preview.content?.size {
+        if preview.text != nil { details.append("UTF-8") }
+        if let size = preview.stat?.size ?? preview.text?.size {
             details.append(ByteCountFormatter.string(fromByteCount: Int64(size), countStyle: .file))
         }
         return details.joined(separator: " · ")
@@ -32,9 +32,9 @@ struct FilePreviewView: View {
             fileHeader
             if preview.hasExternalChanges && !viewModel.hasContextChanged {
                 FileNotice(
-                    title: "Changed on your \(location)",
+                    title: host.changedNoticeTitle,
                     message: preview.isDirty
-                        ? "Your edits are still here. Reload for the latest file. Saving this draft replaces the file on your \(location)."
+                        ? host.draftReplacementMessage
                         : "Reload to see the latest version of this file."
                 ) {
                     HStack(spacing: 20) {
@@ -67,7 +67,7 @@ struct FilePreviewView: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .textSelection(.enabled)
                 Text(RemoteFilePath.parent(preview.entry.path).isEmpty
-                    ? viewModel.project.name
+                    ? viewModel.location.name
                     : RemoteFilePath.parent(preview.entry.path))
                     .font(.caption.monospaced())
                     .foregroundStyle(theme.secondaryForeground)
@@ -80,7 +80,7 @@ struct FilePreviewView: View {
 
     @ViewBuilder
     private var content: some View {
-        if viewModel.isLoadingPreview && preview.content == nil {
+        if viewModel.isLoadingPreview && !preview.hasContent {
             ProgressView("Opening file…")
         } else if preview.kind == .image, let image = preview.image {
             Image(uiImage: image)
@@ -98,7 +98,7 @@ struct FilePreviewView: View {
                 Text("This file isn’t UTF-8 text or a supported image. Use File actions to rename, move, or delete it.")
                     .foregroundStyle(theme.secondaryForeground)
             }
-        } else if preview.content == nil {
+        } else if !preview.hasContent {
             ContentUnavailableView {
                 Label("Couldn’t open this file", systemImage: "doc.badge.ellipsis")
                     .foregroundStyle(theme.foreground)
@@ -172,7 +172,7 @@ struct FilePreviewView: View {
 
     @ViewBuilder
     private var footer: some View {
-        if preview.kind == .text, preview.content != nil {
+        if preview.kind == .text, preview.text != nil {
             let layout = dynamicTypeSize.isAccessibilitySize
                 ? AnyLayout(VStackLayout(alignment: .leading, spacing: 10))
                 : AnyLayout(HStackLayout(spacing: 12))

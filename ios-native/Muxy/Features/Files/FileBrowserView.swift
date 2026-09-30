@@ -25,16 +25,15 @@ struct FileBrowserView: View {
         if viewModel.selectionMode {
             return "Select the items you want to organize. Rename is available when one item is selected."
         }
-        let location = viewModel.project.workspaceKind == "ssh" ? "the remote host" : "your Mac"
-        return "Touch and hold a file to select it. Changes are made on \(location)."
+        return viewModel.location.host.selectionGuidance
     }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                FileProjectHeader(project: viewModel.project)
+                FileProjectHeader(location: viewModel.location)
                 search
-                FileBreadcrumbs(path: viewModel.currentPath, rootName: viewModel.project.name) { path in
+                FileBreadcrumbs(path: viewModel.currentPath, rootName: viewModel.location.name) { path in
                     isFilterFocused = false
                     Task { await viewModel.goToDirectory(path) }
                 }
@@ -150,7 +149,7 @@ struct FileBrowserView: View {
                         if let selectedEntry { onNamePrompt(.rename(selectedEntry)) }
                     }
                     selectionAction(
-                        viewModel.project.workspaceKind == "ssh" ? "Delete" : "Trash",
+                        viewModel.location.host.deletionShortTitle,
                         symbol: "trash",
                         disabled: viewModel.selectedPaths.isEmpty,
                         destructive: true

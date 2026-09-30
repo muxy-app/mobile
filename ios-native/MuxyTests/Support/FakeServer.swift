@@ -102,6 +102,7 @@ final class FakeServerConnection: ServerConnection {
         var ended: [UInt64] = []
         var nextSessionID: UInt64 = 900
         var isDisconnected = false
+        var files: [String: FakeProjectFiles] = [:]
     }
 
     init(
@@ -181,6 +182,23 @@ final class FakeServerConnection: ServerConnection {
         }
     }
 
+    func files(projectId: String) throws -> any ServerProjectFiles {
+        projectFiles(projectId)
+    }
+
+    func git(projectId: String) throws -> any ServerGitRepository {
+        FakeGitRepository()
+    }
+
+    func projectFiles(_ projectId: String) -> FakeProjectFiles {
+        state.withLock { state in
+            if let existing = state.files[projectId] { return existing }
+            let files = FakeProjectFiles()
+            state.files[projectId] = files
+            return files
+        }
+    }
+
     func disconnect() {
         state.withLock { $0.isDisconnected = true }
     }
@@ -223,5 +241,127 @@ final class FakeServerConnector: ServerConnector {
             attempt.map { state.handlers[$0 - 1] } ?? state.handlers.last
         }
         handler?(event)
+    }
+}
+
+final class FakeProjectFiles: ServerProjectFiles {
+    private let watches = Mutex((watched: 0, unwatched: 0))
+
+    var watchCount: Int {
+        watches.withLock { $0.watched }
+    }
+
+    var unwatchCount: Int {
+        watches.withLock { $0.unwatched }
+    }
+
+    func list(path: String) async throws -> [FileEntry] {
+        throw MobileError.Unsupported
+    }
+
+    func stat(path: String) async throws -> FileInfo {
+        throw MobileError.Unsupported
+    }
+
+    func readText(path: String) async throws -> String {
+        throw MobileError.Unsupported
+    }
+
+    func readBytes(path: String) async throws -> Data {
+        throw MobileError.Unsupported
+    }
+
+    func writeText(path: String, text: String) async throws -> String {
+        throw MobileError.Unsupported
+    }
+
+    func createDirectory(path: String) async throws -> String {
+        throw MobileError.Unsupported
+    }
+
+    func rename(path: String, name: String) async throws -> String {
+        throw MobileError.Unsupported
+    }
+
+    func moveFiles(paths: [String], into directory: String) async throws -> [String] {
+        throw MobileError.Unsupported
+    }
+
+    func deleteFiles(paths: [String]) async throws {
+        throw MobileError.Unsupported
+    }
+
+    func watch() {
+        watches.withLock { $0.watched += 1 }
+    }
+
+    func unwatch() {
+        watches.withLock { $0.unwatched += 1 }
+    }
+}
+
+final class FakeGitRepository: ServerGitRepository {
+    func summary() async throws -> GitSummary? {
+        throw MobileError.Unsupported
+    }
+
+    func status(includePullRequest: Bool) async throws -> GitStatus {
+        throw MobileError.Unsupported
+    }
+
+    func branches() async throws -> [GitBranch] {
+        throw MobileError.Unsupported
+    }
+
+    func diff(path: String, staged: Bool, lineLimit: UInt32?) async throws -> GitDiff {
+        throw MobileError.Unsupported
+    }
+
+    func commit(message: String, stageAll: Bool) async throws {
+        throw MobileError.Unsupported
+    }
+
+    func pull() async throws {
+        throw MobileError.Unsupported
+    }
+
+    func push(setUpstream: Bool) async throws {
+        throw MobileError.Unsupported
+    }
+
+    func switchBranch(name: String) async throws {
+        throw MobileError.Unsupported
+    }
+
+    func createBranch(name: String) async throws {
+        throw MobileError.Unsupported
+    }
+
+    func createPullRequest(title: String, body: String, baseBranch: String?, draft: Bool) async throws -> GitPullRequest {
+        throw MobileError.Unsupported
+    }
+
+    func mergePullRequest(number: UInt64, method: GitMergeMethod, deleteBranch: Bool, expectedHead: String?) async throws {
+        throw MobileError.Unsupported
+    }
+
+    func worktrees() async throws -> [GitWorktree] {
+        throw MobileError.Unsupported
+    }
+
+    func createWorktree(branch: String, base: String?) async throws -> ServerProject {
+        throw MobileError.Unsupported
+    }
+
+    func registerWorktree(directory: String) async throws -> ServerProject {
+        throw MobileError.Unsupported
+    }
+
+    func inspectWorktreeRemoval() async throws -> WorktreeRemoval {
+        throw MobileError.Unsupported
+    }
+
+    func removeWorktree(expected: WorktreeRemoval) async throws {
+        throw MobileError.Unsupported
     }
 }

@@ -1,21 +1,28 @@
 import Foundation
 
-nonisolated enum GitFileStatus: String, Codable, Sendable, Equatable {
+nonisolated enum VCSFileStatus: String, Codable, Sendable, Equatable {
     case added
     case modified
     case deleted
     case renamed
     case copied
+    case typeChanged
     case untracked
     case unmerged
+    case other
 }
 
-nonisolated struct GitFile: Codable, Sendable, Identifiable, Equatable, Hashable {
+nonisolated struct VCSFile: Codable, Sendable, Identifiable, Equatable, Hashable {
     let path: String
-    let status: GitFileStatus
+    let status: VCSFileStatus
     let isUntracked: Bool
 
     var id: String { path }
+}
+
+nonisolated struct GitDiffKey: Hashable, Sendable {
+    let path: String
+    let isStaged: Bool
 }
 
 nonisolated enum VCSPRChecksStatus: String, Codable, Sendable, Equatable {
@@ -53,6 +60,7 @@ nonisolated struct VCSPullRequest: Codable, Sendable, Equatable {
     let mergeable: Bool?
     let mergeStateStatus: VCSPRMergeStateStatus?
     let checks: VCSPRChecks?
+    let headOid: String?
 }
 
 nonisolated enum VCSMergeMethod: String, Codable, Sendable, CaseIterable, Equatable {
@@ -66,8 +74,8 @@ nonisolated struct VCSStatus: Codable, Sendable, Equatable {
     let aheadCount: Int
     let behindCount: Int
     let hasUpstream: Bool
-    let stagedFiles: [GitFile]
-    let changedFiles: [GitFile]
+    let stagedFiles: [VCSFile]
+    let changedFiles: [VCSFile]
     let defaultBranch: String?
     let pullRequest: VCSPullRequest?
 }

@@ -30,6 +30,8 @@ final class ServerController {
     @ObservationIgnored private let connector: ServerConnector
     @ObservationIgnored private let credentialProvider: () -> ServerCredential?
     @ObservationIgnored private let attachment = AttachmentCoordinator()
+    @ObservationIgnored private let fileWatches = FileWatches()
+    @ObservationIgnored private var connectionContinuations: [UUID: AsyncStream<Bool>.Continuation] = [:]
     @ObservationIgnored private var projectModels: [String: ProjectModel] = [:]
     @ObservationIgnored private var terminalsBySession: [UInt64: TerminalController] = [:]
     @ObservationIgnored private var generation = 0
@@ -54,6 +56,7 @@ final class ServerController {
         self.credentialProvider = credentialProvider
         self.schedule = schedule
         attachment.server = self
+        fileWatches.server = self
     }
 
     var projectRows: [ProjectRow] {
@@ -154,6 +157,31 @@ final class ServerController {
         Task { await model.refreshSessions(using: connection) }
     }
 
+    func connectionStates() -> AsyncStream<Bool> {
+        let (stream, continuation) = AsyncStream.makeStream(of: Bool.self)
+        let id = UUID()
+        connectionContinuations[id] = continuation
+        continuation.yield(connection != nil)
+        continuation.onTermination = { [weak self] _ in
+            Task { @MainActor [weak self] in self?.connectionContinuations[id] = nil }
+        }
+        return stream
+    }
+
+    func fileChanges(in projectID: String) -> AsyncStream<[String]> {
+        fileWatches.changes(in: projectID)
+    }
+
+    func files(for projectID: String) throws -> any ServerProjectFiles {
+        guard let connection else { throw MobileError.Disconnected }
+        return try connection.files(projectId: projectID)
+    }
+
+    func git(for projectID: String) throws -> any ServerGitRepository {
+        guard let connection else { throw MobileError.Disconnected }
+        return try connection.git(projectId: projectID)
+    }
+
     private func connect() {
         guard wantsConnection, connection == nil, !isConnecting else { return }
         if case .failed = phase { return }
@@ -204,6 +232,8 @@ final class ServerController {
         Log.connection.info("Connected to Muxy \(connection.serverVersion, privacy: .public)")
         refreshEverything()
         attachment.connectionDidOpen()
+        fileWatches.connectionDidOpen()
+        announceConnection(true)
     }
 
     private func didFailToConnect(_ failure: ServerFailure, generation attempt: Int) {
@@ -232,7 +262,9 @@ final class ServerController {
         case .sessionsChanged:
             guard connection != nil else { return }
             sessionsRefresh.request { [weak self] in await self?.loadSessions() }
-        case .activityChanged, .gitChanged, .filesChanged:
+        case let .filesChanged(projectId, paths):
+            fileWatches.deliver(paths, in: projectId)
+        case .activityChanged, .gitChanged:
             break
         case .serverRestarting:
             restartPending = true
@@ -269,6 +301,15 @@ final class ServerController {
         projectsRefresh.cancel()
         sessionsRefresh.cancel()
         closing?.disconnect()
+        if closing != nil {
+            announceConnection(false)
+        }
+    }
+
+    private func announceConnection(_ isConnected: Bool) {
+        for continuation in connectionContinuations.values {
+            continuation.yield(isConnected)
+        }
     }
 
     private func resetPhaseUnlessFailed() {

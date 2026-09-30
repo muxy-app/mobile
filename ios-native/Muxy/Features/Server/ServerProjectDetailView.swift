@@ -6,6 +6,7 @@ struct ServerProjectDetailView: View {
     let server: ServerController?
     let projectID: String
     let settings: AppSettings
+    let onOpenProject: (String) -> Void
 
     var body: some View {
         if let server {
@@ -13,7 +14,8 @@ struct ServerProjectDetailView: View {
                 connection: connection,
                 server: server,
                 model: server.projectModel(for: projectID),
-                settings: settings
+                settings: settings,
+                onOpenProject: onOpenProject
             )
         } else {
             ProjectTabsScreen(
@@ -31,11 +33,29 @@ struct ServerProjectDetailView: View {
     }
 }
 
+private enum ServerProjectSheet: Identifiable {
+    case files(FileManagerViewModel)
+    case git(GitViewModel, ServerWorktreesModel)
+    case worktrees(ServerWorktreesModel)
+
+    var id: ProjectTool {
+        switch self {
+        case .files: .files
+        case .git: .git
+        case .worktrees: .worktrees
+        }
+    }
+}
+
 private struct ServerProjectTabsView: View {
     let connection: Connection
     let server: ServerController
     let model: ProjectModel
     let settings: AppSettings
+    let onOpenProject: (String) -> Void
+
+    @State private var sheet: ServerProjectSheet?
+    @State private var pendingProjectID: String?
 
     var body: some View {
         ProjectTabsScreen(
@@ -51,6 +71,21 @@ private struct ServerProjectTabsView: View {
                 TerminalScreenView(controller: tab, settings: settings, isDisconnected: server.isConnectionLost)
             }
         )
+        .toolbar {
+            ProjectToolbar(onSelect: present)
+        }
+        .sheet(item: $sheet, onDismiss: openPendingProject) { sheet in
+            switch sheet {
+            case let .files(files):
+                FileSheetView(viewModel: files)
+            case let .git(git, worktrees):
+                GitSheetView(viewModel: git) {
+                    ServerWorktreesView(model: worktrees, onOpen: open)
+                }
+            case let .worktrees(worktrees):
+                ServerWorktreesSheetView(model: worktrees, onOpen: open)
+            }
+        }
         .onAppear { model.setVisible(true) }
         .onDisappear { model.setVisible(false) }
     }
@@ -61,5 +96,41 @@ private struct ServerProjectTabsView: View {
             phase: server.phase,
             hasLoadedSessions: model.hasLoadedSessions || isRemoved
         )
+    }
+
+    private var fileLocation: FileLocation {
+        guard let project = server.project(for: model.projectID) else {
+            return FileLocation(name: "Project", path: "", icon: .symbol("folder"), host: .computer(server.serverName))
+        }
+        return FileLocation(serverProject: project, serverName: server.serverName)
+    }
+
+    private func present(_ tool: ProjectTool) {
+        switch tool {
+        case .files:
+            sheet = .files(FileManagerViewModel(
+                location: fileLocation,
+                scope: .project,
+                backend: ServerFileBackend(projectID: model.projectID, server: server)
+            ))
+        case .worktrees:
+            sheet = .worktrees(ServerWorktreesModel(projectID: model.projectID, server: server))
+        case .git:
+            sheet = .git(
+                GitViewModel(backend: ServerGitBackend(projectID: model.projectID, server: server)),
+                ServerWorktreesModel(projectID: model.projectID, server: server)
+            )
+        }
+    }
+
+    private func open(_ projectID: String) {
+        pendingProjectID = projectID
+        sheet = nil
+    }
+
+    private func openPendingProject() {
+        guard let projectID = pendingProjectID else { return }
+        pendingProjectID = nil
+        onOpenProject(projectID)
     }
 }

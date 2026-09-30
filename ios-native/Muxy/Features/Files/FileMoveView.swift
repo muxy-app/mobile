@@ -10,8 +10,8 @@ struct FileMoveView: View {
     }
 
     private var destination: String {
-        guard !viewModel.movePath.isEmpty else { return viewModel.project.name }
-        return "\(viewModel.project.name) / \(viewModel.movePath.replacingOccurrences(of: "/", with: " / "))"
+        guard !viewModel.movePath.isEmpty else { return viewModel.location.name }
+        return "\(viewModel.location.name) / \(viewModel.movePath.replacingOccurrences(of: "/", with: " / "))"
     }
 
     var body: some View {
@@ -37,7 +37,7 @@ struct FileMoveView: View {
 
                 FileGuidance(message: "Open a folder, then tap Move here. A folder can’t be moved inside itself. Existing items are kept; moved items may be given a new name to avoid a conflict.")
 
-                FileBreadcrumbs(path: viewModel.movePath, rootName: viewModel.project.name) { path in
+                FileBreadcrumbs(path: viewModel.movePath, rootName: viewModel.location.name) { path in
                     Task { await viewModel.goToMoveDirectory(path) }
                 }
                 .disabled(!viewModel.canMutate)

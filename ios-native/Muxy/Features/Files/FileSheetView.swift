@@ -27,8 +27,8 @@ struct FileSheetView: View {
         }
     }
 
-    private var deletionTitle: String {
-        viewModel.project.workspaceKind == "ssh" ? "Delete permanently?" : "Move to Trash?"
+    private var host: FileHost {
+        viewModel.location.host
     }
 
     private var refreshTitle: String {
@@ -79,7 +79,7 @@ struct FileSheetView: View {
             Text(!enteredName.isEmpty ? nameError ?? prompt.guidance : prompt.guidance)
         }
         .confirmationDialog(
-            pendingDelete.isEmpty ? "Unsaved changes" : deletionTitle,
+            pendingDelete.isEmpty ? "Unsaved changes" : host.deletionTitle,
             isPresented: $isConfirmationPresented,
             titleVisibility: .visible
         ) {
@@ -111,7 +111,7 @@ struct FileSheetView: View {
     @ViewBuilder
     private var status: some View {
         if !viewModel.isConnected {
-            FileNotice(title: "Connection lost", message: "Reconnect to your Mac to browse files. Any unsaved edits are still here.", systemImage: "wifi.slash") {}
+            FileNotice(title: "Connection lost", message: host.reconnectMessage, systemImage: "wifi.slash") {}
                 .padding(.horizontal, 18)
                 .padding(.top, 12)
         }
@@ -170,7 +170,7 @@ struct FileSheetView: View {
                         Button { presentNamePrompt(.rename(preview.entry)) } label: { Label("Rename", systemImage: "pencil") }
                         Button { Task { await viewModel.startMove([preview.entry.path]) } } label: { Label("Move", systemImage: "folder") }
                         Button(role: .destructive) { confirmDelete([preview.entry.path]) } label: {
-                            Label(viewModel.project.workspaceKind == "ssh" ? "Delete permanently" : "Move to Trash", systemImage: "trash")
+                            Label(host.deletionMenuTitle, systemImage: "trash")
                         }
                     }
                     .disabled(!viewModel.canMutate || preview.isEditing || viewModel.isLoadingPreview)
@@ -194,7 +194,7 @@ struct FileSheetView: View {
     @ViewBuilder
     private var confirmationActions: some View {
         if !pendingDelete.isEmpty {
-            Button(viewModel.project.workspaceKind == "ssh" ? "Delete" : "Move to Trash", role: .destructive) {
+            Button(host.deletionConfirmationTitle, role: .destructive) {
                 guard promptContextID == viewModel.contextID else { return }
                 let paths = pendingDelete
                 Task { await viewModel.delete(paths) }
@@ -220,9 +220,7 @@ struct FileSheetView: View {
     private var confirmationMessage: some View {
         if !pendingDelete.isEmpty {
             let items = pendingDelete.count == 1 ? "“\(RemoteFilePath.name(pendingDelete[0]))”" : "\(pendingDelete.count) selected items"
-            Text(viewModel.project.workspaceKind == "ssh"
-                ? "\(items) will be permanently deleted from the remote host."
-                : "\(items) will be moved to Trash on the Mac.")
+            Text(host.deletionMessage(for: items))
         } else if viewModel.hasContextChanged {
             Text("Copy anything you need from this draft before discarding it.")
         } else {

@@ -17,6 +17,7 @@ final class ProjectDetailViewModel {
     private let connectionManager: ConnectionManager
     private let sessionStore: TerminalSessionStore
     private let gitViewModel: GitViewModel
+    private let worktreesViewModel: WorktreesViewModel
     private var observationTask: Task<Void, Never>?
     private var eventsTask: Task<Void, Never>?
 
@@ -32,9 +33,12 @@ final class ProjectDetailViewModel {
         self.keychain = keychain
         self.connectionManager = connectionManager
         self.sessionStore = sessionStore
-        gitViewModel = GitViewModel(
-            project: project,
+        let git = GitViewModel(backend: ChannelGitBackend(projectID: project.id, connectionManager: connectionManager))
+        gitViewModel = git
+        worktreesViewModel = WorktreesViewModel(
+            projectID: project.id,
             connectionManager: connectionManager,
+            git: git,
             connectionID: connection.id
         )
     }
@@ -64,8 +68,16 @@ final class ProjectDetailViewModel {
         gitViewModel
     }
 
+    func makeWorktreesViewModel() -> WorktreesViewModel {
+        worktreesViewModel
+    }
+
     func makeFileManagerViewModel() -> FileManagerViewModel {
-        FileManagerViewModel(project: project, worktreeID: workspace?.worktreeID, channel: connectionManager)
+        FileManagerViewModel(
+            location: FileLocation(project: project),
+            scope: FileScope(worktreeID: workspace?.worktreeID),
+            backend: ChannelFileBackend(projectID: project.id, channel: connectionManager)
+        )
     }
 
     func connect() async {
@@ -197,7 +209,7 @@ final class ProjectDetailViewModel {
     private func apply(_ workspace: Workspace) {
         guard workspace.projectID == project.id else { return }
         self.workspace = workspace
-        gitViewModel.setActiveWorktreeID(workspace.worktreeID)
+        worktreesViewModel.setActiveWorktreeID(workspace.worktreeID)
         reconcileSelection()
         sessionStore.tabsChanged(tabs)
         sessionStore.selectionChanged(to: selectedTabID, tabs: tabs)

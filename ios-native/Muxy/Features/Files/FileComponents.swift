@@ -45,26 +45,25 @@ struct FileBreadcrumbs: View {
 }
 
 struct FileProjectHeader: View {
-    let project: Project
+    let location: FileLocation
 
     @Environment(\.appTheme) private var theme
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: project.icon ?? "folder")
+            icon
                 .font(.title3)
                 .foregroundStyle(theme.accent)
                 .frame(width: 38, height: 38)
                 .filePanel()
             VStack(alignment: .leading, spacing: 4) {
-                Text(project.name)
+                Text(location.name)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(theme.foreground)
-                Label(project.workspaceKind == "ssh" ? "Remote host · Active worktree" : "Mac · Active worktree",
-                      systemImage: project.workspaceKind == "ssh" ? "server.rack" : "desktopcomputer")
+                Label(location.host.label, systemImage: location.host.symbol)
                     .font(.caption)
                     .foregroundStyle(theme.secondaryForeground)
-                Text(project.path)
+                Text(location.path)
                     .font(.caption2.monospaced())
                     .foregroundStyle(theme.secondaryForeground)
                     .textSelection(.enabled)
@@ -73,6 +72,16 @@ struct FileProjectHeader: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .accessibilityElement(children: .combine)
+    }
+
+    @ViewBuilder
+    private var icon: some View {
+        switch location.icon {
+        case let .symbol(name):
+            Image(systemName: name)
+        case let .emoji(emoji):
+            Text(emoji)
+        }
     }
 }
 

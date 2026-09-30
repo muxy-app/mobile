@@ -16,3 +16,10 @@ enum AppRoute: Hashable {
         }
     }
 }
+
+extension [AppRoute] {
+    func opening(_ route: AppRoute) -> [AppRoute] {
+        guard let index = lastIndex(of: route) else { return self + [route] }
+        return Array(self[...index])
+    }
+}

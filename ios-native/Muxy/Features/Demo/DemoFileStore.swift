@@ -102,7 +102,7 @@ nonisolated struct DemoFileStore: Sendable {
                 guard let decoded = Data(base64Encoded: params.contents) else { throw failure("Invalid Base64 contents.") }
                 data = decoded
             }
-            guard data.count <= FileClient.maximumFileBytes else { throw failure("File exceeds the 5 MiB write limit.") }
+            guard data.count <= FileLimits.maximumBytes else { throw failure("File exceeds the 5 MiB write limit.") }
             nodes[path] = Node(isDirectory: false, data: data, isIgnored: nodes[path]?.isIgnored ?? false)
             changedPaths = [path]
             return try pathsResult([path])

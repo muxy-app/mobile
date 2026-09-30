@@ -45,6 +45,14 @@ nonisolated final class SDKServerConnection: ServerConnection {
         return SDKTerminalChannel(terminal: terminal, lanes: lanes)
     }
 
+    func files(projectId: String) throws -> any ServerProjectFiles {
+        SDKProjectFiles(files: try connection.files(projectId: projectId), lanes: lanes)
+    }
+
+    func git(projectId: String) throws -> any ServerGitRepository {
+        SDKGitRepository(repository: try connection.git(projectId: projectId), lanes: lanes)
+    }
+
     func disconnect() {
         connection.disconnect()
     }

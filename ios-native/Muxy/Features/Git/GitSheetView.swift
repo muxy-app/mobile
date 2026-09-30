@@ -1,11 +1,12 @@
 import SwiftUI
 
-struct GitSheetView: View {
+struct GitSheetView<Worktrees: View>: View {
     @State var viewModel: GitViewModel
+    @ViewBuilder let worktrees: () -> Worktrees
 
     var body: some View {
         NavigationStack {
-            GitOverviewView(viewModel: viewModel)
+            GitOverviewView(viewModel: viewModel, worktrees: worktrees)
                 .screenTitle("Git")
         }
         .task {
@@ -16,8 +17,9 @@ struct GitSheetView: View {
     }
 }
 
-struct GitOverviewView: View {
+struct GitOverviewView<Worktrees: View>: View {
     let viewModel: GitViewModel
+    @ViewBuilder let worktrees: () -> Worktrees
 
     @Environment(\.appTheme) private var theme
 
@@ -85,9 +87,9 @@ struct GitOverviewView: View {
             Button {
                 Task { await viewModel.push() }
             } label: {
-                Label(status.aheadCount > 0 ? "Push \(status.aheadCount)" : "Push", systemImage: "arrow.up")
+                Label(viewModel.pushTitle(for: status), systemImage: "arrow.up")
             }
-            .disabled(status.aheadCount == 0)
+            .disabled(!viewModel.canPush(status))
 
             NavigationLink {
                 GitCommitView(viewModel: viewModel)
@@ -109,7 +111,7 @@ struct GitOverviewView: View {
             }
 
             NavigationLink {
-                GitWorktreesView(viewModel: viewModel)
+                worktrees()
             } label: {
                 Label("Worktrees", systemImage: "folder")
                     .foregroundStyle(theme.foreground)
@@ -146,14 +148,14 @@ struct GitOverviewView: View {
             } else {
                 ForEach(status.stagedFiles) { file in
                     NavigationLink {
-                        GitDiffView(viewModel: viewModel, filePath: file.path)
+                        GitDiffView(viewModel: viewModel, key: GitDiffKey(path: file.path, isStaged: true))
                     } label: {
                         GitFileRow(file: file, isStaged: true)
                     }
                 }
                 ForEach(status.changedFiles) { file in
                     NavigationLink {
-                        GitDiffView(viewModel: viewModel, filePath: file.path)
+                        GitDiffView(viewModel: viewModel, key: GitDiffKey(path: file.path, isStaged: false))
                     } label: {
                         GitFileRow(file: file, isStaged: false)
                     }
@@ -357,106 +359,6 @@ struct GitNewBranchView: View {
     }
 }
 
-struct GitWorktreesView: View {
-    let viewModel: GitViewModel
-    @Environment(\.appTheme) private var theme
-    @State private var selectedWorktreeID: UUID?
-    @State private var removingWorktreeID: UUID?
-
-    var body: some View {
-        ThemedList {
-            Section {
-                NavigationLink {
-                    GitNewWorktreeView(viewModel: viewModel)
-                } label: {
-                    Label("New Worktree", systemImage: "plus")
-                        .foregroundStyle(theme.foreground)
-                }
-            }
-
-            if let worktrees = viewModel.worktrees {
-                Section {
-                    ForEach(worktrees) { worktree in
-                        Button {
-                            select(worktree)
-                        } label: {
-                            HStack {
-                                Text(worktree.name)
-                                    .font(.headline)
-                                    .foregroundStyle(theme.foreground)
-                                Spacer()
-                                if selectedWorktreeID == worktree.id || removingWorktreeID == worktree.id {
-                                    ProgressView()
-                                } else if worktree.id == viewModel.activeWorktreeID {
-                                    Image(systemName: "checkmark")
-                                        .font(.body.weight(.semibold))
-                                        .foregroundStyle(theme.accent)
-                                }
-                            }
-                            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-                            .contentShape(Rectangle())
-                        }
-                        .disabled(selectedWorktreeID != nil || removingWorktreeID != nil)
-                        .buttonStyle(.plain)
-                        .swipeActions {
-                            if worktree.canBeRemoved {
-                                Button(role: .destructive) {
-                                    remove(worktree)
-                                } label: {
-                                    Label("Remove", systemImage: "trash")
-                                }
-                            }
-                        }
-                    }
-                } header: {
-                    ThemedSectionHeader("Worktrees")
-                }
-            } else if viewModel.isLoadingWorktrees {
-                ProgressView()
-            }
-        }
-        .screenTitle("Worktrees")
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    Task { await viewModel.refreshWorktrees() }
-                } label: {
-                    if viewModel.isLoadingWorktrees {
-                        ProgressView()
-                    } else {
-                        Image(systemName: "arrow.clockwise")
-                    }
-                }
-                .disabled(viewModel.isLoadingWorktrees)
-                .tint(theme.foreground)
-                .accessibilityLabel("Sync Worktrees with Desktop")
-            }
-        }
-        .task {
-            if viewModel.worktrees == nil {
-                await viewModel.refreshWorktrees()
-            }
-        }
-        .refreshable { await viewModel.refreshWorktrees() }
-    }
-
-    private func select(_ worktree: Worktree) {
-        selectedWorktreeID = worktree.id
-        Task {
-            await viewModel.selectWorktree(worktree)
-            selectedWorktreeID = nil
-        }
-    }
-
-    private func remove(_ worktree: Worktree) {
-        removingWorktreeID = worktree.id
-        Task {
-            await viewModel.removeWorktree(worktree)
-            removingWorktreeID = nil
-        }
-    }
-}
-
 struct GitPullRequestView: View {
     let viewModel: GitViewModel
     let pullRequest: VCSPullRequest
@@ -514,7 +416,7 @@ struct GitPullRequestView: View {
     private func merge() {
         isMerging = true
         Task {
-            let didMerge = await viewModel.mergePullRequest(number: pullRequest.number, method: method, deleteBranch: deleteBranch)
+            let didMerge = await viewModel.mergePullRequest(pullRequest, method: method, deleteBranch: deleteBranch)
             isMerging = false
             if didMerge {
                 dismiss()
@@ -595,74 +497,17 @@ struct GitCreatePullRequestView: View {
     }
 }
 
-struct GitNewWorktreeView: View {
-    let viewModel: GitViewModel
-    @State private var name = ""
-    @State private var branch = ""
-    @State private var createBranch = true
-    @State private var isSubmitting = false
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.appTheme) private var theme
-
-    var body: some View {
-        ThemedForm {
-            Section {
-                TextField("Name", text: $name)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                TextField("Branch", text: $branch)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                Toggle("Create branch", isOn: $createBranch)
-            } header: {
-                ThemedSectionHeader("Worktree")
-            }
-            .foregroundStyle(theme.foreground)
-
-            Section {
-                Button {
-                    submit()
-                } label: {
-                    if isSubmitting {
-                        ProgressView()
-                    } else {
-                        Text("Create Worktree")
-                    }
-                }
-                .disabled(!canSubmit || isSubmitting)
-            }
-        }
-        .screenTitle("New Worktree")
-    }
-
-    private var canSubmit: Bool {
-        !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-            !branch.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
-
-    private func submit() {
-        isSubmitting = true
-        Task {
-            let didCreate = await viewModel.addWorktree(name: name, branch: branch, createBranch: createBranch)
-            isSubmitting = false
-            if didCreate {
-                dismiss()
-            }
-        }
-    }
-}
-
 struct GitDiffView: View {
     let viewModel: GitViewModel
-    let filePath: String
+    let key: GitDiffKey
     @Environment(\.appTheme) private var theme
     @State private var wrapsLines = false
 
     var body: some View {
         Group {
-            if let diff = viewModel.diffsByPath[filePath] {
+            if let diff = viewModel.diffs[key] {
                 diffContent(diff)
-            } else if viewModel.loadingDiffPaths.contains(filePath) {
+            } else if viewModel.loadingDiffs.contains(key) {
                 ProgressView()
             } else {
                 ContentUnavailableView {
@@ -673,9 +518,9 @@ struct GitDiffView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(theme.groupedBackground)
-        .screenTitle(fileName(filePath))
+        .screenTitle(fileName(key.path))
         .toolbar {
-            if let diff = viewModel.diffsByPath[filePath], !diff.isBinary {
+            if let diff = viewModel.diffs[key], !diff.isBinary {
                 ToolbarItem(placement: .primaryAction) {
                     Button {
                         wrapsLines.toggle()
@@ -688,8 +533,8 @@ struct GitDiffView: View {
             }
         }
         .task {
-            if viewModel.diffsByPath[filePath] == nil {
-                await viewModel.loadDiff(filePath: filePath)
+            if viewModel.diffs[key] == nil {
+                await viewModel.loadDiff(key)
             }
         }
     }
@@ -707,10 +552,10 @@ struct GitDiffView: View {
         } else {
             GitCodeDiffViewer(
                 diff: diff,
-                filePath: filePath,
+                filePath: key.path,
                 wrapsLines: wrapsLines,
-                isLoading: viewModel.loadingDiffPaths.contains(filePath),
-                onLoadFull: { Task { await viewModel.loadDiff(filePath: filePath, forceFull: true) } }
+                isLoading: viewModel.loadingDiffs.contains(key),
+                onLoadFull: { Task { await viewModel.loadDiff(key, full: true) } }
             )
         }
     }
@@ -798,7 +643,7 @@ struct GitCodeDiffViewer: View {
 }
 
 struct GitFileRow: View {
-    let file: GitFile
+    let file: VCSFile
     let isStaged: Bool
 
     @Environment(\.appTheme) private var theme
@@ -880,7 +725,7 @@ private func lineNumber(_ value: Int?) -> String {
     value.map(String.init) ?? ""
 }
 
-private func statusLabel(_ status: GitFileStatus) -> String {
+private func statusLabel(_ status: VCSFileStatus) -> String {
     switch status {
     case .added:
         return "A"
@@ -892,23 +737,29 @@ private func statusLabel(_ status: GitFileStatus) -> String {
         return "R"
     case .copied:
         return "C"
+    case .typeChanged:
+        return "T"
     case .untracked:
         return "?"
     case .unmerged:
         return "!"
+    case .other:
+        return "X"
     }
 }
 
-private func statusColor(_ status: GitFileStatus, in theme: AppTheme) -> Color {
+private func statusColor(_ status: VCSFileStatus, in theme: AppTheme) -> Color {
     switch status {
     case .added, .copied:
         return theme.green
-    case .modified, .renamed:
+    case .modified, .renamed, .typeChanged:
         return theme.yellow
     case .deleted, .unmerged:
         return theme.red
     case .untracked:
         return theme.cyan
+    case .other:
+        return theme.secondaryForeground
     }
 }
 

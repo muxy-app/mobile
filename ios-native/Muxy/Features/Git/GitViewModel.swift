@@ -5,43 +5,32 @@ import OSLog
 @MainActor
 @Observable
 final class GitViewModel {
-    let project: Project
-
     private(set) var status: VCSStatus?
     private(set) var branches: VCSBranches?
-    private(set) var worktrees: [Worktree]?
-    private(set) var diffsByPath: [String: VCSDiff] = [:]
+    private(set) var diffs: [GitDiffKey: VCSDiff] = [:]
     private(set) var isLoadingStatus = false
     private(set) var isLoadingBranches = false
-    private(set) var isLoadingWorktrees = false
-    private(set) var loadingDiffPaths: Set<String> = []
-    private(set) var activeWorktreeID: UUID?
+    private(set) var loadingDiffs: Set<GitDiffKey> = []
     private(set) var errorMessage: String?
 
-    private let connectionID: UUID?
-    private let connectionManager: ConnectionManager
-    private let worktreeCache: WorktreeCache
+    private let backend: any GitBackend
 
-    init(
-        project: Project,
-        connectionManager: ConnectionManager,
-        connectionID: UUID? = nil,
-        worktreeCache: WorktreeCache? = nil
-    ) {
-        self.project = project
-        self.connectionID = connectionID
-        self.connectionManager = connectionManager
-        let resolvedWorktreeCache = worktreeCache ?? UserDefaultsWorktreeCache()
-        self.worktreeCache = resolvedWorktreeCache
-        worktrees = resolvedWorktreeCache.load(connectionID: connectionID, projectID: project.id)
+    init(backend: any GitBackend) {
+        self.backend = backend
     }
 
     var totalChanges: Int {
-        (status?.stagedFiles.count ?? 0) + (status?.changedFiles.count ?? 0)
+        guard let status else { return 0 }
+        return Set((status.stagedFiles + status.changedFiles).map(\.path)).count
     }
 
-    func setActiveWorktreeID(_ worktreeID: UUID?) {
-        activeWorktreeID = worktreeID
+    func canPush(_ status: VCSStatus) -> Bool {
+        status.aheadCount > 0 || publishes(status)
+    }
+
+    func pushTitle(for status: VCSStatus) -> String {
+        if publishes(status) { return "Publish Branch" }
+        return status.aheadCount > 0 ? "Push \(status.aheadCount)" : "Push"
     }
 
     func refreshStatus() async {
@@ -50,12 +39,9 @@ final class GitViewModel {
         defer { isLoadingStatus = false }
 
         do {
-            let result = try await connectionManager.request(.vcsRefresh, params: VCSProjectParams(projectID: project.id.uuidString))
-            guard result.type == ResultType.vcsStatus else { return }
-            status = try result.decode(VCSStatus.self)
+            status = try await backend.status()
         } catch {
-            errorMessage = error.localizedDescription
-            Log.client.error("Failed to refresh git status: \(error.localizedDescription, privacy: .public)")
+            report(error, while: "refreshing git status")
         }
     }
 
@@ -65,48 +51,26 @@ final class GitViewModel {
         defer { isLoadingBranches = false }
 
         do {
-            let result = try await connectionManager.request(.vcsListBranches, params: VCSProjectParams(projectID: project.id.uuidString))
-            guard result.type == ResultType.vcsBranches else { return }
-            branches = try result.decode(VCSBranches.self)
+            branches = try await backend.branches()
         } catch {
-            errorMessage = error.localizedDescription
-            Log.client.error("Failed to refresh git branches: \(error.localizedDescription, privacy: .public)")
+            report(error, while: "refreshing git branches")
         }
     }
 
-    func refreshWorktrees() async {
-        isLoadingWorktrees = true
+    func loadDiff(_ key: GitDiffKey, full: Bool = false) async {
+        loadingDiffs.insert(key)
         errorMessage = nil
-        defer { isLoadingWorktrees = false }
+        defer { loadingDiffs.remove(key) }
 
         do {
-            let result = try await connectionManager.request(.listWorktrees, params: ListWorktreesParams(projectID: project.id.uuidString))
-            guard result.type == ResultType.worktrees else { return }
-            let loaded = try result.decode([Worktree].self)
-            worktrees = loaded
-            worktreeCache.save(loaded, connectionID: connectionID, projectID: project.id)
+            diffs[key] = try await backend.diff(for: key, full: full)
         } catch {
-            errorMessage = error.localizedDescription
-            Log.client.error("Failed to refresh git worktrees: \(error.localizedDescription, privacy: .public)")
+            report(error, while: "loading a git diff")
         }
     }
 
-    func loadDiff(filePath: String, forceFull: Bool = false) async {
-        loadingDiffPaths.insert(filePath)
-        errorMessage = nil
-        defer { loadingDiffPaths.remove(filePath) }
-
-        do {
-            let result = try await connectionManager.request(
-                .vcsGetDiff,
-                params: VCSGetDiffParams(projectID: project.id.uuidString, filePath: filePath, forceFull: forceFull)
-            )
-            guard result.type == ResultType.vcsDiff else { return }
-            diffsByPath[filePath] = try result.decode(VCSDiff.self)
-        } catch {
-            errorMessage = error.localizedDescription
-            Log.client.error("Failed to load git diff: \(error.localizedDescription, privacy: .public)")
-        }
+    func invalidateDiffs() {
+        diffs.removeAll()
     }
 
     func commit(message: String, stageAll: Bool) async -> Bool {
@@ -114,40 +78,43 @@ final class GitViewModel {
         guard !trimmed.isEmpty else { return false }
 
         do {
-            _ = try await connectionManager.request(
-                .vcsCommit,
-                params: VCSCommitParams(projectID: project.id.uuidString, message: trimmed, stageAll: stageAll)
-            )
-            diffsByPath.removeAll()
+            try await backend.commit(message: trimmed, stageAll: stageAll)
+            invalidateDiffs()
             await refreshStatus()
             return true
         } catch {
-            errorMessage = error.localizedDescription
-            Log.client.error("Failed to commit: \(error.localizedDescription, privacy: .public)")
+            report(error, while: "committing")
             return false
         }
     }
 
     func pull() async {
-        await runStatusMutation(.vcsPull)
+        do {
+            try await backend.pull()
+            invalidateDiffs()
+            await refreshStatus()
+        } catch {
+            report(error, while: "pulling")
+        }
     }
 
     func push() async {
-        await runStatusMutation(.vcsPush)
+        do {
+            try await backend.push()
+            await refreshStatus()
+        } catch {
+            report(error, while: "pushing")
+        }
     }
 
     func switchBranch(_ branch: String) async {
         do {
-            _ = try await connectionManager.request(
-                .vcsSwitchBranch,
-                params: VCSBranchParams(projectID: project.id.uuidString, branch: branch)
-            )
-            diffsByPath.removeAll()
+            try await backend.switchBranch(branch)
+            invalidateDiffs()
             await refreshStatus()
             await refreshBranches()
         } catch {
-            errorMessage = error.localizedDescription
-            Log.client.error("Failed to switch git branch: \(error.localizedDescription, privacy: .public)")
+            report(error, while: "switching git branch")
         }
     }
 
@@ -156,16 +123,12 @@ final class GitViewModel {
         guard !trimmed.isEmpty else { return false }
 
         do {
-            _ = try await connectionManager.request(
-                .vcsCreateBranch,
-                params: VCSCreateBranchParams(projectID: project.id.uuidString, name: trimmed)
-            )
+            try await backend.createBranch(trimmed)
             await refreshStatus()
             await refreshBranches()
             return true
         } catch {
-            errorMessage = error.localizedDescription
-            Log.client.error("Failed to create git branch: \(error.localizedDescription, privacy: .public)")
+            report(error, while: "creating a git branch")
             return false
         }
     }
@@ -175,115 +138,37 @@ final class GitViewModel {
         guard !trimmedTitle.isEmpty else { return nil }
 
         do {
-            let result = try await connectionManager.request(
-                .vcsCreatePR,
-                params: VCSCreatePRParams(
-                    projectID: project.id.uuidString,
-                    title: trimmedTitle,
-                    body: body.trimmingCharacters(in: .whitespacesAndNewlines),
-                    baseBranch: baseBranch?.trimmingCharacters(in: .whitespacesAndNewlines),
-                    draft: draft
-                )
+            let created = try await backend.createPullRequest(
+                title: trimmedTitle,
+                body: body.trimmingCharacters(in: .whitespacesAndNewlines),
+                baseBranch: baseBranch?.trimmingCharacters(in: .whitespacesAndNewlines),
+                draft: draft
             )
-            guard result.type == ResultType.vcsPRCreated else { return nil }
-            let created = try result.decode(VCSPRCreated.self)
             await refreshStatus()
             return created
         } catch {
-            errorMessage = error.localizedDescription
-            Log.client.error("Failed to create pull request: \(error.localizedDescription, privacy: .public)")
+            report(error, while: "creating a pull request")
             return nil
         }
     }
 
-    func mergePullRequest(number: Int, method: VCSMergeMethod, deleteBranch: Bool) async -> Bool {
+    func mergePullRequest(_ pullRequest: VCSPullRequest, method: VCSMergeMethod, deleteBranch: Bool) async -> Bool {
         do {
-            _ = try await connectionManager.request(
-                .vcsMergePullRequest,
-                params: VCSMergePullRequestParams(
-                    projectID: project.id.uuidString,
-                    number: number,
-                    method: method,
-                    deleteBranch: deleteBranch
-                )
-            )
+            try await backend.mergePullRequest(pullRequest, method: method, deleteBranch: deleteBranch)
             await refreshStatus()
             return true
         } catch {
-            errorMessage = error.localizedDescription
-            Log.client.error("Failed to merge pull request: \(error.localizedDescription, privacy: .public)")
+            report(error, while: "merging a pull request")
             return false
         }
     }
 
-    func addWorktree(name: String, branch: String, createBranch: Bool) async -> Bool {
-        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedBranch = branch.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedName.isEmpty, !trimmedBranch.isEmpty else { return false }
-
-        do {
-            let result = try await connectionManager.request(
-                .vcsAddWorktree,
-                params: VCSAddWorktreeParams(
-                    projectID: project.id.uuidString,
-                    name: trimmedName,
-                    branch: trimmedBranch,
-                    createBranch: createBranch
-                )
-            )
-            guard result.type == ResultType.worktrees else { return false }
-            let loaded = try result.decode([Worktree].self)
-            worktrees = loaded
-            worktreeCache.save(loaded, connectionID: connectionID, projectID: project.id)
-            await refreshStatus()
-            await refreshBranches()
-            return true
-        } catch {
-            errorMessage = error.localizedDescription
-            Log.client.error("Failed to add worktree: \(error.localizedDescription, privacy: .public)")
-            return false
-        }
+    private func publishes(_ status: VCSStatus) -> Bool {
+        backend.canPublishBranch && !status.hasUpstream
     }
 
-    func removeWorktree(_ worktree: Worktree) async {
-        do {
-            _ = try await connectionManager.request(
-                .vcsRemoveWorktree,
-                params: VCSRemoveWorktreeParams(projectID: project.id.uuidString, worktreeID: worktree.id.uuidString)
-            )
-            await refreshWorktrees()
-        } catch {
-            errorMessage = error.localizedDescription
-            Log.client.error("Failed to remove worktree: \(error.localizedDescription, privacy: .public)")
-        }
-    }
-
-    func selectWorktree(_ worktree: Worktree) async {
-        do {
-            _ = try await connectionManager.request(
-                .selectWorktree,
-                params: SelectWorktreeParams(projectID: project.id.uuidString, worktreeID: worktree.id.uuidString)
-            )
-            activeWorktreeID = worktree.id
-            diffsByPath.removeAll()
-            await refreshStatus()
-            await refreshWorktrees()
-        } catch {
-            errorMessage = error.localizedDescription
-            Log.client.error("Failed to select worktree: \(error.localizedDescription, privacy: .public)")
-        }
-    }
-
-    private func runStatusMutation(_ method: Method) async {
-        do {
-            _ = try await connectionManager.request(method, params: VCSProjectParams(projectID: project.id.uuidString))
-            if method == .vcsPull {
-                diffsByPath.removeAll()
-            }
-            await refreshStatus()
-        } catch {
-            errorMessage = error.localizedDescription
-            Log.client.error("Failed to run git action: \(error.localizedDescription, privacy: .public)")
-        }
+    private func report(_ error: any Error, while action: String) {
+        errorMessage = error.localizedDescription
+        Log.client.error("Git failed while \(action, privacy: .public): \(error.localizedDescription, privacy: .private)")
     }
 }

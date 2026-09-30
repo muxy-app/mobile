@@ -2,11 +2,8 @@ import SwiftUI
 
 struct ProjectDetailView: View {
     @Environment(\.scenePhase) private var scenePhase
-    @Environment(\.appTheme) private var theme
     @State var viewModel: ProjectDetailViewModel
-    @State private var isGitPresented = false
-    @State private var isWorktreesPresented = false
-    @State private var isFilesPresented = false
+    @State private var tool: ProjectTool?
 
     var body: some View {
         ProjectTabsScreen(
@@ -21,40 +18,19 @@ struct ProjectDetailView: View {
             page: tabView(for:)
         )
         .toolbar {
-            ToolbarItemGroup(placement: .primaryAction) {
-                Button {
-                    isFilesPresented = true
-                } label: {
-                    Image(systemName: "folder")
+            ProjectToolbar { tool = $0 }
+        }
+        .sheet(item: $tool) { tool in
+            switch tool {
+            case .files:
+                FileSheetView(viewModel: viewModel.makeFileManagerViewModel())
+            case .worktrees:
+                WorktreesSheetView(viewModel: viewModel.makeWorktreesViewModel())
+            case .git:
+                GitSheetView(viewModel: viewModel.makeGitViewModel()) {
+                    GitWorktreesView(viewModel: viewModel.makeWorktreesViewModel())
                 }
-                .tint(theme.foreground)
-                .accessibilityLabel("Files")
-
-                Button {
-                    isWorktreesPresented = true
-                } label: {
-                    Image(systemName: "square.3.layers.3d")
-                }
-                .tint(theme.foreground)
-                .accessibilityLabel("Worktrees")
-
-                Button {
-                    isGitPresented = true
-                } label: {
-                    Image(systemName: "arrow.triangle.branch")
-                }
-                .tint(theme.foreground)
-                .accessibilityLabel("Git")
             }
-        }
-        .sheet(isPresented: $isGitPresented) {
-            GitSheetView(viewModel: viewModel.makeGitViewModel())
-        }
-        .sheet(isPresented: $isWorktreesPresented) {
-            WorktreesSheetView(viewModel: viewModel.makeGitViewModel())
-        }
-        .sheet(isPresented: $isFilesPresented) {
-            FileSheetView(viewModel: viewModel.makeFileManagerViewModel())
         }
         .task { await viewModel.connect() }
         .onChange(of: scenePhase) { _, phase in
@@ -85,16 +61,6 @@ struct ProjectDetailView: View {
             TerminalTabView(session: session)
         } else {
             UnsupportedTabView(title: tab.title)
-        }
-    }
-}
-
-struct WorktreesSheetView: View {
-    @State var viewModel: GitViewModel
-
-    var body: some View {
-        NavigationStack {
-            GitWorktreesView(viewModel: viewModel)
         }
     }
 }

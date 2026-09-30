@@ -2,6 +2,11 @@ import ImageIO
 import Observation
 import UIKit
 
+enum FilePreviewContent {
+    case text(RemoteTextFile)
+    case image(UIImage)
+}
+
 @MainActor
 @Observable
 final class FilePreviewState {
@@ -15,7 +20,7 @@ final class FilePreviewState {
 
     let entry: RemoteFileEntry
     var stat: RemoteFileStat?
-    var content: RemoteFileContent?
+    var text: RemoteTextFile?
     var kind = Kind.text
     var image: UIImage?
     var displayText = ""
@@ -25,27 +30,66 @@ final class FilePreviewState {
     var wrapsLines = true
     var hasExternalChanges = false
 
-    var isDirty: Bool { isEditing && draft != content?.content }
+    var isDirty: Bool { isEditing && draft != text?.text }
+    var hasContent: Bool { text != nil || image != nil }
 
     init(entry: RemoteFileEntry) {
         self.entry = entry
     }
 
-    func apply(_ content: RemoteFileContent) {
-        self.content = content
-        draft = content.encoding == .utf8 ? content.content : ""
+    func show(_ content: FilePreviewContent) {
+        switch content {
+        case let .text(text):
+            apply(text)
+        case let .image(image):
+            showImage(image)
+        }
+    }
+
+    func apply(_ text: RemoteTextFile) {
+        self.text = text
+        image = nil
+        kind = .text
+        draft = text.text
         displayText = String(draft.prefix(Self.previewCharacterLimit))
         isPreviewShortened = draft.count > Self.previewCharacterLimit
+        isEditing = false
+        hasExternalChanges = false
+    }
+
+    func showUnsupported() {
+        text = nil
+        image = nil
+        kind = .unsupported
+        draft = ""
+        displayText = ""
+        isEditing = false
+        hasExternalChanges = false
+    }
+
+    func clearContent() {
+        text = nil
+        image = nil
+        displayText = ""
+        isEditing = false
+    }
+
+    private func showImage(_ image: UIImage) {
+        text = nil
+        self.image = image
+        kind = .image
+        draft = ""
+        displayText = ""
+        isPreviewShortened = false
         isEditing = false
         hasExternalChanges = false
     }
 }
 
 nonisolated enum FileImageDecoder {
-    static func decode(_ content: String) async -> UIImage? {
+    static func decode(_ data: Data) async -> UIImage? {
         await Task.detached(priority: .userInitiated) {
-            guard let data = Data(base64Encoded: content),
-                  let source = CGImageSourceCreateWithData(data as CFData, nil),
+            guard let source = CGImageSourceCreateWithData(data as CFData, nil),
                   let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
                     kCGImageSourceCreateThumbnailFromImageAlways: true,
                     kCGImageSourceCreateThumbnailWithTransform: true,

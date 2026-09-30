@@ -54,6 +54,7 @@ nonisolated enum RemoteFilePath {
 nonisolated enum FileManagerError: LocalizedError {
     case worktreeChanged
     case unexpectedResponse
+    case notText
     case message(String)
 
     var errorDescription: String? {
@@ -62,6 +63,8 @@ nonisolated enum FileManagerError: LocalizedError {
             "The active worktree changed. Return to Files before continuing. Your draft is preserved."
         case .unexpectedResponse:
             "The server returned an unexpected file response."
+        case .notText:
+            "This file isn’t UTF-8 text."
         case let .message(message):
             message
         }

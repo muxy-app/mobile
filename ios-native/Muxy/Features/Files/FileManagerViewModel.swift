@@ -11,7 +11,7 @@ final class FileManagerViewModel {
         case move
     }
 
-    let project: Project
+    let location: FileLocation
     private(set) var route = Route.browser
     private(set) var currentPath = ""
     private(set) var entries: [RemoteFileEntry] = []
@@ -31,7 +31,7 @@ final class FileManagerViewModel {
     var selectionMode = false
 
     private let client: FileClient
-    private var activeWorktreeID: UUID?
+    private var activeScope: FileScope
     private var currentDirectoryPath: String?
     private var moveDirectoryPath: String?
     private var directoryRequestID = UUID()
@@ -50,17 +50,17 @@ final class FileManagerViewModel {
             && !movingPaths.allSatisfy { RemoteFilePath.parent($0) == movePath }
     }
 
-    init(project: Project, worktreeID: UUID?, channel: any FileChannel) {
-        self.project = project
-        activeWorktreeID = worktreeID
-        client = FileClient(projectID: project.id, channel: channel)
+    init(location: FileLocation, scope: FileScope, backend: any FileBackend) {
+        self.location = location
+        activeScope = scope
+        client = FileClient(backend: backend)
     }
 
     func run() async {
         isPresented = true
         defer { stop() }
-        let events = await client.channel.events()
-        let states = await client.channel.stateUpdates()
+        let events = await client.backend.events()
+        let states = await client.backend.connectionStates()
         await withTaskGroup(of: Void.self) { group in
             group.addTask { await self.observeEvents(events) }
             group.addTask { await self.observeConnection(states) }
@@ -145,63 +145,48 @@ final class FileManagerViewModel {
             guard isCurrent(context), previewRequestID == requestID else { return }
             preview.stat = stat
             guard !stat.isDirectory else { throw FileManagerError.message("This item is now a folder. Return to Files to open it.") }
-            guard stat.size <= FileClient.maximumFileBytes else {
+            guard stat.size <= FileLimits.maximumBytes else {
                 throw FileManagerError.message("Files larger than 5 MiB cannot be opened from the app.")
             }
-            let isImage = RemoteFilePath.isImage(preview.entry.path)
-            let content = try await client.read(preview.entry.path, encoding: isImage ? .base64 : .utf8)
-            let image = isImage ? await FileImageDecoder.decode(content.content) : nil
+            let content = try await loadPreviewContent(of: preview.entry)
             guard isCurrent(context), previewRequestID == requestID else { return }
             guard preview.draft == draft else {
                 preview.hasExternalChanges = true
                 return
             }
-            if isImage, image == nil { throw FileManagerError.message("This image could not be decoded.") }
-            preview.apply(content)
-            preview.kind = isImage ? .image : .text
-            preview.image = image
+            preview.show(content)
         } catch {
             guard isCurrent(context), previewRequestID == requestID else { return }
             guard preview.draft == draft else {
                 preview.hasExternalChanges = true
                 return
             }
-            let message = FileManagerError.description(error).lowercased()
-            if message.contains("utf-8") || message.contains("utf8") {
-                preview.content = nil
-                preview.draft = ""
-                preview.displayText = ""
-                preview.image = nil
-                preview.isEditing = false
-                preview.hasExternalChanges = false
-                preview.kind = .unsupported
+            if case FileManagerError.notText = error {
+                preview.showUnsupported()
                 return
             }
             if !preview.isDirty {
-                preview.content = nil
-                preview.image = nil
-                preview.displayText = ""
-                preview.isEditing = false
+                preview.clearContent()
             }
             report(error)
         }
     }
 
     func beginEditing() {
-        guard canMutate, !isLoadingPreview, let preview, preview.kind == .text, let content = preview.content else { return }
-        preview.draft = content.content
+        guard canMutate, !isLoadingPreview, let preview, preview.kind == .text, let text = preview.text else { return }
+        preview.draft = text.text
         preview.isEditing = true
     }
 
     func save() async -> Bool {
         guard let preview, preview.isEditing, preview.kind == .text else { return false }
         let draft = preview.draft
-        let worktreeID = activeWorktreeID
+        let scope = activeScope
         let succeeded = await mutate {
-            try await self.client.write(preview.entry.path, contents: draft, worktreeID: worktreeID)
+            try await self.client.write(preview.entry.path, contents: draft, in: scope)
         }
         guard succeeded else { return false }
-        preview.apply(RemoteFileContent(path: preview.entry.path, content: draft, size: draft.utf8.count, encoding: .utf8))
+        preview.apply(RemoteTextFile(path: preview.entry.path, text: draft, size: draft.utf8.count))
         preview.stat = RemoteFileStat(name: preview.entry.name, path: preview.entry.path, isDirectory: false, size: draft.utf8.count)
         await refreshDirectory()
         return true
@@ -220,12 +205,12 @@ final class FileManagerViewModel {
             report(error)
             return false
         }
-        let worktreeID = activeWorktreeID
+        let scope = activeScope
         var createdPath = path
         let succeeded = await mutate {
             createdPath = try await isDirectory
-                ? self.client.mkdir(path, worktreeID: worktreeID)
-                : self.client.create(path, worktreeID: worktreeID)
+                ? self.client.mkdir(path, in: scope)
+                : self.client.create(path, in: scope)
         }
         guard succeeded else { return false }
         await refreshDirectory()
@@ -238,9 +223,9 @@ final class FileManagerViewModel {
     }
 
     func rename(_ entry: RemoteFileEntry, name: String) async -> Bool {
-        let worktreeID = activeWorktreeID
+        let scope = activeScope
         let succeeded = await mutate {
-            _ = try await self.client.rename(entry.path, name: name, worktreeID: worktreeID)
+            _ = try await self.client.rename(entry.path, name: name, in: scope)
         }
         guard succeeded else { return false }
         await returnToBrowser()
@@ -248,9 +233,9 @@ final class FileManagerViewModel {
     }
 
     func delete(_ paths: [String]) async {
-        let worktreeID = activeWorktreeID
+        let scope = activeScope
         let succeeded = await mutate {
-            try await self.client.delete(paths, worktreeID: worktreeID)
+            try await self.client.delete(paths, in: scope)
         }
         guard succeeded else { return }
         await returnToBrowser()
@@ -275,9 +260,9 @@ final class FileManagerViewModel {
         guard canMoveHere else { return }
         let paths = movingPaths
         let destination = movePath
-        let worktreeID = activeWorktreeID
+        let scope = activeScope
         let succeeded = await mutate {
-            try await self.client.move(paths, into: destination, worktreeID: worktreeID)
+            try await self.client.move(paths, into: destination, in: scope)
         }
         guard succeeded else { return }
         await returnToBrowser()
@@ -328,6 +313,15 @@ final class FileManagerViewModel {
         }
     }
 
+    private func loadPreviewContent(of entry: RemoteFileEntry) async throws -> FilePreviewContent {
+        guard RemoteFilePath.isImage(entry.path) else { return .text(try await client.readText(entry.path)) }
+        let data = try await client.readData(entry.path)
+        guard let image = await FileImageDecoder.decode(data) else {
+            throw FileManagerError.message("This image could not be decoded.")
+        }
+        return .image(image)
+    }
+
     private func mutate(_ operation: () async throws -> Void) async -> Bool {
         guard canMutate else { return false }
         let context = contextID
@@ -353,29 +347,23 @@ final class FileManagerViewModel {
         }
     }
 
-    private func observeEvents(_ events: AsyncStream<EventEnvelope>) async {
+    private func observeEvents(_ events: AsyncStream<FileBackendEvent>) async {
         for await event in events {
             guard !Task.isCancelled else { return }
-            do {
-                if event.event == EventName.workspaceChanged, let data = event.data, data.type == EventType.workspace {
-                    let workspace = try data.decode(Workspace.self)
-                    guard workspace.projectID == project.id else { continue }
-                    if updateWorktree(workspace.worktreeID) { await refreshDirectory() }
-                    continue
-                }
-                guard event.event == EventName.fileChanged, let data = event.data, data.type == EventType.fileChanged else { continue }
-                receive(try data.decode(FileChangedEvent.self))
-            } catch {
-                Log.files.error("Invalid file event: \(FileManagerError.description(error), privacy: .private)")
+            switch event {
+            case let .scopeChanged(scope):
+                if updateScope(scope) { await refreshDirectory() }
+            case let .filesChanged(change):
+                receive(change)
             }
         }
     }
 
-    private func observeConnection(_ states: AsyncStream<ConnectionState>) async {
-        for await state in states {
+    private func observeConnection(_ states: AsyncStream<Bool>) async {
+        for await connected in states {
             guard !Task.isCancelled else { return }
             let wasConnected = isConnected
-            isConnected = state == .connected
+            isConnected = connected
             guard isConnected else {
                 contextID = UUID()
                 invalidateRequests()
@@ -389,9 +377,9 @@ final class FileManagerViewModel {
     private func refreshContext() async {
         let context = contextID
         do {
-            let worktreeID = try await client.activeWorktreeID()
+            let scope = try await client.currentScope()
             guard isCurrent(context) else { return }
-            _ = updateWorktree(worktreeID)
+            _ = updateScope(scope)
             guard !hasContextChanged else { return }
             await refreshDirectory()
             if isDirty {
@@ -406,9 +394,9 @@ final class FileManagerViewModel {
         }
     }
 
-    private func updateWorktree(_ worktreeID: UUID?) -> Bool {
-        guard activeWorktreeID != worktreeID else { return false }
-        activeWorktreeID = worktreeID
+    private func updateScope(_ scope: FileScope) -> Bool {
+        guard activeScope != scope else { return false }
+        activeScope = scope
         contextID = UUID()
         invalidateRequests()
         Log.files.debug("File workspace context changed")
@@ -429,15 +417,15 @@ final class FileManagerViewModel {
         return true
     }
 
-    private func receive(_ change: FileChangedEvent) {
-        guard !hasContextChanged, change.projectID == project.id, change.worktreeID == activeWorktreeID else { return }
+    private func receive(_ change: FileChange) {
+        guard !hasContextChanged, change.scope == activeScope else { return }
         if let preview, route == .preview {
-            pendingPreviewRefresh = pendingPreviewRefresh || change.truncated || change.paths.contains { path in
+            pendingPreviewRefresh = pendingPreviewRefresh || change.requiresRescan || change.paths.contains { path in
                 RemoteFilePath.contains(preview.entry.path, in: path)
-                    || preview.content.map { RemoteFilePath.contains($0.path, in: path) } == true
+                    || preview.text.map { RemoteFilePath.contains($0.path, in: path) } == true
             }
         }
-        pendingDirectoryRefresh = pendingDirectoryRefresh || change.truncated
+        pendingDirectoryRefresh = pendingDirectoryRefresh || change.requiresRescan
             || (isLoadingDirectory && currentDirectoryPath == nil)
             || (route == .move && isLoadingMove && moveDirectoryPath == nil)
             || change.paths.contains {
