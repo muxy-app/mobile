@@ -10,6 +10,7 @@ import androidx.navigation3.runtime.serialization.NavBackStackSerializer
 import androidx.navigation3.ui.NavDisplay
 import com.muxy.app.design.ThemeCatalog
 import com.muxy.app.features.navigation.NavigationTransitions
+import com.muxy.app.features.navigation.close
 import com.muxy.app.features.navigation.open
 
 @Composable
@@ -42,7 +43,7 @@ fun SettingsModal(
                     ThemePickerScreen(
                         selectedTheme = selectedTheme,
                         onSelect = viewModel::selectTheme,
-                        onBack = { backStack.removeLastOrNull() },
+                        onBack = { backStack.close(SettingsRoute.Theme) },
                     )
                 }
             },

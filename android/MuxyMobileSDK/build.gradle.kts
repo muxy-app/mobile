@@ -39,8 +39,10 @@ dependencies {
 
 val checkMuxySdk =
     tasks.register("checkMuxySdk") {
+        val nativeLibraries =
+            listOf("arm64-v8a", "armeabi-v7a", "x86_64").map { "Installed/jniLibs/$it/libmuxy_mobile.so" }
         val installedFiles =
-            listOf("Installed/REVISION", "Installed/kotlin/uniffi/muxy_mobile/muxy_mobile.kt")
+            (listOf("Installed/REVISION", "Installed/kotlin/uniffi/muxy_mobile/muxy_mobile.kt") + nativeLibraries)
                 .map { layout.projectDirectory.file(it).asFile }
         doLast {
             if (installedFiles.all { it.isFile }) return@doLast

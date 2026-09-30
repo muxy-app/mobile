@@ -38,4 +38,20 @@ class BackStackTest {
         backStack.open(AppRoute.Connections)
         assertEquals(listOf<AppRoute>(AppRoute.Connections), backStack.toList())
     }
+
+    @Test
+    fun closeRemovesTheRouteOnlyWhileItIsOnTop() {
+        val backStack = NavBackStack(AppRoute.Connections, AppRoute.Settings)
+        backStack.close(AppRoute.Settings)
+        assertEquals(listOf<AppRoute>(AppRoute.Connections), backStack.toList())
+        backStack.close(AppRoute.Settings)
+        assertEquals(listOf<AppRoute>(AppRoute.Connections), backStack.toList())
+    }
+
+    @Test
+    fun closeIgnoresARouteBelowTheTop() {
+        val backStack = NavBackStack(AppRoute.Connections, AppRoute.Settings)
+        backStack.close(AppRoute.Connections)
+        assertEquals(listOf(AppRoute.Connections, AppRoute.Settings), backStack.toList())
+    }
 }

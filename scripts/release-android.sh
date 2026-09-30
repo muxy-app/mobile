@@ -40,6 +40,10 @@ set -- "${POSITIONAL[@]}"
 
 cd "$REPO_ROOT"
 
+if [[ -f android/settings.gradle.kts ]]; then
+  die "android/ holds the native Kotlin app, and expo prebuild would replace it. Release React Native with the Release workflow, or run this script from a worktree of the last React Native release."
+fi
+
 PACKAGE_NAME="com.muxy.app"
 KEYSTORE_DEST="android/app/upload-keystore.jks"
 

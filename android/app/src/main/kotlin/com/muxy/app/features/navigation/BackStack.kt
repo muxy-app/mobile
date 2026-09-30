@@ -17,3 +17,8 @@ fun <T : NavKey> NavBackStack<T>.open(route: T) {
     }
     repeat(size - target.size) { removeAt(lastIndex) }
 }
+
+fun <T : NavKey> NavBackStack<T>.close(route: T) {
+    if (lastOrNull() != route) return
+    removeAt(lastIndex)
+}

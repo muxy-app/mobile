@@ -136,8 +136,8 @@ booted() {
 boot_emulator() {
   local avd port serial log pid waited=0
   require_emulator
-  avd=$(choose_avd)
-  port=$(free_emulator_port)
+  avd=$(choose_avd) || exit 1
+  port=$(free_emulator_port) || exit 1
   serial="emulator-$port"
   mkdir -p .build
   log="$PWD/.build/emulator-$avd.log"

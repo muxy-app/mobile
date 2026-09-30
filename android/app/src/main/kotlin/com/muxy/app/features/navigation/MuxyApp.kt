@@ -70,7 +70,7 @@ private fun AppNavigation(
                 entry<AppRoute.Settings>(metadata = NavigationTransitions.modal) {
                     SettingsModal(
                         viewModel = viewModel { container.makeSettingsViewModel() },
-                        onClose = { backStack.removeLastOrNull() },
+                        onClose = { backStack.close(AppRoute.Settings) },
                     )
                 }
             },

@@ -89,6 +89,8 @@ Build outputs are stored in each module's `build/` folder. The first build downl
 
 ## Release builds
 
+Play releases still ship the React Native app until the native app replaces it. The Release workflow regenerates `android/` with `expo prebuild` on a fresh checkout. Don't run `expo prebuild` or `npm run android` in this checkout: prebuild replaces `android/`, and `npm run android` compiles whatever project `android/` holds instead of the React Native app. `scripts/release-android.sh` refuses to run here for the same reason.
+
 `./gradlew :app:assembleRelease` builds with R8. `-PversionName` and `-PversionCode` set the version, and the build signs with the upload key when `ANDROID_SIGNING_KEY_PATH`, `ANDROID_KEY_STORE_PASSWORD`, `ANDROID_KEY_ALIAS` and `ANDROID_KEY_PASSWORD` are all set. A relative key path is resolved from the repository root, as in `.env.example`. With none of them set, the APK is unsigned.
 
 ## Connect to Muxy 1

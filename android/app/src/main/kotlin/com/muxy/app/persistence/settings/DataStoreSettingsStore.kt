@@ -11,11 +11,12 @@ import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.muxy.app.core.logging.Log
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.retryWhen
+import kotlinx.coroutines.launch
 import java.io.File
 import java.io.IOException
 
@@ -23,14 +24,22 @@ class DataStoreSettingsStore(
     private val dataStore: DataStore<Preferences>,
     scope: CoroutineScope,
 ) : SettingsStore {
-    override val settings: StateFlow<AppSettings?> =
-        dataStore.data
-            .catch { error ->
-                if (error !is IOException) throw error
-                Log.persistence.error("Reading settings failed", error)
-                emit(emptyPreferences())
-            }.map { it.toAppSettings() }
-            .stateIn(scope, SharingStarted.Eagerly, null)
+    private val state = MutableStateFlow<AppSettings?>(null)
+
+    override val settings: StateFlow<AppSettings?> = state.asStateFlow()
+
+    init {
+        scope.launch {
+            dataStore.data
+                .retryWhen { error, attempt ->
+                    if (error !is IOException) return@retryWhen false
+                    Log.persistence.error("Reading settings failed", error)
+                    state.compareAndSet(null, AppSettings())
+                    delay(readRetryDelayMillis(attempt))
+                    true
+                }.collect { state.value = it.toAppSettings() }
+        }
+    }
 
     override suspend fun update(transform: (AppSettings) -> AppSettings) {
         try {
@@ -41,6 +50,13 @@ class DataStoreSettingsStore(
     }
 
     companion object {
+        private const val READ_RETRY_BASE_MILLIS = 500L
+        private const val READ_RETRY_MAX_MILLIS = 30_000L
+        private const val READ_RETRY_MAX_DOUBLINGS = 6L
+
+        private fun readRetryDelayMillis(attempt: Long): Long =
+            minOf(READ_RETRY_BASE_MILLIS shl minOf(attempt, READ_RETRY_MAX_DOUBLINGS).toInt(), READ_RETRY_MAX_MILLIS)
+
         fun preferences(
             scope: CoroutineScope,
             file: () -> File,

@@ -147,7 +147,7 @@ private fun ContinueButton(
                 .clip(shape)
                 .background(theme.accent)
                 .clickable(
-                    onClickLabel = if (isLastSlide) "Opens device pairing." else "Shows the next onboarding step.",
+                    onClickLabel = if (isLastSlide) "open device pairing" else "show the next onboarding step",
                     role = Role.Button,
                     onClick = onClick,
                 ).height(40.dp)
