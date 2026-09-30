@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="Theme.Muxy" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/launch_background</item>
+    </style>
+
+    <style name="Theme.Muxy.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/launch_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.Muxy</item>
+    </style>
+
+</resources>

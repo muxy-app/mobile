@@ -62,4 +62,11 @@ ios-native/MuxyMobileSDK/.swiftpm
 xcuserdata/
 /ios
 
+android/.gradle/
+android/**/build/
+android/local.properties
+android/.idea/
+android/.build/
+android/MuxyMobileSDK/Installed/
+
 .plans/

@@ -23,7 +23,9 @@ Companion app for Muxy (github.com/muxy-app/muxy)
 
 - `ios-native/scripts/sdk.sh install`
 - `ios-native/scripts/run.sh test`
+- `android/scripts/sdk.sh install`
 - `android/scripts/run.sh test`
+- `android/scripts/checks.sh`
 
 ## API Docs
 
