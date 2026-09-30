@@ -71,6 +71,20 @@ build_app() {
   echo "Built: $DERIVED/Build/Products/Debug-$sdk/$APP_NAME"
 }
 
+open_simulator() {
+  local developer_dir
+  developer_dir=$(xcode-select -p)
+  if [ -d "$developer_dir/Applications/Simulator.app" ]; then
+    open "$developer_dir/Applications/Simulator.app" --args -CurrentDeviceUDID "$SIM_ID"
+    return
+  fi
+  if [ -d "$developer_dir/../Applications/DeviceHub.app" ]; then
+    open "$developer_dir/../Applications/DeviceHub.app"
+    return
+  fi
+  fail "No Simulator or DeviceHub app found in the selected Xcode installation: $developer_dir"
+}
+
 if [ "$ACTION" = "build" ]; then
   build_app iphonesimulator "generic/platform=iOS Simulator"
   exit 0
@@ -118,7 +132,7 @@ fi
 
 build_app iphonesimulator "id=$SIM_ID"
 xcrun simctl bootstatus "$SIM_ID" -b
-open -a Simulator --args -CurrentDeviceUDID "$SIM_ID"
+open_simulator
 xcrun simctl install "$SIM_ID" "$DERIVED/Build/Products/Debug-iphonesimulator/$APP_NAME"
 xcrun simctl launch --terminate-running-process "$SIM_ID" "$APP_ID"
 
