@@ -8,6 +8,7 @@ import com.muxy.app.core.serialization.uuidString
 import com.muxy.app.models.Connection
 import com.muxy.app.models.Project
 import com.muxy.app.models.ProjectWorkspace
+import com.muxy.app.networking.muxy1.ConnectionError
 import com.muxy.app.networking.muxy1.ConnectionManager
 import com.muxy.app.networking.muxy1.ConnectionState
 import com.muxy.app.networking.muxy1.protocol.ErrorCode
@@ -169,15 +170,8 @@ class ProjectsViewModel(
         state: ConnectionState,
     ): ProjectsUiState {
         val workspaces = workspaces(content.projects)
-        val selected = content.selectedWorkspaceId
-        val visible =
-            if (selected != null &&
-                workspaces.any { it.id == selected }
-            ) {
-                content.projects.filter { it.workspaceId == selected }
-            } else {
-                content.projects
-            }
+        val selected = content.selectedWorkspaceId?.takeIf { id -> workspaces.any { it.id == id } }
+        val visible = if (selected == null) content.projects else content.projects.filter { it.workspaceId == selected }
         return ProjectsUiState(
             connectionName = connection?.name.orEmpty(),
             items = visible.map { listItem(it, content.logos[it.id]) },
@@ -193,22 +187,21 @@ class ProjectsViewModel(
         load: LoadState,
     ): ProjectListStatus =
         when (state) {
-            ConnectionState.Idle, ConnectionState.Connecting, ConnectionState.Authenticating -> {
-                ProjectListStatus.Loading
-            }
-
-            ConnectionState.Connected -> {
-                when (load) {
-                    LoadState.NOT_LOADED -> ProjectListStatus.Loading
-                    LoadState.FAILED -> ProjectListStatus.LoadFailed
-                    LoadState.LOADED -> ProjectListStatus.Empty
-                }
-            }
-
-            ConnectionState.Disconnected, is ConnectionState.Failed -> {
-                ProjectListStatus.Disconnected(message = null)
-            }
+            ConnectionState.Idle, ConnectionState.Connecting, ConnectionState.Authenticating -> ProjectListStatus.Loading
+            ConnectionState.Connected -> loadedStatus(load)
+            ConnectionState.Disconnected -> ProjectListStatus.Disconnected(message = null)
+            is ConnectionState.Failed -> failedStatus(state.error)
         }
+
+    private fun loadedStatus(load: LoadState): ProjectListStatus =
+        when (load) {
+            LoadState.NOT_LOADED -> ProjectListStatus.Loading
+            LoadState.FAILED -> ProjectListStatus.LoadFailed
+            LoadState.LOADED -> ProjectListStatus.Empty
+        }
+
+    private fun failedStatus(error: ConnectionError): ProjectListStatus =
+        if (error == ConnectionError.MISSING_TOKEN) ProjectListStatus.NeedsPairing else ProjectListStatus.Disconnected(message = null)
 
     private fun workspaces(projects: List<Project>): List<ProjectWorkspace> =
         projects

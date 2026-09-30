@@ -7,8 +7,8 @@ import androidx.lifecycle.Lifecycle
 import com.muxy.app.core.device.SystemPhoneName
 import com.muxy.app.core.security.TokenGenerator
 import com.muxy.app.core.validation.ConnectionInputValidator
+import com.muxy.app.features.addconnection.AddConnectionInbox
 import com.muxy.app.features.addconnection.AddConnectionViewModel
-import com.muxy.app.features.addconnection.PairingCodeInbox
 import com.muxy.app.features.connections.ConnectionsListViewModel
 import com.muxy.app.features.demo.syncDemoMode
 import com.muxy.app.features.navigation.AppRoute
@@ -79,7 +79,7 @@ class AppContainer(
             },
         )
 
-    val pairingCodes = PairingCodeInbox()
+    val addConnectionRequests = AddConnectionInbox()
 
     val connectionManager =
         ConnectionManager(
@@ -95,7 +95,7 @@ class AppContainer(
         ioScope.syncDemoMode(settingsStore.settings, connectionStore, tokenStore)
     }
 
-    fun makeRootViewModel(): RootViewModel = RootViewModel(settingsStore, pairingCodes)
+    fun makeRootViewModel(): RootViewModel = RootViewModel(settingsStore, addConnectionRequests)
 
     fun makeSettingsViewModel(): SettingsViewModel = SettingsViewModel(settingsStore)
 
@@ -109,7 +109,7 @@ class AppContainer(
             validator = validator,
             tokenGenerator = tokenGenerator,
             discovery = NsdDiscovery(context.getSystemService(NsdManager::class.java)),
-            inbox = pairingCodes,
+            inbox = addConnectionRequests,
         )
 
     fun makeProjectsViewModel(connectionId: UUID): ProjectsViewModel =

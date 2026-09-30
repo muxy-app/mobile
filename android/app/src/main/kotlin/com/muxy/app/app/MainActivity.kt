@@ -10,6 +10,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.muxy.app.design.AppTheme
 import com.muxy.app.design.ThemedWindow
+import com.muxy.app.features.navigation.DeepLink
 import com.muxy.app.features.navigation.MuxyApp
 import com.muxy.app.features.navigation.RootViewModel
 
@@ -38,8 +39,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun openLink(intent: Intent) {
-        if (intent.action != Intent.ACTION_VIEW) return
-        val link = intent.dataString ?: return
+        val link = DeepLink.linkToOpen(intent.action, intent.flags, intent.dataString) ?: return
         viewModel.openPairingLink(link)
     }
 }

@@ -17,6 +17,7 @@ import com.muxy.app.design.components.MuxyTopAppBar
 import com.muxy.app.design.components.ThemedBorderedButton
 import com.muxy.app.design.components.ThemedEmptyState
 import com.muxy.app.design.components.ThemedList
+import com.muxy.app.design.components.ThemedProminentButton
 import com.muxy.app.design.components.TopBarAction
 import com.muxy.app.design.components.themedSection
 import com.muxy.app.models.ProjectWorkspace
@@ -36,6 +37,7 @@ fun ProjectListScreen(
     onSelect: (ProjectListItem) -> Unit,
     onSelectWorkspace: (UUID?) -> Unit,
     onRetry: () -> Unit,
+    onPairAgain: () -> Unit,
     onBack: () -> Unit,
 ) {
     Scaffold(
@@ -47,7 +49,7 @@ fun ProjectListScreen(
         },
     ) { padding ->
         if (!hasProjects) {
-            EmptyProjects(status, connectionName, onRetry, Modifier.padding(padding))
+            EmptyProjects(status, connectionName, onRetry, onPairAgain, Modifier.padding(padding))
             return@Scaffold
         }
         Column(modifier = Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
@@ -86,6 +88,7 @@ private fun EmptyProjects(
     status: ProjectListStatus,
     connectionName: String,
     onRetry: () -> Unit,
+    onPairAgain: () -> Unit,
     modifier: Modifier,
 ) {
     when (status) {
@@ -113,6 +116,17 @@ private fun EmptyProjects(
                 message = "Projects on $connectionName will appear here.",
                 modifier = modifier,
             )
+        }
+
+        ProjectListStatus.NeedsPairing -> {
+            ThemedEmptyState(
+                title = "Pair Again",
+                icon = R.drawable.ic_desktop_mac,
+                message = "This phone no longer has the pairing for $connectionName. Pair it again to reconnect.",
+                modifier = modifier,
+            ) {
+                ThemedProminentButton(text = "Pair Again", onClick = onPairAgain)
+            }
         }
 
         is ProjectListStatus.Disconnected -> {

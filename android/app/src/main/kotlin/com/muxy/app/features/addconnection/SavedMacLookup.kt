@@ -11,5 +11,12 @@ fun List<Connection>.savedMac(
 ): Connection? {
     val macs = filter { it.kind == ConnectionKind.DEVICE && it.id != DemoConnection.id }
     val byService = serviceName?.let { name -> macs.firstOrNull { it.serviceName == name } }
-    return byService ?: macs.firstOrNull { it.host.equals(host, ignoreCase = true) && it.port == port }
+    return byService ?: macs.firstOrNull { it.isAt(host, port) && !it.isAnotherService(serviceName) }
 }
+
+fun Connection.isAt(
+    host: String,
+    port: Int,
+): Boolean = this.host.equals(host, ignoreCase = true) && this.port == port
+
+private fun Connection.isAnotherService(name: String?): Boolean = name != null && serviceName != null && serviceName != name

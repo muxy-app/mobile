@@ -31,8 +31,10 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -41,7 +43,6 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.encodeToJsonElement
 import java.io.IOException
 import java.util.UUID
-import java.util.concurrent.atomic.AtomicInteger
 
 class ConnectionManager(
     private val makeTransport: (String) -> Transport,
@@ -56,7 +57,7 @@ class ConnectionManager(
     private val clientScope = CoroutineScope(job + dispatcher)
     private val operations = Mutex()
     private val intentLock = Any()
-    private val runningPairings = AtomicInteger(0)
+    private val runningPairings = MutableStateFlow(0)
     private val mutableStatus = MutableStateFlow(ConnectionStatus.idle)
     private val eventFlow = MutableSharedFlow<ConnectionEvent>(extraBufferCapacity = EVENT_BUFFER)
 
@@ -69,6 +70,8 @@ class ConnectionManager(
     private var active: Active? = null
 
     val status: StateFlow<ConnectionStatus> = mutableStatus.asStateFlow()
+
+    val isPairing: Flow<Boolean> = runningPairings.map { it > 0 }.distinctUntilChanged()
 
     fun events(connectionId: UUID): Flow<EventEnvelope> =
         eventFlow
@@ -88,24 +91,19 @@ class ConnectionManager(
         scope.launch { operations.withLock { disconnectLocked() } }.join()
     }
 
-    suspend fun disconnectUnlessPairing() {
-        if (runningPairings.get() > 0) return
-        disconnect()
-    }
-
     suspend fun beginPairing(
         connection: Connection,
         credential: DeviceCredential,
         onStatus: (PairingStatus) -> Unit,
     ): PairingStatus {
         cancelInFlightConnect()
-        runningPairings.incrementAndGet()
+        runningPairings.update { it + 1 }
         return scope
             .async {
                 try {
                     operations.withLock { pairLocked(connection, credential, onStatus) }
                 } finally {
-                    runningPairings.decrementAndGet()
+                    runningPairings.update { it - 1 }
                 }
             }.await()
     }
@@ -208,18 +206,8 @@ class ConnectionManager(
         val url = connection.endpoint.webSocketUrl
         val client = url?.let { openClientLocked(it) }
         if (client == null) {
-            publish(
-                connection.id,
-                ConnectionState.Failed(
-                    if (url ==
-                        null
-                    ) {
-                        ConnectionError.INVALID_ENDPOINT
-                    } else {
-                        ConnectionError.CONNECTION_FAILED
-                    },
-                ),
-            )
+            val error = if (url == null) ConnectionError.INVALID_ENDPOINT else ConnectionError.CONNECTION_FAILED
+            publish(connection.id, ConnectionState.Failed(error))
             val failed = PairingStatus.Failed(PairingError.ConnectionFailed)
             onStatus(failed)
             return failed

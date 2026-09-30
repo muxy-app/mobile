@@ -19,6 +19,7 @@ import com.muxy.app.core.logging.Log
 import com.muxy.app.design.MuxyTheme
 import com.muxy.app.design.ThemeCatalog
 import com.muxy.app.design.ThemedWindow
+import com.muxy.app.features.addconnection.AddConnectionRequest
 import com.muxy.app.features.addconnection.AddConnectionScreen
 import com.muxy.app.features.connections.ConnectionsListScreen
 import com.muxy.app.features.onboarding.OnboardingScreen
@@ -64,7 +65,7 @@ private fun AppNavigation(
 ) {
     ConnectionFocusBridge(container, backStack)
     LaunchedEffect(backStack) {
-        container.pairingCodes.code.filterNotNull().collect {
+        container.addConnectionRequests.request.filterNotNull().collect {
             backStack.removeAll { it == AppRoute.Settings }
             backStack.open(AppRoute.AddConnection)
         }
@@ -111,6 +112,7 @@ private fun AppNavigation(
                     ProjectsScreen(
                         viewModel = viewModel { container.makeProjectsViewModel(route.connectionId) },
                         onSelect = { project -> backStack.open(AppRoute.ProjectDetail(route.connectionId, project.id, project.name)) },
+                        onPairAgain = { container.addConnectionRequests.deliver(AddConnectionRequest.Repair(route.connectionId)) },
                         onBack = { backStack.close(route) },
                     )
                 }

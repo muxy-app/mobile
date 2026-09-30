@@ -35,4 +35,11 @@ class SavedMacLookupTest {
         assertNull(listOf(otherPort, server, demo).savedMac(null, "studio.local", 4865))
         assertNull(listOf(demo).savedMac(DemoConnection.NAME, demo.host, demo.port))
     }
+
+    @Test
+    fun anAddressMatchDoesNotCrossServiceNames() {
+        val studio = device(host = "192.168.1.20", serviceName = "Studio")
+        assertNull(listOf(studio).savedMac("Laptop", "192.168.1.20", 4865))
+        assertEquals(studio, listOf(studio).savedMac(null, "192.168.1.20", 4865))
+    }
 }

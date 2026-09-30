@@ -24,7 +24,6 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
-import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.JsonElement
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -108,11 +107,8 @@ class MuxyClient(
         val frame =
             try {
                 IncomingFrame.parse(text)
-            } catch (error: SerializationException) {
-                Log.client.error("Failed to decode frame", error)
-                return
             } catch (error: IllegalArgumentException) {
-                Log.client.error("Failed to decode frame", error)
+                Log.client.error("Failed to decode a frame: ${error.javaClass.simpleName}")
                 return
             }
         when (frame) {

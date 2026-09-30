@@ -67,9 +67,13 @@ class ConnectionManagerEventsTest {
             val recorder = TransportRecorder()
             val manager = connectionManager(recorder, tokenStoreWith(studio, laptop))
             manager.ensureConnected(laptop)
-            manager.events(studio.id).test {
-                recorder.latest!!.enqueue(projectsEvent)
-                expectNoEvents()
+            manager.events(laptop.id).test {
+                val laptopEvents = this
+                manager.events(studio.id).test {
+                    recorder.latest!!.enqueue(projectsEvent)
+                    assertEquals(EventName.PROJECTS_CHANGED, laptopEvents.awaitItem().event)
+                    expectNoEvents()
+                }
             }
         }
 }

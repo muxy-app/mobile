@@ -117,10 +117,10 @@ class AddConnectionViewModelTest {
     fun aDeliveredCodeFillsTheForm() =
         runTest {
             val fixture = Fixture(this)
-            fixture.inbox.deliver("muxy://pair?host=10.0.2.2&port=4865&label=Studio")
+            fixture.inbox.deliver(AddConnectionRequest.PairingCode("muxy://pair?host=10.0.2.2&port=4865&label=Studio"))
             assertEquals("10.0.2.2", fixture.viewModel.host)
             assertEquals("Studio", fixture.viewModel.name)
-            assertNull(fixture.inbox.code.value)
+            assertNull(fixture.inbox.request.value)
         }
 
     @Test
@@ -148,21 +148,111 @@ class AddConnectionViewModelTest {
         }
 
     @Test
-    fun addingASavedMacUpdatesItAndReusesItsCredential() =
+    fun addingASavedMacAtTheSameAddressReusesItsCredential() =
         runTest {
             val saved = device(name = "Old Name", host = "192.168.1.20", serviceName = "Studio")
             val fixture = Fixture(this)
             fixture.store.upsert(saved)
             fixture.tokens.setCredential(credential(saved), saved.id)
-            fixture.viewModel.applyDiscovered(DiscoveredService("Studio", "192.168.1.30", 4865))
+            fixture.viewModel.applyDiscovered(DiscoveredService("Studio", "192.168.1.20", 4865))
             fixture.viewModel.submit()
             advanceUntilIdle()
             val connections = fixture.store.load()
             assertEquals(listOf(saved.id), connections.map { it.id })
-            assertEquals("192.168.1.30", connections.single().host)
             assertEquals("Studio", connections.single().name)
             assertEquals(credential(saved).deviceId, fixture.sentAuth("deviceID"))
+            assertEquals(credential(saved).token, fixture.sentAuth("token"))
             assertEquals(credential(saved), fixture.tokens.credential(saved.id))
+        }
+
+    @Test
+    fun aSavedMacAtANewAddressNeverReceivesItsSavedToken() =
+        runTest {
+            val saved = device(host = "192.168.1.20", serviceName = "Studio")
+            val fixture = Fixture(this)
+            fixture.store.upsert(saved)
+            fixture.tokens.setCredential(credential(saved), saved.id)
+            fixture.inbox.deliver(AddConnectionRequest.PairingCode("muxy://pair?host=evil.example&service=Studio&label=Studio"))
+            fixture.viewModel.submit()
+            advanceUntilIdle()
+            assertNotEquals(credential(saved).token, fixture.sentAuth("token"))
+            assertNotEquals(credential(saved).deviceId, fixture.sentAuth("deviceID"))
+            val updated = fixture.store.load().single()
+            assertEquals(saved.id, updated.id)
+            assertEquals("evil.example", updated.host)
+            assertEquals(fixture.sentAuth("token"), fixture.tokens.credential(saved.id)?.token)
+        }
+
+    @Test
+    fun aFailedPairingAtANewAddressKeepsTheSavedMacAndCredential() =
+        runTest {
+            val saved = device(host = "192.168.1.20", serviceName = "Studio")
+            val fixture =
+                Fixture(
+                    this,
+                    recorder =
+                        TransportRecorder { _, frame ->
+                            listOf(
+                                Frames.error(
+                                    Frames.id(frame),
+                                    if (Frames.method(frame) ==
+                                        "authenticateDevice"
+                                    ) {
+                                        401
+                                    } else {
+                                        403
+                                    },
+                                ),
+                            )
+                        },
+                )
+            fixture.store.upsert(saved)
+            fixture.tokens.setCredential(credential(saved), saved.id)
+            fixture.viewModel.applyDiscovered(DiscoveredService("Studio", "192.168.1.30", 4865))
+            fixture.viewModel.submit()
+            advanceUntilIdle()
+            assertEquals(listOf(saved), fixture.store.load())
+            assertEquals(credential(saved), fixture.tokens.credential(saved.id))
+        }
+
+    @Test
+    fun editingTheAddressForgetsTheDiscoveredMac() =
+        runTest {
+            val studio = device(host = "192.168.1.20", serviceName = "Studio")
+            val fixture = Fixture(this)
+            fixture.store.upsert(studio)
+            fixture.tokens.setCredential(credential(studio), studio.id)
+            fixture.viewModel.applyDiscovered(DiscoveredService("Studio", "192.168.1.20", 4865))
+            fixture.viewModel.host = "laptop.local"
+            fixture.viewModel.name = "Laptop"
+            assertEquals(DiscoverySource.MANUAL, fixture.viewModel.discoverySource)
+            fixture.viewModel.submit()
+            advanceUntilIdle()
+            assertEquals(listOf("Studio", "Laptop"), fixture.store.load().map { it.name })
+            assertEquals(credential(studio), fixture.tokens.credential(studio.id))
+            assertNull(
+                fixture.store
+                    .load()
+                    .last()
+                    .serviceName,
+            )
+        }
+
+    @Test
+    fun aRepairRequestFillsTheFormWithTheSavedMac() =
+        runTest {
+            val studio = device(host = "192.168.1.20", serviceName = "Studio")
+            val fixture = Fixture(this)
+            fixture.store.upsert(studio)
+            fixture.inbox.deliver(AddConnectionRequest.Repair(studio.id))
+            advanceUntilIdle()
+            assertEquals("Studio", fixture.viewModel.name)
+            assertEquals("192.168.1.20", fixture.viewModel.host)
+            assertEquals("4865", fixture.viewModel.portText)
+            fixture.viewModel.submit()
+            advanceUntilIdle()
+            assertEquals(listOf(studio.id), fixture.store.load().map { it.id })
+            assertEquals(fixture.sentAuth("token"), fixture.tokens.credential(studio.id)?.token)
         }
 
     @Test
@@ -180,7 +270,7 @@ class AddConnectionViewModelTest {
         }
 
     @Test
-    fun aDeniedPairingDeletesTheGeneratedToken() =
+    fun aDeniedPairingSavesNoToken() =
         runTest {
             val fixture =
                 Fixture(
@@ -247,7 +337,7 @@ class AddConnectionViewModelTest {
         val secrets = InMemorySecretStore()
         val tokens = SecretTokenStore(secrets)
         val discovery = FakeServiceDiscovery(services)
-        val inbox = PairingCodeInbox()
+        val inbox = AddConnectionInbox()
         val viewModel =
             AddConnectionViewModel(
                 store = store,

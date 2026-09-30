@@ -3,7 +3,6 @@ package com.muxy.app.persistence.secrets
 import com.muxy.app.core.logging.Log
 import com.muxy.app.core.serialization.uuidString
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import java.util.UUID
 
@@ -37,11 +36,8 @@ class SecretTokenStore(
         val encoded = secrets.read(name(ConnectionSecret.TOKEN, connectionId)) ?: return null
         return try {
             Json.decodeFromString(DeviceCredential.serializer(), encoded)
-        } catch (error: SerializationException) {
-            Log.persistence.error("A stored credential is malformed", error)
-            null
         } catch (error: IllegalArgumentException) {
-            Log.persistence.error("A stored credential is malformed", error)
+            Log.persistence.error("A stored credential is malformed: ${error.javaClass.simpleName}")
             null
         }
     }

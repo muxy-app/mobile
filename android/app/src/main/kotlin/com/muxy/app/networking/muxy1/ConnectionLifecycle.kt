@@ -6,6 +6,7 @@ import com.muxy.app.persistence.connections.ConnectionStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.UUID
@@ -28,7 +29,7 @@ class ConnectionLifecycle(
     private val target = MutableStateFlow(Target(ConnectionFocus.Hold, isForeground = false))
 
     init {
-        scope.launch { target.collectLatest(::reconcile) }
+        scope.launch { combine(target, manager.isPairing, ::Snapshot).collectLatest(::reconcile) }
     }
 
     fun focus(focus: ConnectionFocus) {
@@ -43,14 +44,24 @@ class ConnectionLifecycle(
         target.update { it.copy(isForeground = false) }
     }
 
-    private suspend fun reconcile(target: Target) {
-        if (!target.isForeground) return manager.disconnectUnlessPairing()
-        when (val focus = target.focus) {
+    private suspend fun reconcile(snapshot: Snapshot) {
+        if (!snapshot.target.isForeground) return releaseUnlessPairing(snapshot.isPairing)
+        when (val focus = snapshot.target.focus) {
             is ConnectionFocus.Device -> connections.load().firstOrNull { it.id == focus.connectionId }?.let { manager.ensureConnected(it) }
             ConnectionFocus.None -> manager.disconnect()
             ConnectionFocus.Hold -> Unit
         }
     }
+
+    private suspend fun releaseUnlessPairing(isPairing: Boolean) {
+        if (isPairing) return
+        manager.disconnect()
+    }
+
+    private data class Snapshot(
+        val target: Target,
+        val isPairing: Boolean,
+    )
 
     private data class Target(
         val focus: ConnectionFocus,

@@ -27,11 +27,9 @@ import com.muxy.app.persistence.secrets.DeviceCredential
 import com.muxy.app.persistence.secrets.TokenStore
 import com.muxy.app.services.pairing.PairingError
 import com.muxy.app.services.pairing.PairingStatus
-import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.util.UUID
 
 sealed interface AddConnectionStatus {
@@ -68,11 +66,28 @@ class AddConnectionViewModel(
     private val validator: ConnectionInputValidator,
     private val tokenGenerator: TokenGenerating,
     private val discovery: ServiceDiscovery,
-    private val inbox: PairingCodeInbox,
+    private val inbox: AddConnectionInbox,
 ) : ViewModel() {
+    private var hostText by mutableStateOf("")
+    private var portValue by mutableStateOf(Endpoint.DEFAULT_PORT.toString())
+
     var name by mutableStateOf("")
-    var host by mutableStateOf("")
-    var portText by mutableStateOf(Endpoint.DEFAULT_PORT.toString())
+
+    var host: String
+        get() = hostText
+        set(value) {
+            if (value == hostText) return
+            hostText = value
+            forgetDiscoveredMac()
+        }
+
+    var portText: String
+        get() = portValue
+        set(value) {
+            if (value == portValue) return
+            portValue = value
+            forgetDiscoveredMac()
+        }
 
     var status by mutableStateOf<AddConnectionStatus>(AddConnectionStatus.Idle)
         private set
@@ -103,10 +118,10 @@ class AddConnectionViewModel(
     init {
         discovery.start()
         viewModelScope.launch {
-            inbox.code.filterNotNull().collect {
-                val code = inbox.take() ?: return@collect
+            inbox.request.filterNotNull().collect {
+                val request = inbox.take() ?: return@collect
                 if (isWorking) return@collect
-                applyPairingCode(code)
+                apply(request)
             }
         }
     }
@@ -119,6 +134,14 @@ class AddConnectionViewModel(
         }
         applyScan(parsed.uri)
         return true
+    }
+
+    fun applyRepair(connection: Connection) {
+        name = connection.name
+        host = connection.host
+        portText = connection.port.toString()
+        serviceName = connection.serviceName
+        discoverySource = connection.discoverySource
     }
 
     fun applyScan(uri: PairingUri) {
@@ -160,6 +183,18 @@ class AddConnectionViewModel(
         discovery.stop()
     }
 
+    private suspend fun apply(request: AddConnectionRequest) {
+        when (request) {
+            is AddConnectionRequest.PairingCode -> applyPairingCode(request.code)
+            is AddConnectionRequest.Repair -> store.load().firstOrNull { it.id == request.connectionId }?.let(::applyRepair)
+        }
+    }
+
+    private fun forgetDiscoveredMac() {
+        serviceName = null
+        discoverySource = DiscoverySource.MANUAL
+    }
+
     private suspend fun pair(input: ValidatedConnectionInput) {
         val saved = store.load().savedMac(serviceName, input.host, input.port)
         val connection =
@@ -173,43 +208,42 @@ class AddConnectionViewModel(
                 serviceName = serviceName ?: saved?.serviceName,
                 discoverySource = discoverySource,
             )
-        val existing = saved?.let { tokens.credential(it.id) }
-        val credential = existing ?: generateCredential(connection.id, isNewConnection = saved == null) ?: return
-        var isPaired = false
-        try {
-            val result =
-                attempt { manager.beginPairing(connection, credential) { update -> viewModelScope.launch { applyPairing(update) } } }
-                    .getOrElse { error ->
-                        Log.pairing.error("Pairing failed", error)
-                        PairingStatus.Failed(PairingError.ConnectionFailed).also(::applyPairing)
-                    }
-            if (result !is PairingStatus.Paired) return
-            val paired = connection.copy(pairingState = PairingState.PAIRED)
-            store.upsert(paired)
-            isPaired = true
-            addedConnection = paired
-        } finally {
-            if (!isPaired && existing == null) withContext(NonCancellable) { deleteGeneratedCredential(connection.id) }
-        }
+        val reusable = saved?.takeIf { it.isAt(input.host, input.port) }?.let { tokens.credential(it.id) }
+        val credential = reusable ?: newCredential(connection.id, isNewConnection = saved == null) ?: return
+        val result =
+            attempt { manager.beginPairing(connection, credential) { update -> viewModelScope.launch { applyPairing(update) } } }
+                .getOrElse { error ->
+                    Log.pairing.error("Pairing failed", error)
+                    PairingStatus.Failed(PairingError.ConnectionFailed).also(::applyPairing)
+                }
+        if (result !is PairingStatus.Paired) return
+        if (reusable == null && !save(credential, connection.id)) return
+        val paired = connection.copy(pairingState = PairingState.PAIRED)
+        store.upsert(paired)
+        addedConnection = paired
     }
 
-    private suspend fun generateCredential(
+    private fun newCredential(
         connectionId: UUID,
         isNewConnection: Boolean,
     ): DeviceCredential? {
         val deviceId = if (isNewConnection) connectionId else UUID.randomUUID()
-        return attempt {
-            DeviceCredential(deviceId.uuidString, tokenGenerator.generate()).also { tokens.setCredential(it, connectionId) }
-        }.onFailure { error ->
-            Log.pairing.error("Failed to prepare pairing token", error)
-            status = AddConnectionStatus.Failed("Couldn't prepare the pairing token.")
-        }.getOrNull()
+        return runCatching { DeviceCredential(deviceId.uuidString, tokenGenerator.generate()) }
+            .onFailure { error ->
+                Log.pairing.error("Failed to prepare pairing token", error)
+                status = AddConnectionStatus.Failed("Couldn't prepare the pairing token.")
+            }.getOrNull()
     }
 
-    private suspend fun deleteGeneratedCredential(connectionId: UUID) {
-        attempt { tokens.deleteSecrets(connectionId) }
-            .onFailure { Log.pairing.error("Failed to delete the unused pairing token", it) }
-    }
+    private suspend fun save(
+        credential: DeviceCredential,
+        connectionId: UUID,
+    ): Boolean =
+        attempt { tokens.setCredential(credential, connectionId) }
+            .onFailure { error ->
+                Log.pairing.error("Failed to save the pairing token", error)
+                status = AddConnectionStatus.Failed("Paired, but the pairing couldn't be saved securely. Try again.")
+            }.isSuccess
 
     private fun applyPairing(update: PairingStatus) {
         status =

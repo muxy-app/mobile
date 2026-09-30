@@ -11,6 +11,7 @@ import com.muxy.app.testing.credential
 import com.muxy.app.testing.device
 import com.muxy.app.testing.tokenStoreWith
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -223,7 +224,7 @@ class ConnectionManagerTest {
         }
 
     @Test
-    fun disconnectUnlessPairingKeepsAPairingThatWaitsForApproval() =
+    fun reportsWhileAPairingRuns() =
         runTest {
             val studio = device()
             val recorder =
@@ -237,12 +238,14 @@ class ConnectionManagerTest {
                     }
                 }
             val manager = connectionManager(recorder, tokenStoreWith())
-            val statuses = mutableListOf<PairingStatus>()
-            launch { manager.beginPairing(studio, credential(studio)) { statuses += it } }
+            val pairing = mutableListOf<Boolean>()
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { manager.isPairing.collect { pairing += it } }
+            val job = launch { manager.beginPairing(studio, credential(studio)) {} }
             runCurrent()
-            assertEquals(PairingStatus.AwaitingApproval, statuses.last())
-            manager.disconnectUnlessPairing()
-            runCurrent()
-            assertTrue(!recorder.latest!!.didClose)
+            assertEquals(listOf(false, true), pairing)
+            job.cancel()
+            recorder.latest!!.failReaders()
+            advanceUntilIdle()
+            assertEquals(listOf(false, true, false), pairing)
         }
 }

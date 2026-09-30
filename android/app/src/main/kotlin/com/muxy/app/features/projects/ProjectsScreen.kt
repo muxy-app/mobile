@@ -9,6 +9,7 @@ import com.muxy.app.models.Project
 fun ProjectsScreen(
     viewModel: ProjectsViewModel,
     onSelect: (Project) -> Unit,
+    onPairAgain: () -> Unit,
     onBack: () -> Unit,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -23,6 +24,7 @@ fun ProjectsScreen(
         onSelect = { item -> viewModel.project(item.id)?.let(onSelect) },
         onSelectWorkspace = viewModel::selectWorkspace,
         onRetry = viewModel::retry,
+        onPairAgain = onPairAgain,
         onBack = onBack,
     )
 }

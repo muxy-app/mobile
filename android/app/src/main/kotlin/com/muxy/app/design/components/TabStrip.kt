@@ -3,11 +3,14 @@ package com.muxy.app.design.components
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.indication
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -19,8 +22,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -34,6 +39,11 @@ import com.muxy.app.R
 import com.muxy.app.design.LocalAppTheme
 
 private const val SELECTED_SECONDARY_ALPHA = 0.7f
+private val touchTarget = 48.dp
+private val pillHeight = 36.dp
+private val pillMaxWidth = 200.dp
+private val closeClearance = 36.dp
+private val closeRippleRadius = 16.dp
 
 data class TabStripItem(
     val id: Any,
@@ -58,7 +68,7 @@ fun TabStrip(
     LazyRow(
         state = listState,
         modifier = modifier.fillMaxWidth().background(LocalAppTheme.current.groupedBackground),
-        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 2.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -85,33 +95,47 @@ fun TabPill(
     val theme = LocalAppTheme.current
     val foreground = if (isSelected) theme.onAccent else theme.foreground
     val secondary = if (isSelected) theme.onAccent.copy(alpha = SELECTED_SECONDARY_ALPHA) else theme.secondaryForeground
-    Row(
+    val selection = remember { MutableInteractionSource() }
+    Box(
         modifier =
             modifier
-                .widthIn(max = 200.dp)
-                .clip(CircleShape)
-                .background(if (isSelected) theme.accent else theme.secondaryGroupedBackground)
+                .widthIn(max = pillMaxWidth)
+                .height(touchTarget)
                 .semantics { selected = isSelected }
-                .clickable(role = Role.Tab, onClick = onSelect)
-                .padding(start = 12.dp, end = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                .clickable(interactionSource = selection, indication = null, role = Role.Tab, onClick = onSelect),
+        contentAlignment = Alignment.CenterStart,
     ) {
-        Icon(painter = painterResource(tab.icon), contentDescription = null, modifier = Modifier.size(14.dp), tint = secondary)
-        Text(
-            text = tab.title,
-            modifier = Modifier.weight(1f, fill = false),
-            style = MaterialTheme.typography.bodyMedium,
-            color = foreground,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
+        Row(
+            modifier =
+                Modifier
+                    .height(pillHeight)
+                    .clip(CircleShape)
+                    .background(if (isSelected) theme.accent else theme.secondaryGroupedBackground)
+                    .indication(selection, ripple())
+                    .padding(start = 12.dp, end = closeClearance),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Icon(painter = painterResource(tab.icon), contentDescription = null, modifier = Modifier.size(14.dp), tint = secondary)
+            Text(
+                text = tab.title,
+                style = MaterialTheme.typography.bodyMedium,
+                color = foreground,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
         Box(
             modifier =
                 Modifier
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .clickable(role = Role.Button, onClick = onClose),
+                    .align(Alignment.CenterEnd)
+                    .size(touchTarget)
+                    .clickable(
+                        role = Role.Button,
+                        indication = ripple(bounded = false, radius = closeRippleRadius),
+                        interactionSource = null,
+                        onClick = onClose,
+                    ),
             contentAlignment = Alignment.Center,
         ) {
             Icon(

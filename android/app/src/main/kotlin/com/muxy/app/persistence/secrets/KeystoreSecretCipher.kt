@@ -3,8 +3,11 @@ package com.muxy.app.persistence.secrets
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import com.muxy.app.core.logging.Log
+import java.io.IOException
 import java.security.GeneralSecurityException
 import java.security.KeyStore
+import java.security.KeyStoreException
+import java.security.ProviderException
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
@@ -20,7 +23,7 @@ class KeystoreSecretCipher(
         associatedData: ByteArray,
     ): ByteArray {
         val cipher = Cipher.getInstance(TRANSFORMATION)
-        cipher.init(Cipher.ENCRYPT_MODE, existingKey() ?: createKey())
+        cipher.init(Cipher.ENCRYPT_MODE, storedKey() ?: createKey())
         cipher.updateAAD(associatedData)
         val ciphertext = cipher.doFinal(plaintext)
         val iv = cipher.iv
@@ -33,29 +36,35 @@ class KeystoreSecretCipher(
         associatedData: ByteArray,
     ): ByteArray? {
         if (sealed.size <= HEADER_LENGTH || sealed[0] != FORMAT_VERSION) return null
-        val key = existingKey() ?: return null
         return try {
+            val key = storedKey() ?: return null
             val cipher = Cipher.getInstance(TRANSFORMATION)
             cipher.init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(TAG_LENGTH_BITS, sealed, 1, IV_LENGTH))
             cipher.updateAAD(associatedData)
             cipher.doFinal(sealed, HEADER_LENGTH, sealed.size - HEADER_LENGTH)
         } catch (error: GeneralSecurityException) {
-            Log.persistence.error("A secret no longer decrypts", error)
-            null
+            unreadable(error)
+        } catch (error: IOException) {
+            unreadable(error)
+        } catch (error: ProviderException) {
+            unreadable(error)
         }
     }
 
-    private fun existingKey(): SecretKey? =
-        try {
-            keyStore().getKey(alias, null) as? SecretKey
-        } catch (error: GeneralSecurityException) {
-            Log.persistence.error("The secrets key is unavailable", error)
-            null
-        }
+    private fun unreadable(error: Exception): ByteArray? {
+        Log.persistence.error("A secret no longer decrypts", error)
+        return null
+    }
+
+    private fun storedKey(): SecretKey? {
+        val keyStore = keyStore()
+        if (!keyStore.containsAlias(alias)) return null
+        return keyStore.getKey(alias, null) as? SecretKey ?: throw KeyStoreException("The secrets key isn't a secret key")
+    }
 
     private fun createKey(): SecretKey =
         synchronized(keyLock) {
-            existingKey() ?: generateKey()
+            storedKey() ?: generateKey()
         }
 
     private fun generateKey(): SecretKey {

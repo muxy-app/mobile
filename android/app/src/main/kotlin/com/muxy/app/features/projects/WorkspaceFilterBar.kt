@@ -12,6 +12,7 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -32,7 +33,7 @@ fun WorkspaceFilterBar(
 ) {
     LazyRow(
         modifier = modifier.fillMaxWidth().selectableGroup(),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 3.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         item(key = "all") {
@@ -55,6 +56,7 @@ private fun WorkspaceChip(
         text = title,
         modifier =
             Modifier
+                .minimumInteractiveComponentSize()
                 .clip(CircleShape)
                 .background(if (isSelected) theme.accent else theme.secondaryGroupedBackground)
                 .selectable(selected = isSelected, role = Role.RadioButton, onClick = onClick)

@@ -61,12 +61,12 @@ class ProjectsViewModelTest {
         }
 
     @Test
-    fun aMissingTokenShowsNotConnected() =
+    fun aMissingTokenAsksToPairAgain() =
         runTest {
             val fixture = fixture(withCredential = false)
             fixture.manager.ensureConnected(fixture.studio)
             advanceUntilIdle()
-            assertEquals(ProjectListStatus.Disconnected(null), fixture.viewModel.uiState.value.status)
+            assertEquals(ProjectListStatus.NeedsPairing, fixture.viewModel.uiState.value.status)
         }
 
     @Test

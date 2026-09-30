@@ -10,6 +10,7 @@ import com.muxy.app.testing.connectionManager
 import com.muxy.app.testing.credential
 import com.muxy.app.testing.device
 import com.muxy.app.testing.tokenStoreWith
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -137,5 +138,34 @@ class ConnectionLifecycleTest {
             runCurrent()
             assertEquals(PairingStatus.AwaitingApproval, statuses.last())
             assertFalse(recorder.latest!!.didClose)
+        }
+
+    @Test
+    fun aPairingThatFinishesInTheBackgroundClosesItsSocket() =
+        runTest {
+            val studio = device()
+            val approved = CompletableDeferred<Unit>()
+            val recorder =
+                TransportRecorder { _, frame ->
+                    when (Frames.method(frame)) {
+                        "authenticateDevice" -> listOf(Frames.error(Frames.id(frame), 401))
+                        else -> if (approved.isCompleted) listOf(Frames.pairing(Frames.id(frame))) else emptyList()
+                    }
+                }
+            val manager = connectionManager(recorder, tokenStoreWith())
+            val lifecycle = ConnectionLifecycle(manager, InMemoryConnectionStore(), foregroundScope())
+            lifecycle.onStart(owner)
+            lifecycle.focus(ConnectionFocus.Hold)
+            val pairing = launch { manager.beginPairing(studio, credential(studio)) {} }
+            runCurrent()
+            lifecycle.onStop(owner)
+            runCurrent()
+            assertFalse(recorder.latest!!.didClose)
+            approved.complete(Unit)
+            recorder.latest!!.enqueue(Frames.pairing(Frames.id(recorder.latest!!.sentFrames.last())))
+            pairing.join()
+            advanceUntilIdle()
+            assertTrue(recorder.latest!!.didClose)
+            assertEquals(ConnectionState.Disconnected, manager.status.value.state)
         }
 }

@@ -20,6 +20,8 @@ sealed interface ProjectListStatus {
 
     data object Empty : ProjectListStatus
 
+    data object NeedsPairing : ProjectListStatus
+
     data class Disconnected(
         val message: String?,
     ) : ProjectListStatus
