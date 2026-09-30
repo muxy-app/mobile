@@ -1,5 +1,6 @@
 package com.muxy.app.app
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -26,6 +27,19 @@ class MainActivity : ComponentActivity() {
         installSplashScreen().setKeepOnScreenCondition { viewModel.settings.value == null }
         super.onCreate(savedInstanceState)
         themedWindow.apply(AppTheme.muxy)
+        if (savedInstanceState == null) openLink(intent)
         setContent { MuxyApp(container, viewModel, themedWindow) }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        openLink(intent)
+    }
+
+    private fun openLink(intent: Intent) {
+        if (intent.action != Intent.ACTION_VIEW) return
+        val link = intent.dataString ?: return
+        viewModel.openPairingLink(link)
     }
 }

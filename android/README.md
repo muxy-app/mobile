@@ -95,12 +95,18 @@ Play releases still ship the React Native app until the native app replaces it. 
 
 ## Connect to Muxy 1
 
-In the macOS Muxy app, open **Settings > Mobile** and enable **Allow mobile device connection**. In the app, choose **Add Connection > Muxy 1**.
+In the macOS Muxy app, open **Settings > Mobile** and enable **Allow mobile device connection**. In the app, choose **Add Connection > Muxy 1**, then pick your Mac under **Nearby**, scan its pairing QR code, or enter its address:
 
-- Emulator: connect to `10.0.2.2:4865`, the emulator's address for your Mac.
+- Emulator: connect to `10.0.2.2:4865`, the emulator's address for your Mac. The emulator can't see your Mac under Nearby.
 - Phone: use your Mac's LAN IP and port `4865`, with both devices on the same network.
 
-Use the configured port if you changed it, then approve the connection on your Mac.
+Use the configured port if you changed it, then approve the connection on your Mac within two minutes.
+
+A `muxy://pair` link opens **Add Connection** with the address filled in. To try one in the emulator:
+
+```sh
+adb shell 'am start -a android.intent.action.VIEW -d "muxy://pair?host=10.0.2.2&port=4865"'
+```
 
 ## Pair with Muxy 2
 

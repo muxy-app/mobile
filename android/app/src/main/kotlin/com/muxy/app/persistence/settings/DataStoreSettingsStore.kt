@@ -1,13 +1,10 @@
 package com.muxy.app.persistence.settings
 
 import androidx.datastore.core.DataStore
-import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.preferences.core.MutablePreferences
-import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.muxy.app.core.logging.Log
 import kotlinx.coroutines.CoroutineScope
@@ -17,7 +14,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.retryWhen
 import kotlinx.coroutines.launch
-import java.io.File
 import java.io.IOException
 
 class DataStoreSettingsStore(
@@ -49,27 +45,13 @@ class DataStoreSettingsStore(
         }
     }
 
-    companion object {
-        private const val READ_RETRY_BASE_MILLIS = 500L
-        private const val READ_RETRY_MAX_MILLIS = 30_000L
-        private const val READ_RETRY_MAX_DOUBLINGS = 6L
+    private companion object {
+        const val READ_RETRY_BASE_MILLIS = 500L
+        const val READ_RETRY_MAX_MILLIS = 30_000L
+        const val READ_RETRY_MAX_DOUBLINGS = 6L
 
-        private fun readRetryDelayMillis(attempt: Long): Long =
+        fun readRetryDelayMillis(attempt: Long): Long =
             minOf(READ_RETRY_BASE_MILLIS shl minOf(attempt, READ_RETRY_MAX_DOUBLINGS).toInt(), READ_RETRY_MAX_MILLIS)
-
-        fun preferences(
-            scope: CoroutineScope,
-            file: () -> File,
-        ): DataStore<Preferences> =
-            PreferenceDataStoreFactory.create(
-                corruptionHandler =
-                    ReplaceFileCorruptionHandler { error ->
-                        Log.persistence.error("Settings were unreadable and have been reset", error)
-                        emptyPreferences()
-                    },
-                scope = scope,
-                produceFile = file,
-            )
     }
 }
 

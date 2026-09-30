@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import com.muxy.app.persistence.preferencesDataStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
@@ -52,7 +53,7 @@ class DataStoreSettingsStoreTest {
     fun readsTheIosKeyNames() =
         runTest {
             val scope = scopeFor(this)
-            val dataStore = DataStoreSettingsStore.preferences(scope) { settingsFile() }
+            val dataStore = preferencesDataStore("Settings", scope) { settingsFile() }
             dataStore.edit {
                 it[booleanPreferencesKey("muxy.hasCompletedOnboarding")] = true
                 it[stringPreferencesKey("muxy.settings.theme")] = "Nord"
@@ -67,7 +68,7 @@ class DataStoreSettingsStoreTest {
     fun writesTheIosKeyNames() =
         runTest {
             val scope = scopeFor(this)
-            val dataStore = DataStoreSettingsStore.preferences(scope) { settingsFile() }
+            val dataStore = preferencesDataStore("Settings", scope) { settingsFile() }
             DataStoreSettingsStore(dataStore, scope).update { changed }
             val saved = dataStore.data.first()
             assertEquals(true, saved[booleanPreferencesKey("muxy.hasCompletedOnboarding")])
@@ -110,7 +111,7 @@ class DataStoreSettingsStoreTest {
     fun aFailedReadShowsTheDefaultsAndRecovers() =
         runTest {
             val scope = scopeFor(this)
-            val dataStore = DataStoreSettingsStore.preferences(scope) { settingsFile() }
+            val dataStore = preferencesDataStore("Settings", scope) { settingsFile() }
             dataStore.edit { it[stringPreferencesKey("muxy.settings.theme")] = "Nord" }
             val store = DataStoreSettingsStore(FailingFirstRead(dataStore), scope)
             assertEquals(AppSettings(), store.settings.filterNotNull().first())
@@ -125,7 +126,7 @@ class DataStoreSettingsStoreTest {
     private fun store(
         scope: CoroutineScope,
         file: File,
-    ): DataStoreSettingsStore = DataStoreSettingsStore(DataStoreSettingsStore.preferences(scope) { file }, scope)
+    ): DataStoreSettingsStore = DataStoreSettingsStore(preferencesDataStore("Settings", scope) { file }, scope)
 
     private class FailingFirstRead(
         private val delegate: DataStore<Preferences>,

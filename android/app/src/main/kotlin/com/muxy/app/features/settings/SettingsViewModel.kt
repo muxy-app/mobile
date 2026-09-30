@@ -21,4 +21,8 @@ class SettingsViewModel(
     fun selectTheme(name: String) {
         viewModelScope.launch { settingsStore.update { it.copy(themeName = name) } }
     }
+
+    fun setDemoMode(enabled: Boolean) {
+        viewModelScope.launch { settingsStore.update { it.copy(demoMode = enabled) } }
+    }
 }

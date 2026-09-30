@@ -35,7 +35,9 @@ fun SettingsModal(
                 entry<SettingsRoute.Main> {
                     SettingsScreen(
                         themeName = selectedTheme,
+                        demoMode = settings.demoMode,
                         onTheme = { backStack.open(SettingsRoute.Theme) },
+                        onDemoModeChange = viewModel::setDemoMode,
                         onClose = onClose,
                     )
                 }
