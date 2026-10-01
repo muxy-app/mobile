@@ -22,4 +22,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "Muxy"
 
-include(":app", ":MuxyMobileSDK", ":ktlint-rules")
+include(":app", ":MuxyMobileSDK", ":terminal-emulator", ":ktlint-rules")

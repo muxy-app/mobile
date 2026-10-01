@@ -234,7 +234,7 @@ case "$ACTION" in
   test)
     require_muxy_sdk
     echo "Testing Muxy (unit tests)..."
-    ./gradlew :app:testDebugUnitTest :ktlint-rules:test
+    ./gradlew :app:testDebugUnitTest :terminal-emulator:testDebugUnitTest :ktlint-rules:test
     echo "Tests passed"
     ;;
   devices)
