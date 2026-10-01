@@ -25,6 +25,8 @@ import com.muxy.app.features.connections.ConnectionsListScreen
 import com.muxy.app.features.onboarding.OnboardingScreen
 import com.muxy.app.features.projectdetail.ProjectDetailScreen
 import com.muxy.app.features.projects.ProjectsScreen
+import com.muxy.app.features.server.ServerProjectScreen
+import com.muxy.app.features.server.ServerProjectsScreen
 import com.muxy.app.features.settings.SettingsModal
 import com.muxy.app.models.Connection
 import com.muxy.app.models.ConnectionKind
@@ -103,6 +105,7 @@ private fun AppNavigation(
                         viewModel = viewModel { container.makeAddConnectionViewModel() },
                         onCancel = { backStack.close(AppRoute.AddConnection) },
                         onAdded = { connection ->
+                            connection.serverId?.let(container.serverDirectory::credentialDidChange)
                             backStack.close(AppRoute.AddConnection)
                             openConnection(connection)
                         },
@@ -122,6 +125,19 @@ private fun AppNavigation(
                         onBack = { backStack.close(route) },
                     )
                 }
+                entry<AppRoute.ServerProjects> { route ->
+                    ServerProjectsScreen(
+                        viewModel = viewModel { container.makeServerProjectsViewModel(route) },
+                        onSelect = { projectId -> backStack.open(AppRoute.ServerProject(route.connectionId, route.serverId, projectId)) },
+                        onBack = { backStack.close(route) },
+                    )
+                }
+                entry<AppRoute.ServerProject> { route ->
+                    ServerProjectScreen(
+                        viewModel = viewModel { container.makeServerProjectViewModel(route) },
+                        onBack = { backStack.close(route) },
+                    )
+                }
             },
     )
 }
@@ -134,6 +150,9 @@ private fun ConnectionFocusBridge(
     LaunchedEffect(backStack) {
         snapshotFlow { backStack.toList().connectionFocus() }.collect(container.connectionLifecycle::focus)
     }
+    LaunchedEffect(backStack) {
+        snapshotFlow { backStack.toList().serverFocus() }.collect(container.serverDirectory::focus)
+    }
     DisposableEffect(container) {
         onDispose { container.connectionLifecycle.focus(ConnectionFocus.Hold) }
     }
@@ -145,10 +164,17 @@ private fun NavBackStack<AppRoute>.openConnection(connection: Connection) {
             open(AppRoute.Projects(connection.id))
         }
 
-        ConnectionKind.SERVER, ConnectionKind.SSH -> {
-            Log.connection.info(
-                "Opening ${connection.kind.name.lowercase()} connections isn't available yet",
-            )
+        ConnectionKind.SERVER -> {
+            val serverId = connection.serverId
+            if (serverId == null) {
+                Log.connection.error("A Muxy 2 connection has no server id")
+                return
+            }
+            open(AppRoute.ServerProjects(connection.id, serverId))
+        }
+
+        ConnectionKind.SSH -> {
+            Log.connection.info("Opening SSH connections isn't available yet")
         }
     }
 }

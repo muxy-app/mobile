@@ -9,23 +9,32 @@ import com.muxy.app.core.security.TokenGenerator
 import com.muxy.app.core.validation.ConnectionInputValidator
 import com.muxy.app.features.addconnection.AddConnectionInbox
 import com.muxy.app.features.addconnection.AddConnectionViewModel
+import com.muxy.app.features.addconnection.ServerPairingModel
 import com.muxy.app.features.connections.ConnectionsListViewModel
 import com.muxy.app.features.demo.syncDemoMode
 import com.muxy.app.features.navigation.AppRoute
 import com.muxy.app.features.navigation.RootViewModel
 import com.muxy.app.features.projectdetail.ProjectDetailViewModel
 import com.muxy.app.features.projects.ProjectsViewModel
+import com.muxy.app.features.server.ServerDirectory
+import com.muxy.app.features.server.ServerProjectViewModel
+import com.muxy.app.features.server.ServerProjectsViewModel
 import com.muxy.app.features.settings.SettingsViewModel
 import com.muxy.app.features.terminal.SystemTerminalClipboard
 import com.muxy.app.networking.muxy1.ConnectionLifecycle
 import com.muxy.app.networking.muxy1.ConnectionManager
 import com.muxy.app.networking.muxy1.discovery.NsdDiscovery
 import com.muxy.app.networking.muxy1.transport.WebSocketTransport
+import com.muxy.app.networking.server.sdk.SdkPairingService
+import com.muxy.app.networking.server.sdk.SdkServerConnector
 import com.muxy.app.persistence.connections.ConnectionStore
 import com.muxy.app.persistence.connections.DataStoreConnectionStore
+import com.muxy.app.persistence.credentials.CredentialStore
+import com.muxy.app.persistence.credentials.SecretCredentialStore
 import com.muxy.app.persistence.preferencesDataStore
 import com.muxy.app.persistence.secrets.EncryptedSecretStore
 import com.muxy.app.persistence.secrets.KeystoreSecretCipher
+import com.muxy.app.persistence.secrets.SecretStore
 import com.muxy.app.persistence.secrets.SecretTokenStore
 import com.muxy.app.persistence.secrets.TokenStore
 import com.muxy.app.persistence.settings.DataStoreSettingsStore
@@ -65,13 +74,15 @@ class AppContainer(
             scope = ioScope,
         )
 
-    val tokenStore: TokenStore =
-        SecretTokenStore(
-            EncryptedSecretStore(
-                dataStore = preferencesDataStore("Secrets", ioScope) { File(context.noBackupFilesDir, SECRETS_FILE) },
-                cipher = KeystoreSecretCipher(),
-            ),
+    private val secretStore: SecretStore =
+        EncryptedSecretStore(
+            dataStore = preferencesDataStore("Secrets", ioScope) { File(context.noBackupFilesDir, SECRETS_FILE) },
+            cipher = KeystoreSecretCipher(),
         )
+
+    val tokenStore: TokenStore = SecretTokenStore(secretStore)
+
+    private val credentialStore: CredentialStore = SecretCredentialStore(secretStore)
 
     private val workspaceSelectionStore: WorkspaceSelectionStore =
         DataStoreWorkspaceSelectionStore(
@@ -84,17 +95,22 @@ class AppContainer(
 
     private val terminalClipboard = SystemTerminalClipboard(context)
 
+    private val phoneName = SystemPhoneName(context)
+
     val connectionManager =
         ConnectionManager(
             makeTransport = { url -> WebSocketTransport(url, httpClient) },
             tokenStore = tokenStore,
-            phoneName = SystemPhoneName(context),
+            phoneName = phoneName,
         )
 
     val connectionLifecycle = ConnectionLifecycle(connectionManager, connectionStore, mainScope)
 
+    val serverDirectory = ServerDirectory(credentialStore, SdkServerConnector(), mainScope)
+
     fun start(lifecycle: Lifecycle) {
         lifecycle.addObserver(connectionLifecycle)
+        lifecycle.addObserver(serverDirectory)
         ioScope.syncDemoMode(settingsStore.settings, connectionStore, tokenStore)
     }
 
@@ -102,7 +118,8 @@ class AppContainer(
 
     fun makeSettingsViewModel(): SettingsViewModel = SettingsViewModel(settingsStore)
 
-    fun makeConnectionsListViewModel(): ConnectionsListViewModel = ConnectionsListViewModel(connectionStore, tokenStore)
+    fun makeConnectionsListViewModel(): ConnectionsListViewModel =
+        ConnectionsListViewModel(connectionStore, tokenStore, credentialStore, serverDirectory)
 
     fun makeAddConnectionViewModel(): AddConnectionViewModel =
         AddConnectionViewModel(
@@ -113,6 +130,13 @@ class AppContainer(
             tokenGenerator = tokenGenerator,
             discovery = NsdDiscovery(context.getSystemService(NsdManager::class.java)),
             inbox = addConnectionRequests,
+            serverPairing =
+                ServerPairingModel(
+                    pairing = SdkPairingService(),
+                    credentials = credentialStore,
+                    store = connectionStore,
+                    deviceName = phoneName.current(),
+                ),
         )
 
     fun makeProjectsViewModel(connectionId: UUID): ProjectsViewModel =
@@ -128,6 +152,18 @@ class AppContainer(
             settingsStore = settingsStore,
             outbound = mainScope,
             clipboard = terminalClipboard,
+        )
+
+    fun makeServerProjectsViewModel(route: AppRoute.ServerProjects): ServerProjectsViewModel =
+        ServerProjectsViewModel(route.connectionId, serverDirectory.controller(route.serverId), connectionStore)
+
+    fun makeServerProjectViewModel(route: AppRoute.ServerProject): ServerProjectViewModel =
+        ServerProjectViewModel(
+            connectionId = route.connectionId,
+            projectId = route.projectId,
+            server = serverDirectory.controller(route.serverId),
+            connectionStore = connectionStore,
+            settingsStore = settingsStore,
         )
 
     private companion object {

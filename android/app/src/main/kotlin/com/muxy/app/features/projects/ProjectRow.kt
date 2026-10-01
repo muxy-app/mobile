@@ -4,6 +4,7 @@ import android.graphics.BitmapFactory
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -21,6 +22,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.muxy.app.design.LocalAppTheme
 import com.muxy.app.design.components.ThemedListItem
 import com.muxy.app.design.rgbColor
@@ -28,6 +30,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 val projectIconSize = 32.dp
+private val nestedIndent = 24.dp
+private val emojiSize = 22.sp
 
 @Composable
 fun ProjectRow(
@@ -37,16 +41,18 @@ fun ProjectRow(
     ThemedListItem(
         headline = { Text(item.name, fontWeight = FontWeight.SemiBold) },
         supporting = { Text(item.path, maxLines = 1, overflow = TextOverflow.MiddleEllipsis) },
-        leading = { ProjectIcon(item) },
+        leading = { ProjectIcon(item, Modifier.padding(start = if (item.isNested) nestedIndent else 0.dp)) },
         modifier = Modifier.clickable(onClick = onClick),
     )
 }
 
 @Composable
-private fun ProjectIcon(item: ProjectListItem) {
-    val theme = LocalAppTheme.current
+private fun ProjectIcon(
+    item: ProjectListItem,
+    modifier: Modifier,
+) {
     val logo = item.logo?.let { rememberLogo(it) }
-    Box(modifier = Modifier.size(projectIconSize), contentAlignment = Alignment.Center) {
+    Box(modifier = modifier.size(projectIconSize), contentAlignment = Alignment.Center) {
         if (logo != null) {
             Image(
                 bitmap = logo,
@@ -56,13 +62,25 @@ private fun ProjectIcon(item: ProjectListItem) {
             )
             return@Box
         }
-        Icon(
-            painter = painterResource(ProjectSymbols.drawable(item.symbol)),
-            contentDescription = null,
-            modifier = Modifier.size(26.dp),
-            tint = ProjectIconColor.rgb(item.iconColor, theme.isDark)?.let(::rgbColor) ?: theme.foreground,
-        )
+        when (val icon = item.icon) {
+            is ProjectIcon.Symbol -> SymbolIcon(icon.name, item.iconColor)
+            is ProjectIcon.Emoji -> Text(icon.text, fontSize = emojiSize)
+        }
     }
+}
+
+@Composable
+private fun SymbolIcon(
+    name: String?,
+    iconColor: String?,
+) {
+    val theme = LocalAppTheme.current
+    Icon(
+        painter = painterResource(ProjectSymbols.drawable(name)),
+        contentDescription = null,
+        modifier = Modifier.size(26.dp),
+        tint = ProjectIconColor.rgb(iconColor, theme.isDark)?.let(::rgbColor) ?: theme.foreground,
+    )
 }
 
 @Composable

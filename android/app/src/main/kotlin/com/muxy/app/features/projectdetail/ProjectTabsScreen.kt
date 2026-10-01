@@ -25,21 +25,27 @@ import com.muxy.app.design.components.TabStripItem
 import com.muxy.app.design.components.ThemedEmptyState
 import com.muxy.app.design.components.ThemedProminentButton
 import com.muxy.app.design.components.TopBarAction
-import com.muxy.app.models.Tab
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.launch
-import java.util.UUID
+
+data class ProjectTabsUiState(
+    val projectName: String,
+    val connectionName: String,
+    val tabs: List<TabStripItem>,
+    val selectedTabId: Any?,
+    val status: ProjectTabsStatus,
+)
 
 @Composable
 fun ProjectTabsScreen(
-    state: ProjectDetailUiState,
-    onSelect: (Tab) -> Unit,
-    onClose: (Tab) -> Unit,
+    state: ProjectTabsUiState,
+    onSelect: (TabStripItem) -> Unit,
+    onClose: (TabStripItem) -> Unit,
     onCreate: () -> Unit,
     onBack: () -> Unit,
-    page: @Composable (tab: Tab, isActive: Boolean) -> Unit,
+    page: @Composable (tab: TabStripItem, isActive: Boolean) -> Unit,
 ) {
     Scaffold(
         topBar = {
@@ -55,10 +61,10 @@ fun ProjectTabsScreen(
                 return@Column
             }
             TabStrip(
-                tabs = state.tabs.map { TabStripItem(it.id, it.title, it.kind.icon()) },
+                tabs = state.tabs,
                 selectedTabId = state.selectedTabId,
-                onSelect = { item -> state.tabs.firstOrNull { it.id == item.id }?.let(onSelect) },
-                onClose = { item -> state.tabs.firstOrNull { it.id == item.id }?.let(onClose) },
+                onSelect = onSelect,
+                onClose = onClose,
                 onCreate = onCreate,
             )
             TabPager(state.tabs, state.selectedTabId, onSelect, page)
@@ -68,10 +74,10 @@ fun ProjectTabsScreen(
 
 @Composable
 private fun TabPager(
-    tabs: List<Tab>,
-    selectedTabId: UUID?,
-    onSelect: (Tab) -> Unit,
-    page: @Composable (tab: Tab, isActive: Boolean) -> Unit,
+    tabs: List<TabStripItem>,
+    selectedTabId: Any?,
+    onSelect: (TabStripItem) -> Unit,
+    page: @Composable (tab: TabStripItem, isActive: Boolean) -> Unit,
 ) {
     val selectedIndex = tabs.indexOfFirst { it.id == selectedTabId }
     val pagerState = rememberPagerState(initialPage = selectedIndex.coerceAtLeast(0)) { tabs.size }

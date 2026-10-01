@@ -158,3 +158,16 @@ fun ThemedSectionHeader(
         color = LocalAppTheme.current.secondaryForeground,
     )
 }
+
+@Composable
+fun ThemedSectionFooter(
+    text: String,
+    modifier: Modifier = Modifier,
+) {
+    Text(
+        text = text,
+        modifier = modifier.padding(start = listHorizontalInset, top = 8.dp, end = listHorizontalInset),
+        style = MaterialTheme.typography.bodySmall,
+        color = LocalAppTheme.current.secondaryForeground,
+    )
+}

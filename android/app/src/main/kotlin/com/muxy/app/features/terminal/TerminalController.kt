@@ -64,6 +64,12 @@ class TerminalController(
         display?.screenNeedsRefresh()
     }
 
+    override fun modesDidChange(modes: TerminalModes) {
+        if (mutableMode.value != TerminalMode.HISTORY) return
+        if (!modes.mouseTracking && !modes.alternateScroll) return
+        returnToLive()
+    }
+
     fun currentFrame(): TerminalFrame? = source.frame()?.also { screenRows = it.rows }
 
     fun viewportDidChange(size: TerminalGridSize) {
@@ -139,6 +145,7 @@ class TerminalController(
 
     fun discardOutdatedHistoryPrefetch() {
         if (historyPrefetchRevision == screenRevision) return
+        historyPrefetch?.discard()
         historyPrefetch = null
     }
 
@@ -194,8 +201,11 @@ class TerminalController(
     }
 
     private fun leaveHistory() {
+        history?.close()
         history = null
+        historyPrefetch?.discard()
         historyPrefetch = null
+        historyEntry?.discard()
         historyEntry = null
         mutableMode.value = TerminalMode.LIVE
         historyReachedStart = false
@@ -229,13 +239,26 @@ class TerminalController(
         var snapshot: TerminalScrollback? = null
             private set
 
+        private var isDiscarded = false
+
         private val response =
             scope.launch {
-                snapshot =
+                val received =
                     attempt { source.scrollback(maxRows) }
                         .onFailure { Log.terminal.error("Scrollback failed", it) }
                         .getOrNull()
+                if (isDiscarded) {
+                    received?.close()
+                    return@launch
+                }
+                snapshot = received
             }
+
+        fun discard() {
+            isDiscarded = true
+            snapshot?.close()
+            snapshot = null
+        }
 
         suspend fun await(): TerminalScrollback? {
             response.join()

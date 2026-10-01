@@ -23,6 +23,8 @@ class EmulatorScrollback private constructor(
         return older
     }
 
+    override fun close() = Unit
+
     companion object {
         fun capture(
             emulator: TerminalEmulator,

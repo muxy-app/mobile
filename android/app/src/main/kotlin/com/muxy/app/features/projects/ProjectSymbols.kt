@@ -10,6 +10,8 @@ object ProjectSymbols {
     @DrawableRes
     fun drawable(symbolName: String?): Int = symbolName?.let(drawables::get) ?: fallback
 
+    fun isKnown(symbolName: String): Boolean = symbolName in drawables
+
     private val drawables: Map<String, Int> =
         mapOf(
             "folder" to R.drawable.ic_folder,

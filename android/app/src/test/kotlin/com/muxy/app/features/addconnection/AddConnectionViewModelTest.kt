@@ -19,9 +19,12 @@ import com.muxy.app.persistence.secrets.SecretTokenStore
 import com.muxy.app.testing.FakeServiceDiscovery
 import com.muxy.app.testing.Frames
 import com.muxy.app.testing.InMemoryConnectionStore
+import com.muxy.app.testing.InMemoryCredentialStore
 import com.muxy.app.testing.InMemorySecretStore
 import com.muxy.app.testing.MainDispatcherRule
+import com.muxy.app.testing.PAIRING_LINK
 import com.muxy.app.testing.PHONE_NAME
+import com.muxy.app.testing.StubPairingService
 import com.muxy.app.testing.TransportRecorder
 import com.muxy.app.testing.connectionManager
 import com.muxy.app.testing.credential
@@ -37,6 +40,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+import uniffi.muxy_mobile.MobileException
 
 class AddConnectionViewModelTest {
     @get:Rule
@@ -328,10 +332,86 @@ class AddConnectionViewModelTest {
             assertTrue(fixture.secrets.values.isEmpty())
         }
 
+    @Test
+    fun aMuxy2LinkOpensTheMuxy2Confirmation() =
+        runTest {
+            val viewModel = Fixture(this).viewModel
+            assertTrue(viewModel.applyPairingCode(PAIRING_LINK))
+            assertEquals(ConnectionKind.SERVER, viewModel.kind)
+            assertEquals(PairingTarget(PAIRING_LINK, "192.168.1.20:7419", DiscoverySource.QR), viewModel.serverPairing.target)
+            assertNull(viewModel.alert)
+            assertTrue(viewModel.canSubmit)
+        }
+
+    @Test
+    fun aMuxy1LinkStillOpensTheMuxy1Form() =
+        runTest {
+            val viewModel = Fixture(this).viewModel
+            viewModel.selectKind(ConnectionKind.SERVER)
+            assertTrue(viewModel.applyPairingCode("muxy://pair?host=10.0.2.2&port=4865&label=Studio"))
+            assertEquals(ConnectionKind.DEVICE, viewModel.kind)
+            assertEquals("10.0.2.2", viewModel.host)
+        }
+
+    @Test
+    fun aDeliveredMuxy2LinkOpensTheMuxy2Confirmation() =
+        runTest {
+            val fixture = Fixture(this)
+            fixture.inbox.deliver(AddConnectionRequest.PairingCode(PAIRING_LINK))
+            advanceUntilIdle()
+            assertEquals(ConnectionKind.SERVER, fixture.viewModel.kind)
+            assertEquals(
+                PAIRING_LINK,
+                fixture.viewModel.serverPairing.target
+                    ?.link,
+            )
+        }
+
+    @Test
+    fun pastingSomethingElseShowsTheMuxy2Failure() =
+        runTest {
+            val viewModel = Fixture(this).viewModel
+            viewModel.selectKind(ConnectionKind.SERVER)
+            viewModel.pasteServerLink(null)
+            assertEquals(AddConnectionStatus.Failed("This isn't a Muxy pairing code."), viewModel.displayedStatus)
+            assertFalse(viewModel.canSubmit)
+        }
+
+    @Test
+    fun addingAMuxy2ComputerPairsAndReportsTheConnection() =
+        runTest {
+            val fixture = Fixture(this)
+            fixture.viewModel.pasteServerLink(PAIRING_LINK)
+            fixture.viewModel.selectKind(ConnectionKind.SERVER)
+            fixture.viewModel.submit()
+            advanceUntilIdle()
+            val added = fixture.viewModel.addedConnection!!
+            assertEquals("server-1", added.serverId)
+            assertEquals(listOf(added), fixture.store.load())
+            assertEquals(listOf(PHONE_NAME), fixture.pairing.pairedNames)
+        }
+
+    @Test
+    fun aFailedMuxy2PairingShowsWhy() =
+        runTest {
+            val fixture =
+                Fixture(
+                    this,
+                    pairing = StubPairingService(accepts = { it == PAIRING_LINK }, paired = Result.failure(MobileException.Timeout())),
+                )
+            fixture.viewModel.applyPairingCode(PAIRING_LINK)
+            fixture.viewModel.submit()
+            advanceUntilIdle()
+            assertNull(fixture.viewModel.addedConnection)
+            assertEquals(AddConnectionStatus.Failed("Muxy isn't responding."), fixture.viewModel.displayedStatus)
+            assertFalse(fixture.viewModel.isWorking)
+        }
+
     private class Fixture(
         test: TestScope,
         services: List<DiscoveredService> = emptyList(),
         private val recorder: TransportRecorder = TransportRecorder(),
+        val pairing: StubPairingService = StubPairingService(accepts = { it == PAIRING_LINK }),
     ) {
         val store = InMemoryConnectionStore()
         val secrets = InMemorySecretStore()
@@ -347,6 +427,7 @@ class AddConnectionViewModelTest {
                 tokenGenerator = TokenGenerator(),
                 discovery = discovery,
                 inbox = inbox,
+                serverPairing = ServerPairingModel(pairing, InMemoryCredentialStore(), store, PHONE_NAME),
             )
 
         fun fill(host: String = "studio.local") {

@@ -6,6 +6,8 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.muxy.app.core.serialization.uuidString
 import com.muxy.app.persistence.preferencesDataStore
+import com.muxy.app.testing.FailingSecretCipher
+import com.muxy.app.testing.XorSecretCipher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.first
@@ -102,7 +104,7 @@ class SecretTokenStoreTest {
             val fixture = Fixture(this)
             val id = UUID.randomUUID()
             fixture.tokens().setCredential(credential, id)
-            assertNull(fixture.tokens(FailingCipher).credential(id))
+            assertNull(fixture.tokens(FailingSecretCipher).credential(id))
         }
 
     @Test
@@ -123,35 +125,7 @@ class SecretTokenStoreTest {
 
         val dataStore: DataStore<Preferences> = preferencesDataStore("Secrets", scope) { file }
 
-        fun tokens(cipher: SecretCipher = XorCipher): TokenStore = SecretTokenStore(EncryptedSecretStore(dataStore, cipher, dispatcher))
-    }
-
-    private object XorCipher : SecretCipher {
-        private const val KEY = 0x5A
-
-        override fun seal(
-            plaintext: ByteArray,
-            associatedData: ByteArray,
-        ): ByteArray = byteArrayOf(associatedData.size.toByte()) + plaintext.map { (it.toInt() xor KEY).toByte() }
-
-        override fun open(
-            sealed: ByteArray,
-            associatedData: ByteArray,
-        ): ByteArray? {
-            if (sealed.firstOrNull() != associatedData.size.toByte()) return null
-            return sealed.drop(1).map { (it.toInt() xor KEY).toByte() }.toByteArray()
-        }
-    }
-
-    private object FailingCipher : SecretCipher {
-        override fun seal(
-            plaintext: ByteArray,
-            associatedData: ByteArray,
-        ): ByteArray = error("Not used")
-
-        override fun open(
-            sealed: ByteArray,
-            associatedData: ByteArray,
-        ): ByteArray? = null
+        fun tokens(cipher: SecretCipher = XorSecretCipher): TokenStore =
+            SecretTokenStore(EncryptedSecretStore(dataStore, cipher, dispatcher))
     }
 }

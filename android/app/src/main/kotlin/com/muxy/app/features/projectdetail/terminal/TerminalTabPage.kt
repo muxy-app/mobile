@@ -1,20 +1,18 @@
 package com.muxy.app.features.projectdetail.terminal
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.muxy.app.R
 import com.muxy.app.design.LocalAppTheme
 import com.muxy.app.design.components.ThemedBorderedButton
 import com.muxy.app.design.components.ThemedEmptyState
 import com.muxy.app.design.components.ThemedProminentButton
+import com.muxy.app.design.components.blockingTouches
 import com.muxy.app.features.terminal.TerminalScreen
 import com.muxy.app.features.terminal.TerminalSettings
 
@@ -75,8 +73,3 @@ private fun OwnershipOverlay(
         }
     }
 }
-
-private fun Modifier.blockingTouches(): Modifier =
-    pointerInput(Unit) {
-        awaitEachGesture { awaitFirstDown(requireUnconsumed = false) }
-    }

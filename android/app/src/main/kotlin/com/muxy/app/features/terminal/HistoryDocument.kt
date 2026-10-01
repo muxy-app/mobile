@@ -6,7 +6,7 @@ import com.muxy.app.core.logging.Log
 class HistoryDocument(
     private val snapshot: TerminalScrollback,
     screenRows: Int,
-) {
+) : AutoCloseable {
     var lines: List<TerminalLine> = snapshot.lines()
         private set
 
@@ -38,5 +38,9 @@ class HistoryDocument(
         }
         lines = older + lines
         return older.size
+    }
+
+    override fun close() {
+        snapshot.close()
     }
 }

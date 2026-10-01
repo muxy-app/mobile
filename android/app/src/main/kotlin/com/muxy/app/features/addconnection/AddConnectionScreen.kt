@@ -48,12 +48,14 @@ import com.muxy.app.design.components.RowPosition
 import com.muxy.app.design.components.ThemedCell
 import com.muxy.app.design.components.ThemedList
 import com.muxy.app.design.components.ThemedListItem
+import com.muxy.app.design.components.ThemedSectionFooter
 import com.muxy.app.design.components.ThemedSectionHeader
 import com.muxy.app.design.components.ThemedTextField
 import com.muxy.app.design.components.TopBarAction
 import com.muxy.app.design.components.TopBarTextAction
 import com.muxy.app.design.components.themedSection
 import com.muxy.app.models.Connection
+import com.muxy.app.models.ConnectionKind
 import com.muxy.app.networking.muxy1.discovery.DiscoveredService
 import kotlinx.coroutines.launch
 
@@ -69,6 +71,7 @@ fun AddConnectionScreen(
     val services by viewModel.discoveredServices.collectAsStateWithLifecycle()
     val isWorking = viewModel.isWorking
     val scanner = rememberQrCodeScanner()
+    val clipboard = rememberClipboardText()
     val scope = rememberCoroutineScope()
     val added = viewModel.addedConnection
     LaunchedEffect(added) { added?.let(onAdded) }
@@ -82,25 +85,19 @@ fun AddConnectionScreen(
             )
         },
     ) { padding ->
+        val scan = { scope.launch { viewModel.onScanResult(scanner.scan()) } }
+        val paste = { scope.launch { viewModel.pasteServerLink(clipboard.text()) } }
         ThemedList(contentPadding = padding) {
-            item(key = "kind") { KindPicker(enabled = !isWorking) }
-            nearbySection(services, enabled = !isWorking, onSelect = viewModel::applyDiscovered)
-            sectionGap(key = "scan-gap")
-            item(key = "scan") {
-                ThemedCell(RowPosition.SINGLE) {
-                    ActionRow(
-                        icon = R.drawable.ic_qr_code_scanner,
-                        title = "Scan QR Code",
-                        enabled = !isWorking,
-                        onClick = { scope.launch { viewModel.onScanResult(scanner.scan()) } },
-                    )
-                }
+            item(key = "kind") { KindPicker(viewModel.kind, enabled = !isWorking, onSelect = viewModel::selectKind) }
+            when (viewModel.kind) {
+                ConnectionKind.SERVER -> serverSections(viewModel.serverPairing, !isWorking, { scan() }, { paste() })
+                ConnectionKind.DEVICE, ConnectionKind.SSH -> deviceSections(viewModel, services, !isWorking) { scan() }
             }
-            macSection(viewModel, enabled = !isWorking)
-            if (viewModel.status != AddConnectionStatus.Idle) {
+            val status = viewModel.displayedStatus
+            if (status != AddConnectionStatus.Idle) {
                 sectionGap(key = "status-gap")
                 item(key = "status") {
-                    ThemedCell(RowPosition.SINGLE) { StatusRow(viewModel.status) }
+                    ThemedCell(RowPosition.SINGLE) { StatusRow(status) }
                 }
             }
         }
@@ -122,16 +119,90 @@ private fun rememberQrCodeScanner(): QrCodeScanner {
 }
 
 @Composable
-private fun KindPicker(enabled: Boolean) {
+private fun rememberClipboardText(): ClipboardText {
+    val context = LocalContext.current
+    return remember(context) { ClipboardText(context) }
+}
+
+@Composable
+private fun KindPicker(
+    selected: ConnectionKind,
+    enabled: Boolean,
+    onSelect: (ConnectionKind) -> Unit,
+) {
     SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-        SegmentedButton(
-            selected = true,
-            onClick = {},
-            shape = SegmentedButtonDefaults.itemShape(index = 0, count = 1),
-            enabled = enabled,
-            icon = {},
-            label = { Text("Muxy 1") },
-        )
+        pickerKinds.forEachIndexed { index, (kind, title) ->
+            SegmentedButton(
+                selected = kind == selected,
+                onClick = { onSelect(kind) },
+                shape = SegmentedButtonDefaults.itemShape(index = index, count = pickerKinds.size),
+                enabled = enabled,
+                icon = {},
+                label = { Text(title) },
+            )
+        }
+    }
+}
+
+private const val PAIRING_WARNING =
+    "Only pair with a code shown on your own computer. A paired phone can do anything a terminal on that computer can."
+
+private val pickerKinds = listOf(ConnectionKind.DEVICE to "Muxy 1", ConnectionKind.SERVER to "Muxy 2")
+
+private fun LazyListScope.deviceSections(
+    viewModel: AddConnectionViewModel,
+    services: List<DiscoveredService>,
+    enabled: Boolean,
+    onScan: () -> Unit,
+) {
+    nearbySection(services, enabled = enabled, onSelect = viewModel::applyDiscovered)
+    sectionGap(key = "scan-gap")
+    item(key = "scan") {
+        ThemedCell(RowPosition.SINGLE) {
+            ActionRow(icon = R.drawable.ic_qr_code_scanner, title = "Scan QR Code", enabled = enabled, onClick = onScan)
+        }
+    }
+    macSection(viewModel, enabled = enabled)
+}
+
+private fun LazyListScope.serverSections(
+    pairing: ServerPairingModel,
+    enabled: Boolean,
+    onScan: () -> Unit,
+    onPaste: () -> Unit,
+) {
+    item(key = "server-scan") {
+        ThemedCell(RowPosition.FIRST, rowSeparatorInset) {
+            ActionRow(icon = R.drawable.ic_qr_code_scanner, title = "Scan QR Code", enabled = enabled, onClick = onScan)
+        }
+    }
+    item(key = "server-paste") {
+        ThemedCell(RowPosition.LAST) {
+            ActionRow(icon = R.drawable.ic_content_paste, title = "Paste", enabled = enabled, onClick = onPaste)
+        }
+    }
+    val target = pairing.target ?: return
+    item(key = "computer-header") { ThemedSectionHeader("Computer") }
+    item(key = "computer-address") {
+        ThemedCell(RowPosition.SINGLE) {
+            ThemedListItem(headline = { Text("Address") }, trailing = { Text(target.address) })
+        }
+    }
+    item(key = "computer-footer") { ThemedSectionFooter(PAIRING_WARNING) }
+    item(key = "phone-header") { ThemedSectionHeader("This Phone") }
+    item(key = "phone-name") {
+        ThemedCell(RowPosition.SINGLE) {
+            ThemedTextField(
+                value = pairing.deviceName,
+                onValueChange = { pairing.deviceName = it },
+                label = "Device Name",
+                enabled = enabled,
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words, imeAction = ImeAction.Done),
+            )
+        }
+    }
+    item(key = "phone-footer") {
+        ThemedSectionFooter("Your computer lists this phone under this name in Settings → Mobile.")
     }
 }
 

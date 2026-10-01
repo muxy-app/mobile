@@ -2,8 +2,10 @@ package com.muxy.app.features.terminal
 
 import com.muxy.app.features.terminalkit.TerminalKeyStroke
 
-fun interface TerminalSourceListener {
+interface TerminalSourceListener {
     fun screenDidChange()
+
+    fun modesDidChange(modes: TerminalModes)
 }
 
 enum class TerminalScrollDirection {
@@ -11,7 +13,7 @@ enum class TerminalScrollDirection {
     DOWN,
 }
 
-interface TerminalScrollback {
+interface TerminalScrollback : AutoCloseable {
     val historyRows: Int
 
     fun lines(): List<TerminalLine>

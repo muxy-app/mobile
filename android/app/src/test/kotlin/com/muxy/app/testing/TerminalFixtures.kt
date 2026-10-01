@@ -50,6 +50,8 @@ class StubScrollback(
         loadCount += 1
         return pages.removeFirst().getOrThrow()
     }
+
+    override fun close() = Unit
 }
 
 class FakeTerminalSource(

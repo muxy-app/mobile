@@ -67,11 +67,15 @@ class AddConnectionViewModel(
     private val tokenGenerator: TokenGenerating,
     private val discovery: ServiceDiscovery,
     private val inbox: AddConnectionInbox,
+    val serverPairing: ServerPairingModel,
 ) : ViewModel() {
     private var hostText by mutableStateOf("")
     private var portValue by mutableStateOf(Endpoint.DEFAULT_PORT.toString())
 
     var name by mutableStateOf("")
+
+    var kind by mutableStateOf(ConnectionKind.DEVICE)
+        private set
 
     var host: String
         get() = hostText
@@ -106,14 +110,29 @@ class AddConnectionViewModel(
     val discoveredServices: StateFlow<List<DiscoveredService>> = discovery.services
 
     val isWorking: Boolean
-        get() =
-            when (status) {
+        get() {
+            if (serverPairing.isPairing) return true
+            return when (status) {
                 AddConnectionStatus.Connecting, AddConnectionStatus.Authenticating, AddConnectionStatus.AwaitingApproval -> true
                 else -> false
             }
+        }
 
     val canSubmit: Boolean
-        get() = !isWorking && validatedInput() != null
+        get() {
+            if (isWorking) return false
+            return when (kind) {
+                ConnectionKind.SERVER -> serverPairing.canPair
+                ConnectionKind.DEVICE, ConnectionKind.SSH -> validatedInput() != null
+            }
+        }
+
+    val displayedStatus: AddConnectionStatus
+        get() {
+            if (kind != ConnectionKind.SERVER) return status
+            if (serverPairing.isPairing) return AddConnectionStatus.Connecting
+            return serverPairing.failure?.let(AddConnectionStatus::Failed) ?: AddConnectionStatus.Idle
+        }
 
     init {
         discovery.start()
@@ -126,17 +145,34 @@ class AddConnectionViewModel(
         }
     }
 
+    fun selectKind(kind: ConnectionKind) {
+        if (this.kind == kind) return
+        this.kind = kind
+        status = AddConnectionStatus.Idle
+    }
+
     fun applyPairingCode(code: String): Boolean {
+        if (serverPairing.accepts(code)) {
+            selectKind(ConnectionKind.SERVER)
+            serverPairing.receive(code, DiscoverySource.QR)
+            return true
+        }
         val parsed = PairingUri.parse(code)
         if (parsed !is PairingUriParse.Parsed) {
             alert = AddConnectionAlert.INVALID_CODE
             return false
         }
+        selectKind(ConnectionKind.DEVICE)
         applyScan(parsed.uri)
         return true
     }
 
+    fun pasteServerLink(text: String?) {
+        serverPairing.receive(text.orEmpty(), DiscoverySource.MANUAL)
+    }
+
     fun applyRepair(connection: Connection) {
+        selectKind(ConnectionKind.DEVICE)
         name = connection.name
         host = connection.host
         portText = connection.port.toString()
@@ -174,6 +210,10 @@ class AddConnectionViewModel(
 
     fun submit() {
         if (isWorking) return
+        if (kind == ConnectionKind.SERVER) {
+            viewModelScope.launch { serverPairing.pair()?.let { addedConnection = it } }
+            return
+        }
         val input = validatedInput() ?: return
         status = AddConnectionStatus.Connecting
         viewModelScope.launch { pair(input) }
