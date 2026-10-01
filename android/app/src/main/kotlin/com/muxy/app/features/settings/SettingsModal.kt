@@ -35,8 +35,10 @@ fun SettingsModal(
                 entry<SettingsRoute.Main> {
                     SettingsScreen(
                         themeName = selectedTheme,
-                        demoMode = settings.demoMode,
+                        settings = settings,
                         onTheme = { backStack.open(SettingsRoute.Theme) },
+                        onUseNerdFontChange = viewModel::setUseNerdFont,
+                        onAutoFocusTerminalChange = viewModel::setAutoFocusTerminal,
                         onDemoModeChange = viewModel::setDemoMode,
                         onClose = onClose,
                     )

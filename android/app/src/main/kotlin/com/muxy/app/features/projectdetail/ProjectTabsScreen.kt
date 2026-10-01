@@ -3,6 +3,7 @@ package com.muxy.app.features.projectdetail
 import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
@@ -25,7 +26,6 @@ import com.muxy.app.design.components.ThemedEmptyState
 import com.muxy.app.design.components.ThemedProminentButton
 import com.muxy.app.design.components.TopBarAction
 import com.muxy.app.models.Tab
-import com.muxy.app.models.TabKind
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterIsInstance
@@ -39,6 +39,7 @@ fun ProjectTabsScreen(
     onClose: (Tab) -> Unit,
     onCreate: () -> Unit,
     onBack: () -> Unit,
+    page: @Composable (tab: Tab, isActive: Boolean) -> Unit,
 ) {
     Scaffold(
         topBar = {
@@ -48,7 +49,7 @@ fun ProjectTabsScreen(
             )
         },
     ) { padding ->
-        Column(modifier = Modifier.padding(padding).fillMaxSize()) {
+        Column(modifier = Modifier.padding(padding).consumeWindowInsets(padding).fillMaxSize()) {
             if (state.tabs.isEmpty()) {
                 EmptyTabs(state.status, state.connectionName, onCreate)
                 return@Column
@@ -60,7 +61,7 @@ fun ProjectTabsScreen(
                 onClose = { item -> state.tabs.firstOrNull { it.id == item.id }?.let(onClose) },
                 onCreate = onCreate,
             )
-            TabPager(state.tabs, state.selectedTabId, onSelect)
+            TabPager(state.tabs, state.selectedTabId, onSelect, page)
         }
     }
 }
@@ -70,6 +71,7 @@ private fun TabPager(
     tabs: List<Tab>,
     selectedTabId: UUID?,
     onSelect: (Tab) -> Unit,
+    page: @Composable (tab: Tab, isActive: Boolean) -> Unit,
 ) {
     val selectedIndex = tabs.indexOfFirst { it.id == selectedTabId }
     val pagerState = rememberPagerState(initialPage = selectedIndex.coerceAtLeast(0)) { tabs.size }
@@ -83,12 +85,8 @@ private fun TabPager(
         state = pagerState,
         modifier = Modifier.fillMaxSize(),
         key = { tabs[it].id },
-    ) { page ->
-        val tab = tabs[page]
-        when (tab.kind) {
-            TabKind.Terminal -> TerminalPlaceholderPage(tab.title)
-            else -> UnsupportedTabPage(tab.title)
-        }
+    ) { index ->
+        page(tabs[index], pagerState.settledPage == index)
     }
 }
 

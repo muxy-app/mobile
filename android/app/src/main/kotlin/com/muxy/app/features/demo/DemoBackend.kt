@@ -18,12 +18,17 @@ import com.muxy.app.networking.muxy1.protocol.EventType
 import com.muxy.app.networking.muxy1.protocol.GetWorkspaceParams
 import com.muxy.app.networking.muxy1.protocol.Method
 import com.muxy.app.networking.muxy1.protocol.PairingResult
+import com.muxy.app.networking.muxy1.protocol.PaneOwner
+import com.muxy.app.networking.muxy1.protocol.PaneOwnershipEvent
 import com.muxy.app.networking.muxy1.protocol.ProjectsResult
 import com.muxy.app.networking.muxy1.protocol.ProtocolException
 import com.muxy.app.networking.muxy1.protocol.ProtocolJson
 import com.muxy.app.networking.muxy1.protocol.RawTagged
 import com.muxy.app.networking.muxy1.protocol.ResultType
 import com.muxy.app.networking.muxy1.protocol.SelectTabParams
+import com.muxy.app.networking.muxy1.protocol.TakeOverPaneParams
+import com.muxy.app.networking.muxy1.protocol.TerminalBytesEvent
+import com.muxy.app.networking.muxy1.protocol.TerminalInputParams
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.DeserializationStrategy
@@ -58,6 +63,7 @@ class DemoBackend {
                 ),
         )
     private var tabCounter = 2
+    private val shell = DemoShell()
 
     val clientId: UUID = CLIENT_ID
 
@@ -99,11 +105,44 @@ class DemoBackend {
                     selectTab(decode(SelectTabParams.serializer(), params))
                 }
 
+                Method.TAKE_OVER_PANE -> {
+                    takeOverPane(decode(TakeOverPaneParams.serializer(), params))
+                }
+
+                Method.TERMINAL_INPUT -> {
+                    terminalInput(decode(TerminalInputParams.serializer(), params))
+                }
+
+                Method.RELEASE_PANE, Method.SET_CLIENT_THEME, Method.TERMINAL_RESIZE, Method.TERMINAL_SCROLL -> {
+                    DemoReply(ok())
+                }
+
                 Method.PAIR_DEVICE, Method.GET_PROJECT_LOGO -> {
                     throw notFound()
                 }
             }
         }
+
+    private fun takeOverPane(params: TakeOverPaneParams): DemoReply {
+        val paneId = uuid(params.paneId)
+        val ownership = PaneOwnershipEvent(paneId, PaneOwner.Remote(clientId, DEMO_DEVICE_NAME))
+        val snapshot = TerminalBytesEvent(paneId, shell.open(paneId).toByteArray())
+        return DemoReply(
+            ok(),
+            listOf(
+                EventEnvelope(EventName.PANE_OWNERSHIP_CHANGED, RawTagged.of(EventType.PANE_OWNERSHIP, ownership)),
+                EventEnvelope(EventName.TERMINAL_SNAPSHOT, RawTagged.of(EventType.TERMINAL_SNAPSHOT, snapshot)),
+            ),
+        )
+    }
+
+    private fun terminalInput(params: TerminalInputParams): DemoReply {
+        val paneId = uuid(params.paneId)
+        val output = shell.input(paneId, params.bytes.decodeToString())
+        if (output.isEmpty()) return DemoReply(ok())
+        val event = TerminalBytesEvent(paneId, output.toByteArray())
+        return DemoReply(ok(), listOf(EventEnvelope(EventName.TERMINAL_OUTPUT, RawTagged.of(EventType.TERMINAL_OUTPUT, event))))
+    }
 
     private fun createTab(params: CreateTabParams): DemoReply {
         val projectId = uuid(params.projectId)
@@ -188,6 +227,7 @@ class DemoBackend {
         const val MUXY_PATH = "/Users/demo/Projects/muxy"
         const val WEB_PATH = "/Users/demo/Projects/web-app"
         const val CREATED_AT = "2026-06-08T00:00:00.000Z"
+        const val DEMO_DEVICE_NAME = "Android (Demo)"
         const val PROJECTS_PARENT = "/Users/demo/Projects"
 
         val projects =

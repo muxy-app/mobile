@@ -5,6 +5,14 @@ import androidx.lifecycle.viewModelScope
 import com.muxy.app.core.concurrency.attempt
 import com.muxy.app.core.logging.Log
 import com.muxy.app.core.serialization.uuidString
+import com.muxy.app.design.AppTheme
+import com.muxy.app.design.ThemeCatalog
+import com.muxy.app.features.projectdetail.terminal.ConnectionTerminalChannel
+import com.muxy.app.features.projectdetail.terminal.TerminalSession
+import com.muxy.app.features.projectdetail.terminal.TerminalSessionStore
+import com.muxy.app.features.projectdetail.terminal.clientTerminalTheme
+import com.muxy.app.features.terminal.TerminalClipboard
+import com.muxy.app.features.terminal.TerminalSettings
 import com.muxy.app.models.Connection
 import com.muxy.app.models.Tab
 import com.muxy.app.models.TabArea
@@ -26,6 +34,8 @@ import com.muxy.app.networking.muxy1.protocol.ResultType
 import com.muxy.app.networking.muxy1.protocol.SelectProjectParams
 import com.muxy.app.networking.muxy1.protocol.SelectTabParams
 import com.muxy.app.persistence.connections.ConnectionStore
+import com.muxy.app.persistence.settings.SettingsStore
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -33,6 +43,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.stateIn
@@ -60,8 +71,23 @@ class ProjectDetailViewModel(
     private val projectName: String,
     connectionStore: ConnectionStore,
     private val manager: ConnectionManager,
+    settingsStore: SettingsStore,
+    outbound: CoroutineScope,
+    clipboard: TerminalClipboard,
 ) : ViewModel() {
     private val content = MutableStateFlow(Content())
+
+    private val terminals = TerminalSessionStore(ConnectionTerminalChannel(connectionId, manager), viewModelScope, outbound, clipboard)
+
+    val terminalSettings: StateFlow<TerminalSettings> =
+        settingsStore.settings
+            .filterNotNull()
+            .map(TerminalSettings::from)
+            .stateIn(
+                viewModelScope,
+                SharingStarted.Eagerly,
+                settingsStore.settings.value?.let(TerminalSettings::from) ?: TerminalSettings(),
+            )
 
     private val connection: StateFlow<Connection?> =
         connectionStore.connections
@@ -80,6 +106,28 @@ class ProjectDetailViewModel(
     init {
         viewModelScope.launch {
             manager.status
+                .map { it.of(connectionId) to it.connectedSession(connectionId) }
+                .distinctUntilChanged()
+                .collect { (state, session) -> terminals.connectionChanged(state, session) }
+        }
+        viewModelScope.launch {
+            content
+                .map { allTabs(it) to it.selectedTabId }
+                .distinctUntilChanged()
+                .collect { (tabs, selected) ->
+                    terminals.tabsChanged(tabs)
+                    terminals.selectionChanged(selected, tabs)
+                }
+        }
+        viewModelScope.launch {
+            settingsStore.settings
+                .filterNotNull()
+                .map { AppTheme.from(ThemeCatalog.named(it.themeName)).terminalPalette.clientTerminalTheme() }
+                .distinctUntilChanged()
+                .collect(terminals::useClientTheme)
+        }
+        viewModelScope.launch {
+            manager.status
                 .mapNotNull { it.connectedSession(connectionId) }
                 .distinctUntilChanged()
                 .collectLatest { loadWorkspace() }
@@ -90,6 +138,12 @@ class ProjectDetailViewModel(
                 .filter { it.event == EventName.WORKSPACE_CHANGED }
                 .collect(::applyWorkspaceEvent)
         }
+    }
+
+    fun terminalSession(tab: Tab): TerminalSession? = terminals.session(tab)
+
+    override fun onCleared() {
+        terminals.teardown()
     }
 
     fun select(tab: Tab) {
@@ -188,6 +242,8 @@ class ProjectDetailViewModel(
 
     private fun tabs(workspace: Workspace): List<Tab> = WorkspaceFlattening.tabAreas(workspace).flatMap(TabArea::tabs)
 
+    private fun allTabs(content: Content): List<Tab> = content.workspace?.let(::tabs).orEmpty()
+
     private fun buildUiState(
         connection: Connection?,
         content: Content,
@@ -195,7 +251,7 @@ class ProjectDetailViewModel(
     ) = ProjectDetailUiState(
         projectName = projectName,
         connectionName = connection?.name.orEmpty(),
-        tabs = content.workspace?.let(::tabs).orEmpty(),
+        tabs = allTabs(content),
         selectedTabId = content.selectedTabId,
         status = status(state, content.hasLoaded),
     )

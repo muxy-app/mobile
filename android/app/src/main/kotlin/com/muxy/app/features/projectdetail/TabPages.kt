@@ -22,7 +22,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.muxy.app.R
 import com.muxy.app.design.LocalAppTheme
-import com.muxy.app.design.components.ThemedEmptyState
 import com.muxy.app.models.TabKind
 
 @DrawableRes
@@ -32,16 +31,6 @@ fun TabKind.icon(): Int =
         TabKind.Vcs -> R.drawable.ic_fork_right
         is TabKind.Unsupported -> R.drawable.ic_help
     }
-
-@Composable
-fun TerminalPlaceholderPage(title: String) {
-    ThemedEmptyState(
-        title = title,
-        icon = R.drawable.ic_terminal,
-        message = "Terminals aren't available in this build yet.",
-        modifier = Modifier.fillMaxSize(),
-    )
-}
 
 @Composable
 fun UnsupportedTabPage(title: String) {

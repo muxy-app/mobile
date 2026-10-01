@@ -44,3 +44,10 @@ data class ConnectionStatus(
         val idle = ConnectionStatus(null, ConnectionState.Idle, 0)
     }
 }
+
+data class ConnectionIdentity(
+    val clientId: UUID?,
+    val deviceId: UUID?,
+) {
+    fun matches(ownerId: UUID): Boolean = ownerId == clientId || ownerId == deviceId
+}

@@ -65,6 +65,10 @@ android {
         compose = true
     }
 
+    androidResources {
+        noCompress += "ttf"
+    }
+
     testOptions {
         unitTests.isReturnDefaultValues = true
     }
@@ -83,11 +87,13 @@ ktlint {
 
 dependencies {
     implementation(project(":MuxyMobileSDK"))
+    implementation(project(":terminal-emulator"))
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.core.splashscreen)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.lifecycle.process)

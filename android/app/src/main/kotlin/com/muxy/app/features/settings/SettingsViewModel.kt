@@ -22,6 +22,14 @@ class SettingsViewModel(
         viewModelScope.launch { settingsStore.update { it.copy(themeName = name) } }
     }
 
+    fun setUseNerdFont(enabled: Boolean) {
+        viewModelScope.launch { settingsStore.update { it.copy(useNerdFont = enabled) } }
+    }
+
+    fun setAutoFocusTerminal(enabled: Boolean) {
+        viewModelScope.launch { settingsStore.update { it.copy(autoFocusTerminal = enabled) } }
+    }
+
     fun setDemoMode(enabled: Boolean) {
         viewModelScope.launch { settingsStore.update { it.copy(demoMode = enabled) } }
     }

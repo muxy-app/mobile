@@ -16,6 +16,7 @@ import com.muxy.app.features.navigation.RootViewModel
 import com.muxy.app.features.projectdetail.ProjectDetailViewModel
 import com.muxy.app.features.projects.ProjectsViewModel
 import com.muxy.app.features.settings.SettingsViewModel
+import com.muxy.app.features.terminal.SystemTerminalClipboard
 import com.muxy.app.networking.muxy1.ConnectionLifecycle
 import com.muxy.app.networking.muxy1.ConnectionManager
 import com.muxy.app.networking.muxy1.discovery.NsdDiscovery
@@ -81,6 +82,8 @@ class AppContainer(
 
     val addConnectionRequests = AddConnectionInbox()
 
+    private val terminalClipboard = SystemTerminalClipboard(context)
+
     val connectionManager =
         ConnectionManager(
             makeTransport = { url -> WebSocketTransport(url, httpClient) },
@@ -116,7 +119,16 @@ class AppContainer(
         ProjectsViewModel(connectionId, connectionStore, connectionManager, workspaceSelectionStore)
 
     fun makeProjectDetailViewModel(route: AppRoute.ProjectDetail): ProjectDetailViewModel =
-        ProjectDetailViewModel(route.connectionId, route.projectId, route.projectName, connectionStore, connectionManager)
+        ProjectDetailViewModel(
+            connectionId = route.connectionId,
+            projectId = route.projectId,
+            projectName = route.projectName,
+            connectionStore = connectionStore,
+            manager = connectionManager,
+            settingsStore = settingsStore,
+            outbound = mainScope,
+            clipboard = terminalClipboard,
+        )
 
     private companion object {
         const val SETTINGS_FILE = "settings"

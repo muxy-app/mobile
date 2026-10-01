@@ -6,11 +6,13 @@ import com.muxy.app.networking.muxy1.ConnectionManager
 import com.muxy.app.networking.muxy1.protocol.Method
 import com.muxy.app.networking.muxy1.protocol.ProjectsResult
 import com.muxy.app.persistence.secrets.SecretTokenStore
+import com.muxy.app.persistence.settings.InMemorySettingsStore
 import com.muxy.app.testing.InMemoryConnectionStore
 import com.muxy.app.testing.InMemorySecretStore
 import com.muxy.app.testing.MainDispatcherRule
 import com.muxy.app.testing.TransportRecorder
 import com.muxy.app.testing.connectionManager
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -117,16 +119,27 @@ class ProjectDetailViewModelTest {
                 .projects
                 .first()
         if (!connect) manager.disconnect()
-        return Fixture(manager, project).also { advanceUntilIdle() }
+        return Fixture(manager, project, backgroundScope).also { advanceUntilIdle() }
     }
 
     private class Fixture(
         private val manager: ConnectionManager,
         private val project: Project,
+        private val outbound: CoroutineScope,
     ) {
         private val store = InMemoryConnectionStore(listOf(DemoConnection.connection))
         val viewModel = newViewModel()
 
-        fun newViewModel() = ProjectDetailViewModel(DemoConnection.id, project.id, project.name, store, manager)
+        fun newViewModel() =
+            ProjectDetailViewModel(
+                connectionId = DemoConnection.id,
+                projectId = project.id,
+                projectName = project.name,
+                connectionStore = store,
+                manager = manager,
+                settingsStore = InMemorySettingsStore(),
+                outbound = outbound,
+                clipboard = {},
+            )
     }
 }

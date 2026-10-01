@@ -71,12 +71,16 @@ The runner selects the only connected phone. To choose among several:
 
 Debug builds install as `com.muxy.app` and are signed with your debug key. Android won't install one over the Play Store version, because their signatures differ; uninstall that first, which deletes its data.
 
+## Terminal emulator
+
+Muxy 1 terminals, and SSH terminals later, run on Termux's `terminal-emulator` library, vendored as the `:terminal-emulator` module under the Apache License 2.0. [terminal-emulator/NOTICE.md](terminal-emulator/NOTICE.md) names the upstream tag and lists the changes. The module keeps its upstream sources and tests and is excluded from ktlint and the rule that rejects comments.
+
 ## Other commands
 
 | Command | Action |
 | --- | --- |
 | `./scripts/run.sh build` | Build the debug APK without a device |
-| `./scripts/run.sh test` | Run the JVM unit tests |
+| `./scripts/run.sh test` | Run the JVM unit tests, including the vendored terminal emulator's |
 | `./scripts/run.sh test-device` | Run the instrumented tests in the emulator |
 | `./scripts/run.sh stop` | Stop Muxy in the emulator |
 | `./scripts/run.sh restart` | Stop, rebuild and relaunch Muxy in the emulator |

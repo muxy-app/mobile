@@ -2,15 +2,18 @@ package com.muxy.app.networking.muxy1
 
 import com.muxy.app.core.device.PhoneName
 import com.muxy.app.core.logging.Log
+import com.muxy.app.core.serialization.parseUuid
 import com.muxy.app.features.demo.DemoBackend
 import com.muxy.app.features.demo.DemoConnection
 import com.muxy.app.models.Connection
 import com.muxy.app.networking.muxy1.protocol.AuthParams
 import com.muxy.app.networking.muxy1.protocol.EventEnvelope
 import com.muxy.app.networking.muxy1.protocol.Method
+import com.muxy.app.networking.muxy1.protocol.PairingResult
 import com.muxy.app.networking.muxy1.protocol.ProtocolException
 import com.muxy.app.networking.muxy1.protocol.ProtocolJson
 import com.muxy.app.networking.muxy1.protocol.RawTagged
+import com.muxy.app.networking.muxy1.protocol.ResultType
 import com.muxy.app.networking.muxy1.transport.Transport
 import com.muxy.app.persistence.secrets.DeviceCredential
 import com.muxy.app.persistence.secrets.TokenStore
@@ -126,6 +129,20 @@ class ConnectionManager(
         params: P,
     ): RawTagged = request(connectionId, method, ProtocolJson.encodeToJsonElement(params))
 
+    suspend fun notify(
+        connectionId: UUID,
+        method: Method,
+        params: JsonElement? = null,
+    ) {
+        val current = active?.takeIf { it.connectionId == connectionId } ?: throw ConnectionException(ConnectionError.NOT_CONNECTED)
+        when (val link = current.link) {
+            is Link.Socket -> link.client.notify(method, params)
+            Link.Demo -> demoRequest(current, method, params)
+        }
+    }
+
+    fun identity(connectionId: UUID): ConnectionIdentity? = active?.takeIf { it.connectionId == connectionId }?.identity
+
     private fun connectIntent(
         connection: Connection,
         force: Boolean,
@@ -171,14 +188,16 @@ class ConnectionManager(
         publish(connection.id, ConnectionState.Connecting)
         val credential =
             tokenStore.credential(connection.id) ?: return publish(connection.id, ConnectionState.Failed(ConnectionError.MISSING_TOKEN))
-        if (connection.id == DemoConnection.id) return activateLocked(connection.id, Link.Demo)
+        if (connection.id == DemoConnection.id) {
+            return activateLocked(connection.id, Link.Demo, ConnectionIdentity(demoBackend.clientId, parseUuid(credential.deviceId)))
+        }
         val url =
             connection.endpoint.webSocketUrl ?: return publish(connection.id, ConnectionState.Failed(ConnectionError.INVALID_ENDPOINT))
         val client = openClientLocked(url) ?: return publish(connection.id, ConnectionState.Failed(ConnectionError.CONNECTION_FAILED))
         publish(connection.id, ConnectionState.Authenticating)
         try {
-            client.request(Method.AUTHENTICATE_DEVICE, authParams(credential))
-            activateLocked(connection.id, Link.Socket(client))
+            val result = client.request(Method.AUTHENTICATE_DEVICE, authParams(credential))
+            activateLocked(connection.id, Link.Socket(client), ConnectionIdentity(clientId(result), parseUuid(credential.deviceId)))
         } catch (error: ProtocolException) {
             failAuthenticationLocked(connection.id, error)
         } catch (error: IOException) {
@@ -218,7 +237,8 @@ class ConnectionManager(
             publish(connection.id, ConnectionState.Failed(ConnectionError.AUTHENTICATION_FAILED))
             return status
         }
-        activateLocked(connection.id, Link.Socket(client))
+        val identity = ConnectionIdentity(parseUuid(status.pairing.clientId), parseUuid(credential.deviceId))
+        activateLocked(connection.id, Link.Socket(client), identity)
         return status
     }
 
@@ -262,10 +282,17 @@ class ConnectionManager(
     private fun activateLocked(
         connectionId: UUID,
         link: Link,
+        identity: ConnectionIdentity,
     ) {
         sessionCounter += 1
-        active = Active(connectionId, link, sessionCounter)
+        active = Active(connectionId, link, sessionCounter, identity)
         mutableStatus.value = ConnectionStatus(connectionId, ConnectionState.Connected, sessionCounter)
+    }
+
+    private fun clientId(result: RawTagged): UUID? {
+        if (result.type != ResultType.PAIRING) return null
+        val pairing = runCatching { result.decode(PairingResult.serializer()) }.getOrNull() ?: return null
+        return parseUuid(pairing.clientId)
     }
 
     private fun publish(
@@ -317,6 +344,7 @@ class ConnectionManager(
         val connectionId: UUID,
         val link: Link,
         val session: Long,
+        val identity: ConnectionIdentity,
     )
 
     private class InFlightConnect(

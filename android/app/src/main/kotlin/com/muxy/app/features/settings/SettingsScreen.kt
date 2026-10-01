@@ -16,12 +16,15 @@ import com.muxy.app.design.components.ThemedList
 import com.muxy.app.design.components.ThemedListItem
 import com.muxy.app.design.components.ThemedSectionHeader
 import com.muxy.app.design.components.TopBarAction
+import com.muxy.app.persistence.settings.AppSettings
 
 @Composable
 fun SettingsScreen(
     themeName: String,
-    demoMode: Boolean,
+    settings: AppSettings,
     onTheme: () -> Unit,
+    onUseNerdFontChange: (Boolean) -> Unit,
+    onAutoFocusTerminalChange: (Boolean) -> Unit,
     onDemoModeChange: (Boolean) -> Unit,
     onClose: () -> Unit,
 ) {
@@ -44,21 +47,53 @@ fun SettingsScreen(
                     )
                 }
             }
+            item(key = "terminal") { ThemedSectionHeader("Terminal") }
+            item(key = "nerd-font") {
+                ToggleRow(
+                    position = RowPosition.FIRST,
+                    title = "Use Nerd Font",
+                    caption = "Caskaydia Mono with powerline and icon glyphs.",
+                    checked = settings.useNerdFont,
+                    onCheckedChange = onUseNerdFontChange,
+                )
+            }
+            item(key = "auto-focus") {
+                ToggleRow(
+                    position = RowPosition.LAST,
+                    title = "Auto-focus terminal",
+                    caption = "Focus the terminal automatically when switching or creating tabs. May open the on-screen keyboard.",
+                    checked = settings.autoFocusTerminal,
+                    onCheckedChange = onAutoFocusTerminalChange,
+                )
+            }
             item(key = "demo") { ThemedSectionHeader("Demo") }
             item(key = "demo-mode") {
-                ThemedCell(RowPosition.SINGLE) {
-                    ThemedListItem(
-                        headline = { Text("Demo Mode") },
-                        supporting = {
-                            Text(
-                                "Loads sample data so you can try the app without a desktop. Switching it off restores your real devices.",
-                            )
-                        },
-                        trailing = { Switch(checked = demoMode, onCheckedChange = null) },
-                        modifier = Modifier.toggleable(value = demoMode, role = Role.Switch, onValueChange = onDemoModeChange),
-                    )
-                }
+                ToggleRow(
+                    position = RowPosition.SINGLE,
+                    title = "Demo Mode",
+                    caption = "Loads sample data so you can try the app without a desktop. Switching it off restores your real devices.",
+                    checked = settings.demoMode,
+                    onCheckedChange = onDemoModeChange,
+                )
             }
         }
+    }
+}
+
+@Composable
+private fun ToggleRow(
+    position: RowPosition,
+    title: String,
+    caption: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    ThemedCell(position) {
+        ThemedListItem(
+            headline = { Text(title) },
+            supporting = { Text(caption) },
+            trailing = { Switch(checked = checked, onCheckedChange = null) },
+            modifier = Modifier.toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange),
+        )
     }
 }

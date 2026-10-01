@@ -27,6 +27,12 @@ enum class Method(
     CLOSE_TAB("closeTab"),
     SELECT_TAB("selectTab"),
     GET_PROJECT_LOGO("getProjectLogo"),
+    TAKE_OVER_PANE("takeOverPane"),
+    RELEASE_PANE("releasePane"),
+    SET_CLIENT_THEME("setClientTheme"),
+    TERMINAL_INPUT("terminalInput"),
+    TERMINAL_RESIZE("terminalResize"),
+    TERMINAL_SCROLL("terminalScroll"),
 }
 
 object ResultType {
@@ -41,11 +47,17 @@ object ResultType {
 object EventName {
     const val WORKSPACE_CHANGED = "workspaceChanged"
     const val PROJECTS_CHANGED = "projectsChanged"
+    const val TERMINAL_OUTPUT = "terminalOutput"
+    const val TERMINAL_SNAPSHOT = "terminalSnapshot"
+    const val PANE_OWNERSHIP_CHANGED = "paneOwnershipChanged"
 }
 
 object EventType {
     const val WORKSPACE = "workspace"
     const val PROJECTS = "projects"
+    const val TERMINAL_OUTPUT = "terminalOutput"
+    const val TERMINAL_SNAPSHOT = "terminalSnapshot"
+    const val PANE_OWNERSHIP = "paneOwnership"
 }
 
 @Serializable
