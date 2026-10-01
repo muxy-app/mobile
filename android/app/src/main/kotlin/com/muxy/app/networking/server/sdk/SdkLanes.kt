@@ -14,7 +14,9 @@ class SdkLanes(
     dispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) {
     private val requests = dispatcher.limitedParallelism(1, "muxy.sdk.requests")
-    private val input = CoroutineScope(SupervisorJob() + dispatcher.limitedParallelism(1, "muxy.sdk.input"))
+    private val inputLane = dispatcher.limitedParallelism(1, "muxy.sdk.input")
+    private val input = CoroutineScope(SupervisorJob() + inputLane)
+    private val closing = CoroutineScope(SupervisorJob() + inputLane)
 
     suspend fun <T> request(work: () -> T): T = withContext(requests) { work() }
 
@@ -26,6 +28,10 @@ class SdkLanes(
                 Log.terminal.error("Terminal input failed: ${ServerFailure.from(error)}")
             }
         }
+    }
+
+    fun closeAfterInput(handle: AutoCloseable) {
+        closing.launch { handle.close() }
     }
 
     fun close() {

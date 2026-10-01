@@ -284,7 +284,7 @@ class ServerController(
         attempt { current.projects() }
             .onSuccess { projects ->
                 mutableCatalog.value = ProjectCatalog(projects, hasLoaded = true, loadFailed = false)
-                dropRemovedProjects()
+                closeRemovedProjects()
             }.onFailure { error ->
                 mutableCatalog.update { it.copy(loadFailed = true) }
                 Log.connection.error("Loading projects failed: ${ServerFailure.from(error)}")
@@ -298,16 +298,14 @@ class ServerController(
             .forEach { it.refreshSessions(current) }
     }
 
-    private fun dropRemovedProjects() {
+    private fun closeRemovedProjects() {
         val existing =
             mutableCatalog.value.projects
                 .map { it.id }
                 .toSet()
-        val removed = projectModels.filterKeys { it !in existing }
-        removed.forEach { (projectId, model) ->
-            model.removeAllTabs()
-            projectModels.remove(projectId)
-        }
+        projectModels.values
+            .filter { it.projectId !in existing && it.tabs.value.isNotEmpty() }
+            .forEach(ProjectModel::removeAllTabs)
     }
 
     private companion object {

@@ -15,6 +15,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import uniffi.muxy_mobile.ConnectionEvent
@@ -188,6 +189,23 @@ class TerminalAttachmentTest {
             advanceTimeBy(2.seconds)
             assertTrue(model.tabs.value.isEmpty())
             assertEquals(null, controller.project("muxy"))
+        }
+
+    @Test
+    fun anOpenScreenOfARemovedProjectKeepsTheControllersModel() =
+        runTest {
+            val first = FakeServerConnection(sessions = listOf(session(1u)))
+            val second = FakeServerConnection(projects = listOf(serverProject("home", "Home", isHome = true)))
+            val (controller, connector) = connected(first, second)
+            val model = controller.projectModel("muxy")
+            visibleTab(controller, 1u)
+            connector.emit(ConnectionEvent.Disconnected)
+            advanceTimeBy(2.seconds)
+            assertSame(model, controller.projectModel("muxy"))
+            model.createTab()
+            model.selectedTab!!.controller.viewportDidChange(size)
+            runCurrent()
+            assertEquals(listOf(50 to 20), second.created)
         }
 
     @Test

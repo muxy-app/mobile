@@ -69,7 +69,7 @@ class SdkTerminalChannel(
     }
 
     override fun close() {
-        terminal.close()
+        lanes.closeAfterInput(terminal)
     }
 }
 
