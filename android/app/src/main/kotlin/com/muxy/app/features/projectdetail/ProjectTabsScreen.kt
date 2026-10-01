@@ -45,6 +45,7 @@ fun ProjectTabsScreen(
     onClose: (TabStripItem) -> Unit,
     onCreate: () -> Unit,
     onBack: () -> Unit,
+    onTool: (ProjectTool) -> Unit,
     page: @Composable (tab: TabStripItem, isActive: Boolean) -> Unit,
 ) {
     Scaffold(
@@ -52,6 +53,9 @@ fun ProjectTabsScreen(
             MuxyTopAppBar(
                 title = state.projectName,
                 navigationIcon = { TopBarAction(R.drawable.ic_arrow_back, "Back", onBack) },
+                actions = {
+                    ProjectTool.entries.forEach { tool -> TopBarAction(tool.icon, tool.title, { onTool(tool) }) }
+                },
             )
         },
     ) { padding ->

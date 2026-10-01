@@ -26,11 +26,15 @@ import com.muxy.app.networking.muxy1.protocol.ProtocolJson
 import com.muxy.app.networking.muxy1.protocol.RawTagged
 import com.muxy.app.networking.muxy1.protocol.ResultType
 import com.muxy.app.networking.muxy1.protocol.SelectTabParams
+import com.muxy.app.networking.muxy1.protocol.SelectWorktreeParams
 import com.muxy.app.networking.muxy1.protocol.TakeOverPaneParams
 import com.muxy.app.networking.muxy1.protocol.TerminalBytesEvent
 import com.muxy.app.networking.muxy1.protocol.TerminalInputParams
+import com.muxy.app.networking.muxy1.protocol.VcsProjectParams
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.JsonElement
@@ -64,6 +68,11 @@ class DemoBackend {
         )
     private var tabCounter = 2
     private val shell = DemoShell()
+    private val tools =
+        projects.associate { project ->
+            val primaryId = if (project.id == MUXY_PROJECT_ID) MUXY_WORKTREE_ID else WEB_WORKTREE_ID
+            project.id to DemoProjectTools(project, primaryId, project.id == WEB_PROJECT_ID)
+        }
 
     val clientId: UUID = CLIENT_ID
 
@@ -120,8 +129,32 @@ class DemoBackend {
                 Method.PAIR_DEVICE, Method.GET_PROJECT_LOGO -> {
                     throw notFound()
                 }
+
+                Method.LIST_WORKTREES, Method.SELECT_WORKTREE,
+                Method.FILES_LIST, Method.FILES_STAT, Method.FILES_READ, Method.FILES_WRITE,
+                Method.FILES_MKDIR, Method.FILES_RENAME, Method.FILES_MOVE, Method.FILES_DELETE,
+                Method.VCS_REFRESH, Method.VCS_LIST_BRANCHES, Method.VCS_GET_DIFF, Method.VCS_COMMIT,
+                Method.VCS_PULL, Method.VCS_PUSH, Method.VCS_SWITCH_BRANCH, Method.VCS_CREATE_BRANCH,
+                Method.VCS_CREATE_PR, Method.VCS_MERGE_PULL_REQUEST, Method.VCS_ADD_WORKTREE, Method.VCS_REMOVE_WORKTREE,
+                -> {
+                    projectTool(method, params)
+                }
             }
         }
+
+    private suspend fun projectTool(
+        method: Method,
+        params: JsonElement?,
+    ): DemoReply {
+        val projectId = uuid(DemoRequest.decode<VcsProjectParams>(params).projectId)
+        val workspace = workspaces[projectId] ?: throw notFound()
+        val projectTools = tools[projectId] ?: throw notFound()
+        val reply = withContext(Dispatchers.Default) { projectTools.handle(method, params, workspace.worktreeId) }
+        if (method != Method.SELECT_WORKTREE) return reply
+        val worktreeId = uuid(DemoRequest.decode<SelectWorktreeParams>(params).worktreeId)
+        workspaces[projectId] = workspace.copy(worktreeId = worktreeId)
+        return reply.copy(events = reply.events + workspaceEvents(projectId))
+    }
 
     private fun takeOverPane(params: TakeOverPaneParams): DemoReply {
         val paneId = uuid(params.paneId)

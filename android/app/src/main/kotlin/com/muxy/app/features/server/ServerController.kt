@@ -39,6 +39,8 @@ class ServerController(
     var connection: ServerConnection? = null
         private set
 
+    val fileWatches = FileWatches(scope)
+
     private val attachment = AttachmentCoordinator(this, scope)
     private val projectModels = mutableMapOf<String, ProjectModel>()
     private val terminalsBySession = mutableMapOf<ULong, ServerTerminal>()
@@ -174,6 +176,7 @@ class ServerController(
         }
         isConnecting = false
         connection = opened
+        fileWatches.connectionChanged(opened)
         mutablePhase.value = ServerPhase.Connected
         schedule.reset()
         restartPending = false
@@ -211,7 +214,8 @@ class ServerController(
             ConnectionEvent.SessionsChanged -> reloadSessions()
             ConnectionEvent.ServerRestarting -> serverIsRestarting()
             ConnectionEvent.Disconnected -> connectionDidClose()
-            ConnectionEvent.ActivityChanged, is ConnectionEvent.GitChanged, is ConnectionEvent.FilesChanged -> Unit
+            is ConnectionEvent.FilesChanged -> fileWatches.deliver(event.projectId, event.paths)
+            ConnectionEvent.ActivityChanged, is ConnectionEvent.GitChanged -> Unit
         }
     }
 
@@ -243,6 +247,7 @@ class ServerController(
         restartPending = false
         val closing = connection
         connection = null
+        fileWatches.connectionChanged(null)
         attachment.connectionDidClose()
         projectModels.values.flatMap { it.tabs.value }.forEach(ServerTerminal::connectionDidClose)
         projectsRefresh.cancel()

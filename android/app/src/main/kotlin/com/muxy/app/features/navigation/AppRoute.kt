@@ -4,6 +4,8 @@ package com.muxy.app.features.navigation
 
 import androidx.navigation3.runtime.NavKey
 import com.muxy.app.core.serialization.UuidSerializer
+import com.muxy.app.features.projectdetail.ProjectTool
+import com.muxy.app.features.projectdetail.ToolProject
 import com.muxy.app.features.server.ServerFocus
 import com.muxy.app.networking.muxy1.ConnectionFocus
 import kotlinx.serialization.Serializable
@@ -52,16 +54,40 @@ sealed interface AppRoute : NavKey {
         val projectId: String,
     ) : Server
 
+    @Serializable
+    data class ProjectTools(
+        val project: ToolProject,
+        val tool: ProjectTool,
+    ) : AppRoute
+
     val isModal: Boolean
-        get() = this == AddConnection || this == Settings
+        get() = this == AddConnection || this == Settings || this is ProjectTools
 }
 
 fun List<AppRoute>.connectionFocus(): ConnectionFocus =
     when (val top = lastOrNull()) {
-        is AppRoute.Projects -> ConnectionFocus.Device(top.connectionId)
-        is AppRoute.ProjectDetail -> ConnectionFocus.Device(top.connectionId)
-        AppRoute.Connections, is AppRoute.Server, null -> ConnectionFocus.None
-        AppRoute.AddConnection, AppRoute.Settings -> ConnectionFocus.Hold
+        is AppRoute.Projects -> {
+            ConnectionFocus.Device(top.connectionId)
+        }
+
+        is AppRoute.ProjectDetail -> {
+            ConnectionFocus.Device(top.connectionId)
+        }
+
+        AppRoute.Connections, is AppRoute.Server, null -> {
+            ConnectionFocus.None
+        }
+
+        AppRoute.AddConnection, AppRoute.Settings -> {
+            ConnectionFocus.Hold
+        }
+
+        is AppRoute.ProjectTools -> {
+            when (val project = top.project) {
+                is ToolProject.Device -> ConnectionFocus.Device(project.connectionId)
+                is ToolProject.Server -> ConnectionFocus.None
+            }
+        }
     }
 
 fun List<AppRoute>.serverFocus(): ServerFocus {

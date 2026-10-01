@@ -18,6 +18,8 @@ fun ThemedTextField(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    singleLine: Boolean = true,
+    minLines: Int = 1,
 ) {
     val theme = LocalAppTheme.current
     TextField(
@@ -26,7 +28,8 @@ fun ThemedTextField(
         modifier = modifier.fillMaxWidth(),
         enabled = enabled,
         label = { Text(label) },
-        singleLine = true,
+        singleLine = singleLine,
+        minLines = minLines,
         keyboardOptions = keyboardOptions,
         colors =
             TextFieldDefaults.colors(

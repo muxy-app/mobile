@@ -33,6 +33,28 @@ enum class Method(
     TERMINAL_INPUT("terminalInput"),
     TERMINAL_RESIZE("terminalResize"),
     TERMINAL_SCROLL("terminalScroll"),
+    LIST_WORKTREES("listWorktrees"),
+    SELECT_WORKTREE("selectWorktree"),
+    FILES_LIST("filesList"),
+    FILES_STAT("filesStat"),
+    FILES_READ("filesRead"),
+    FILES_WRITE("filesWrite"),
+    FILES_MKDIR("filesMkdir"),
+    FILES_RENAME("filesRename"),
+    FILES_MOVE("filesMove"),
+    FILES_DELETE("filesDelete"),
+    VCS_REFRESH("vcsRefresh"),
+    VCS_LIST_BRANCHES("vcsListBranches"),
+    VCS_GET_DIFF("vcsGetDiff"),
+    VCS_COMMIT("vcsCommit"),
+    VCS_PULL("vcsPull"),
+    VCS_PUSH("vcsPush"),
+    VCS_SWITCH_BRANCH("vcsSwitchBranch"),
+    VCS_CREATE_BRANCH("vcsCreateBranch"),
+    VCS_CREATE_PR("vcsCreatePR"),
+    VCS_MERGE_PULL_REQUEST("vcsMergePullRequest"),
+    VCS_ADD_WORKTREE("vcsAddWorktree"),
+    VCS_REMOVE_WORKTREE("vcsRemoveWorktree"),
 }
 
 object ResultType {
@@ -42,6 +64,15 @@ object ResultType {
     const val TAB = "tab"
     const val OK = "ok"
     const val PROJECT_LOGO = "projectLogo"
+    const val WORKTREES = "worktrees"
+    const val FILES = "files"
+    const val FILE_STAT = "fileStat"
+    const val FILE_CONTENT = "fileContent"
+    const val FILE_PATHS = "filePaths"
+    const val VCS_STATUS = "vcsStatus"
+    const val VCS_BRANCHES = "vcsBranches"
+    const val VCS_DIFF = "vcsDiff"
+    const val VCS_PR_CREATED = "vcsPRCreated"
 }
 
 object EventName {
@@ -50,6 +81,7 @@ object EventName {
     const val TERMINAL_OUTPUT = "terminalOutput"
     const val TERMINAL_SNAPSHOT = "terminalSnapshot"
     const val PANE_OWNERSHIP_CHANGED = "paneOwnershipChanged"
+    const val FILE_CHANGED = "fileChanged"
 }
 
 object EventType {
@@ -58,6 +90,7 @@ object EventType {
     const val TERMINAL_OUTPUT = "terminalOutput"
     const val TERMINAL_SNAPSHOT = "terminalSnapshot"
     const val PANE_OWNERSHIP = "paneOwnership"
+    const val FILE_CHANGED = "fileChanged"
 }
 
 @Serializable

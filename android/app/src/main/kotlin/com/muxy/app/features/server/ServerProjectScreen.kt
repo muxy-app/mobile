@@ -15,6 +15,7 @@ import com.muxy.app.design.components.ThemedBorderedButton
 import com.muxy.app.design.components.ThemedEmptyState
 import com.muxy.app.design.components.blockingTouches
 import com.muxy.app.features.projectdetail.ProjectTabsScreen
+import com.muxy.app.features.projectdetail.ProjectTool
 import com.muxy.app.features.terminal.TerminalScreen
 import com.muxy.app.features.terminal.TerminalSettings
 
@@ -22,6 +23,7 @@ import com.muxy.app.features.terminal.TerminalSettings
 fun ServerProjectScreen(
     viewModel: ServerProjectViewModel,
     onBack: () -> Unit,
+    onTool: (ProjectTool) -> Unit,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val settings by viewModel.terminalSettings.collectAsStateWithLifecycle()
@@ -32,6 +34,7 @@ fun ServerProjectScreen(
         onClose = viewModel::close,
         onCreate = viewModel::createTab,
         onBack = onBack,
+        onTool = onTool,
     ) { item, isActive ->
         val terminal = viewModel.terminal(item) ?: return@ProjectTabsScreen
         ServerTerminalPage(terminal, settings, isActive, isConnectionLost)

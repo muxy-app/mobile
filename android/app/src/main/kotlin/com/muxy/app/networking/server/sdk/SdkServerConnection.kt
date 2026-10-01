@@ -36,6 +36,10 @@ class SdkServerConnection(
         return SdkTerminalChannel(terminal, lanes)
     }
 
+    override fun files(projectId: String) = SdkProjectFiles(connection.files(projectId), lanes)
+
+    override fun git(projectId: String) = SdkGitRepository(connection.git(projectId), lanes)
+
     override fun disconnect() {
         connection.disconnect()
         lanes.close()

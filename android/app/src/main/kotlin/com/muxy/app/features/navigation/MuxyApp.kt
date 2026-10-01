@@ -22,8 +22,12 @@ import com.muxy.app.design.ThemedWindow
 import com.muxy.app.features.addconnection.AddConnectionRequest
 import com.muxy.app.features.addconnection.AddConnectionScreen
 import com.muxy.app.features.connections.ConnectionsListScreen
+import com.muxy.app.features.files.FilesModal
+import com.muxy.app.features.git.GitModal
 import com.muxy.app.features.onboarding.OnboardingScreen
 import com.muxy.app.features.projectdetail.ProjectDetailScreen
+import com.muxy.app.features.projectdetail.ProjectTool
+import com.muxy.app.features.projectdetail.ToolProject
 import com.muxy.app.features.projects.ProjectsScreen
 import com.muxy.app.features.server.ServerProjectScreen
 import com.muxy.app.features.server.ServerProjectsScreen
@@ -31,7 +35,6 @@ import com.muxy.app.features.settings.SettingsModal
 import com.muxy.app.models.Connection
 import com.muxy.app.models.ConnectionKind
 import com.muxy.app.networking.muxy1.ConnectionFocus
-import kotlinx.coroutines.flow.filterNotNull
 
 @Composable
 fun MuxyApp(
@@ -67,7 +70,8 @@ private fun AppNavigation(
 ) {
     ConnectionFocusBridge(container, backStack)
     LaunchedEffect(backStack) {
-        container.addConnectionRequests.request.filterNotNull().collect {
+        pendingPairingRequests(container.addConnectionRequests.request, snapshotFlow { backStack.toList() }).collect {
+            if (backStack.any { it is AppRoute.ProjectTools }) return@collect
             backStack.removeAll { it == AppRoute.Settings }
             backStack.open(AppRoute.AddConnection)
         }
@@ -123,6 +127,11 @@ private fun AppNavigation(
                     ProjectDetailScreen(
                         viewModel = viewModel { container.makeProjectDetailViewModel(route) },
                         onBack = { backStack.close(route) },
+                        onTool = { tool ->
+                            backStack.open(
+                                AppRoute.ProjectTools(ToolProject.Device(route.connectionId, route.projectId, route.projectName), tool),
+                            )
+                        },
                     )
                 }
                 entry<AppRoute.ServerProjects> { route ->
@@ -136,7 +145,34 @@ private fun AppNavigation(
                     ServerProjectScreen(
                         viewModel = viewModel { container.makeServerProjectViewModel(route) },
                         onBack = { backStack.close(route) },
+                        onTool = { tool ->
+                            backStack.open(
+                                AppRoute.ProjectTools(ToolProject.Server(route.connectionId, route.serverId, route.projectId), tool),
+                            )
+                        },
                     )
+                }
+                entry<AppRoute.ProjectTools>(metadata = NavigationTransitions.modal) { route ->
+                    if (route.tool == ProjectTool.FILES) {
+                        FilesModal(
+                            viewModel = viewModel { container.projectTools.files(route.project) },
+                            onClose = { backStack.close(route) },
+                        )
+                    } else {
+                        GitModal(
+                            git = viewModel { container.projectTools.git(route.project) },
+                            worktrees = viewModel { container.projectTools.worktrees(route.project) },
+                            startsWithWorktrees = route.tool == ProjectTool.WORKTREES,
+                            onClose = { backStack.close(route) },
+                            onOpenProject = { projectId ->
+                                val project = route.project
+                                if (project is ToolProject.Server) {
+                                    backStack.close(route)
+                                    backStack.open(AppRoute.ServerProject(project.connectionId, project.serverId, projectId))
+                                }
+                            },
+                        )
+                    }
                 }
             },
     )

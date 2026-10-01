@@ -10,6 +10,7 @@ import com.muxy.app.features.projectdetail.terminal.TerminalTabPage
 fun ProjectDetailScreen(
     viewModel: ProjectDetailViewModel,
     onBack: () -> Unit,
+    onTool: (ProjectTool) -> Unit,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val terminalSettings by viewModel.terminalSettings.collectAsStateWithLifecycle()
@@ -28,6 +29,7 @@ fun ProjectDetailScreen(
         onClose = { item -> tabs[item.id]?.let(viewModel::closeTab) },
         onCreate = viewModel::createTab,
         onBack = onBack,
+        onTool = onTool,
     ) { item, isActive ->
         val tab = tabs[item.id] ?: return@ProjectTabsScreen
         val session = viewModel.terminalSession(tab)

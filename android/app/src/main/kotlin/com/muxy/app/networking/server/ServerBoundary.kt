@@ -41,6 +41,10 @@ interface ServerConnection {
         rows: Int,
     ): ServerTerminalChannel
 
+    fun files(projectId: String): ServerProjectFiles
+
+    fun git(projectId: String): ServerGitRepository
+
     fun disconnect()
 }
 

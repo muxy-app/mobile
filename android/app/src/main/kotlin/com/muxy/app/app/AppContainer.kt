@@ -15,6 +15,7 @@ import com.muxy.app.features.demo.syncDemoMode
 import com.muxy.app.features.navigation.AppRoute
 import com.muxy.app.features.navigation.RootViewModel
 import com.muxy.app.features.projectdetail.ProjectDetailViewModel
+import com.muxy.app.features.projectdetail.ProjectToolsFactory
 import com.muxy.app.features.projects.ProjectsViewModel
 import com.muxy.app.features.server.ServerDirectory
 import com.muxy.app.features.server.ServerProjectViewModel
@@ -41,6 +42,7 @@ import com.muxy.app.persistence.settings.DataStoreSettingsStore
 import com.muxy.app.persistence.settings.SettingsStore
 import com.muxy.app.persistence.workspaces.DataStoreWorkspaceSelectionStore
 import com.muxy.app.persistence.workspaces.WorkspaceSelectionStore
+import com.muxy.app.persistence.worktrees.DataStoreWorktreeCache
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -108,6 +110,13 @@ class AppContainer(
 
     val serverDirectory = ServerDirectory(credentialStore, SdkServerConnector(), mainScope)
 
+    val projectTools =
+        ProjectToolsFactory(
+            connectionManager,
+            serverDirectory,
+            DataStoreWorktreeCache(preferencesDataStore("Worktrees", ioScope) { context.preferencesDataStoreFile(WORKTREES_FILE) }),
+        )
+
     fun start(lifecycle: Lifecycle) {
         lifecycle.addObserver(connectionLifecycle)
         lifecycle.addObserver(serverDirectory)
@@ -170,6 +179,7 @@ class AppContainer(
         const val SETTINGS_FILE = "settings"
         const val CONNECTIONS_FILE = "connections"
         const val WORKSPACES_FILE = "workspace_selections"
+        const val WORKTREES_FILE = "worktrees"
         const val SECRETS_FILE = "secrets.preferences_pb"
         const val HANDSHAKE_TIMEOUT_SECONDS = 8L
     }

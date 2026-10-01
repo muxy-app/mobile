@@ -3,8 +3,10 @@ package com.muxy.app.testing
 import com.muxy.app.networking.server.ScrollbackSnapshot
 import com.muxy.app.networking.server.ServerConnection
 import com.muxy.app.networking.server.ServerConnector
+import com.muxy.app.networking.server.ServerGitRepository
 import com.muxy.app.networking.server.ServerPairingService
 import com.muxy.app.networking.server.ServerProject
+import com.muxy.app.networking.server.ServerProjectFiles
 import com.muxy.app.networking.server.ServerTerminalChannel
 import com.muxy.app.persistence.credentials.CredentialStore
 import uniffi.muxy_mobile.ClientKind
@@ -253,6 +255,19 @@ class FakeServerConnection(
         channels[sessionId] = channel
         attached += sessionId
         return channel
+    }
+
+    var projectFiles: (String) -> ServerProjectFiles = { error("No files configured for $it") }
+    var repositories: (String) -> ServerGitRepository = { error("No Git repository configured for $it") }
+
+    override fun files(projectId: String): ServerProjectFiles {
+        checkOpen()
+        return projectFiles(projectId)
+    }
+
+    override fun git(projectId: String): ServerGitRepository {
+        checkOpen()
+        return repositories(projectId)
     }
 
     override fun disconnect() {
