@@ -97,15 +97,22 @@ class TerminalSession(
     private val canSend: Boolean
         get() = mutableOwnership.value == TerminalOwnership.Owned || mutableOwnership.value == TerminalOwnership.TakingOver
 
-    fun activate(connection: Long?) {
+    fun activate(
+        state: ConnectionState,
+        connection: Long?,
+    ) {
         isActive = true
         this.connection = connection
         takenOverOn = null
         lastReportedSize = null
-        mutableOwnership.value = TerminalOwnership.TakingOver
         if (eventsJob == null) {
             eventsJob = scope.launch(start = CoroutineStart.UNDISPATCHED) { channel.events.collect(::handle) }
         }
+        if (connection == null && state.isLost) {
+            mutableOwnership.value = TerminalOwnership.Disconnected
+            return
+        }
+        mutableOwnership.value = TerminalOwnership.TakingOver
         sendClientThemeIfNeeded(force = true)
         takeOverIfReady()
     }
@@ -140,7 +147,7 @@ class TerminalSession(
             return
         }
         connection = null
-        if (!isActive || (state !is ConnectionState.Disconnected && state !is ConnectionState.Failed)) return
+        if (!isActive || !state.isLost) return
         takenOverOn = null
         lastReportedSize = null
         takeoverGeneration += 1
@@ -316,6 +323,9 @@ class TerminalSession(
     private fun isWithinTakeOverGrace(): Boolean = lastTakeOver?.let { it.elapsedNow() < TAKE_OVER_GRACE } == true
 
     private inline fun <reified P> encoded(params: P): JsonElement = ProtocolJson.encodeToJsonElement(params)
+
+    private val ConnectionState.isLost: Boolean
+        get() = this is ConnectionState.Disconnected || this is ConnectionState.Failed
 
     private companion object {
         val RESIZE_DEBOUNCE = 120.milliseconds

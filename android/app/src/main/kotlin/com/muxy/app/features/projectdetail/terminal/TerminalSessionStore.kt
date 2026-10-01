@@ -17,6 +17,7 @@ class TerminalSessionStore(
     private val sessions = mutableMapOf<UUID, TerminalSession>()
     private var activePaneId: UUID? = null
     private var connection: Long? = null
+    private var connectionState: ConnectionState = ConnectionState.Idle
     private var clientTheme: ClientTerminalTheme? = null
 
     fun session(tab: Tab): TerminalSession? = paneId(tab)?.let(::session)
@@ -29,7 +30,7 @@ class TerminalSessionStore(
         if (paneId == activePaneId) return
         activePaneId?.let { sessions[it]?.deactivate() }
         activePaneId = paneId
-        paneId?.let { session(it).activate(connection) }
+        paneId?.let { session(it).activate(connectionState, connection) }
     }
 
     fun tabsChanged(tabs: List<Tab>) {
@@ -46,6 +47,7 @@ class TerminalSessionStore(
         session: Long?,
     ) {
         connection = session
+        connectionState = state
         activePaneId?.let { sessions[it] }?.connectionChanged(state, session)
     }
 

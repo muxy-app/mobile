@@ -4,6 +4,7 @@ import com.muxy.app.core.serialization.uuidString
 import com.muxy.app.design.ThemeCatalog
 import com.muxy.app.features.terminal.TerminalGridSize
 import com.muxy.app.features.terminal.TerminalMode
+import com.muxy.app.networking.muxy1.ConnectionError
 import com.muxy.app.networking.muxy1.ConnectionIdentity
 import com.muxy.app.networking.muxy1.ConnectionState
 import com.muxy.app.networking.muxy1.protocol.ErrorCode
@@ -47,7 +48,7 @@ class TerminalSessionTest {
 
     private fun TestScope.ownedSession(): TerminalSession =
         session().apply {
-            activate(connection = 1)
+            activate(ConnectionState.Connected, 1)
             source.resize(grid)
         }
 
@@ -69,7 +70,7 @@ class TerminalSessionTest {
     fun takeoverWaitsForTheGrid() =
         test {
             val session = session()
-            session.activate(connection = 1)
+            session.activate(ConnectionState.Connected, 1)
             assertTrue(channel.requests(Method.TAKE_OVER_PANE).isEmpty())
             assertEquals(TerminalOwnership.TakingOver, session.ownership.value)
             session.source.resize(grid)
@@ -81,7 +82,7 @@ class TerminalSessionTest {
         test {
             val session = session()
             session.source.resize(grid)
-            session.activate(connection = 1)
+            session.activate(ConnectionState.Connected, 1)
             assertEquals(1, channel.requests(Method.TAKE_OVER_PANE).size)
         }
 
@@ -108,7 +109,7 @@ class TerminalSessionTest {
             val nord = ThemeCatalog.named("Nord").clientTerminalTheme()
             session.useClientTheme(nord)
             assertTrue(channel.requests(Method.SET_CLIENT_THEME).isEmpty())
-            session.activate(connection = 1)
+            session.activate(ConnectionState.Connected, 1)
             session.useClientTheme(ThemeCatalog.named("Dracula").clientTerminalTheme())
             assertEquals(2, channel.requests(Method.SET_CLIENT_THEME).size)
         }
@@ -142,6 +143,18 @@ class TerminalSessionTest {
             assertTrue(channel.notifications(Method.TERMINAL_INPUT).isEmpty())
             session.connectionChanged(ConnectionState.Connected, 2)
             assertEquals(TerminalOwnership.Owned, session.ownership.value)
+        }
+
+    @Test
+    fun activatingWhileDisconnectedShowsDisconnectedAndSendsNothing() =
+        test {
+            val session = session()
+            session.source.resize(grid)
+            session.activate(ConnectionState.Failed(ConnectionError.CONNECTION_FAILED), null)
+            assertEquals(TerminalOwnership.Disconnected, session.ownership.value)
+            session.controller.sendText("x")
+            assertTrue(channel.requests.isEmpty())
+            assertTrue(channel.notifications.isEmpty())
         }
 
     @Test
@@ -187,7 +200,7 @@ class TerminalSessionTest {
         test {
             val session = session()
             assertFalse(session.source.forwardScroll(-18.0))
-            session.activate(connection = 1)
+            session.activate(ConnectionState.Connected, 1)
             session.source.resize(grid)
             assertTrue(session.source.forwardScroll(-18.0))
             val scroll = channel.notifications(Method.TERMINAL_SCROLL).single().decoded(TerminalScrollParams.serializer())
@@ -211,7 +224,7 @@ class TerminalSessionTest {
     fun anOwnerMatchingOurClientIdIsUs() =
         test {
             val session = session()
-            session.activate(connection = 1)
+            session.activate(ConnectionState.Connected, 1)
             channel.emitOwnership(paneId, PaneOwner.Remote(clientId, "Me"))
             assertEquals(TerminalOwnership.Owned, session.ownership.value)
         }
@@ -220,7 +233,7 @@ class TerminalSessionTest {
     fun anOwnerMatchingOurDeviceIdIsUs() =
         test {
             val session = session()
-            session.activate(connection = 1)
+            session.activate(ConnectionState.Connected, 1)
             channel.emitOwnership(paneId, PaneOwner.Remote(deviceId, "Me"))
             assertEquals(TerminalOwnership.Owned, session.ownership.value)
         }
@@ -229,7 +242,7 @@ class TerminalSessionTest {
     fun anotherOwnerTakesControlElsewhere() =
         test {
             val session = session()
-            session.activate(connection = 1)
+            session.activate(ConnectionState.Connected, 1)
             channel.emitOwnership(paneId, PaneOwner.Remote(UUID.randomUUID(), "iPad"))
             assertEquals(TerminalOwnership.ControlledElsewhere("iPad"), session.ownership.value)
             session.controller.sendText("x")
@@ -251,7 +264,7 @@ class TerminalSessionTest {
     fun ownershipOfAnotherPaneIsIgnored() =
         test {
             val session = session()
-            session.activate(connection = 1)
+            session.activate(ConnectionState.Connected, 1)
             channel.emitOwnership(UUID.randomUUID(), PaneOwner.Mac("Other"))
             assertEquals(TerminalOwnership.TakingOver, session.ownership.value)
         }

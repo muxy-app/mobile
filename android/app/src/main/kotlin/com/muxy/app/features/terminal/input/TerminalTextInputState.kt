@@ -65,33 +65,22 @@ class TerminalTextInputState {
         return flush()
     }
 
-    fun deleteBackward(): List<TerminalInputEffect> {
-        if (selection.length > 0) {
-            splice(selection, "")
-            selection = InputRange.at(selection.location)
-            return flush()
-        }
-        if (selection.location <= 0) return emptyBufferBackspace()
-        val start = Graphemes.previousBoundary(text, selection.location)
-        splice(InputRange(start, selection.location - start), "")
-        selection = InputRange.at(start)
-        return flush()
-    }
-
     fun deleteSurrounding(
         before: Int,
         after: Int,
     ): List<TerminalInputEffect> {
-        endComposition()
-        val afterStart = selection.end
-        val afterEnd = codePointBoundary((afterStart + after.coerceAtLeast(0)).coerceAtMost(length), forward = true)
-        splice(InputRange(afterStart, afterEnd - afterStart), "")
+        val marked = composing
+        val start = minOf(selection.location, marked?.location ?: selection.location)
+        val end = maxOf(selection.end, marked?.end ?: selection.end)
+        val afterEnd = codePointBoundary((end + after.coerceAtLeast(0)).coerceAtMost(length), forward = true)
+        splice(InputRange(end, afterEnd - end), "")
         if (before <= 0) return flush()
-        val end = selection.location
-        if (end <= 0) return flush() + emptyBufferBackspace()
-        val start = codePointBoundary((end - before).coerceAtLeast(0), forward = false)
-        splice(InputRange(start, end - start), "")
-        selection = InputRange(start, selection.length)
+        if (start <= 0) return flush() + emptyBufferBackspace()
+        val deleteStart = codePointBoundary((start - before).coerceAtLeast(0), forward = false)
+        val removed = start - deleteStart
+        splice(InputRange(deleteStart, removed), "")
+        selection = InputRange(selection.location - removed, selection.length)
+        composing = marked?.let { InputRange(it.location - removed, it.length) }
         return flush()
     }
 
@@ -104,25 +93,14 @@ class TerminalTextInputState {
         return deleteSurrounding(beforeUnits, afterUnits)
     }
 
-    fun replace(
-        range: InputRange,
-        replacement: String,
-    ): List<TerminalInputEffect> {
-        if (composing != null) return emptyList()
-        val clamped = clamp(range)
-        splice(clamped, replacement)
-        selection = InputRange.at(clamped.location + replacement.length)
-        return flush()
-    }
-
     fun setComposing(
         newText: String,
         cursor: Int,
-        eager: Boolean,
+        eager: () -> Boolean,
     ): List<TerminalInputEffect> {
         val target = composing ?: selection
         if (composing == null) {
-            composesEagerly = eager
+            composesEagerly = eager()
             composingOriginal = substring(target)
         }
         splice(target, newText)
@@ -238,7 +216,7 @@ class TerminalTextInputState {
 
     private fun isLineBreak(character: Char): Boolean =
         character == '\n' || character == '\r' || character == '\u000B' || character == '\u000C' ||
-            character == '\u0085' || character == ' ' || character == ' '
+            character == '\u0085' || character == '\u2028' || character == '\u2029'
 
     private companion object {
         const val RESET_LENGTH = 256

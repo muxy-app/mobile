@@ -15,14 +15,6 @@ object Graphemes {
         return boundaries(first).lastOrNull { end -> end in secondBoundaries && first.regionMatches(0, second, 0, end) } ?: 0
     }
 
-    fun previousBoundary(
-        text: String,
-        offset: Int,
-    ): Int {
-        if (offset <= 0 || text.isEmpty()) return 0
-        return iterator(text).preceding(offset.coerceAtMost(text.length)).coerceAtLeast(0)
-    }
-
     private fun boundaries(text: String): List<Int> {
         if (text.isEmpty()) return emptyList()
         val iterator = iterator(text)

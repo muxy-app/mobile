@@ -26,6 +26,7 @@ import androidx.core.graphics.withClip
 import com.muxy.app.core.text.Graphemes
 import com.muxy.app.design.ThemeCatalog
 import com.muxy.app.design.ThemePalette
+import com.muxy.app.features.terminal.input.CompositionPolicy
 import com.muxy.app.features.terminal.input.HardwareKeyAction
 import com.muxy.app.features.terminal.input.HardwareKeyMapper
 import com.muxy.app.features.terminal.input.TerminalInputConnection
@@ -50,7 +51,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -323,9 +323,10 @@ class TerminalSurfaceView(
         }
     }
 
+    @Suppress("DEPRECATION")
     override fun composesEagerly(): Boolean {
-        val tag = inputMethods.currentInputMethodSubtype?.languageTag.orEmpty()
-        return Locale.forLanguageTag(tag).language !in DEFERRED_COMPOSITION_LANGUAGES
+        val subtype = inputMethods.currentInputMethodSubtype ?: return true
+        return CompositionPolicy.composesEagerly(subtype.languageTag.orEmpty(), subtype.locale.orEmpty())
     }
 
     override fun pressEnter() {
@@ -893,6 +894,5 @@ class TerminalSurfaceView(
         const val VELOCITY_UNITS = 1000
         const val HISTORY_PULL_THRESHOLD_ROWS = 2f
         const val OLDER_HISTORY_LOOKAHEAD_ROWS = 500f
-        val DEFERRED_COMPOSITION_LANGUAGES = setOf("ja", "zh", "ko")
     }
 }

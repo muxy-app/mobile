@@ -90,6 +90,15 @@ class TerminalControllerTest {
         }
 
     @Test
+    fun aStickyModifierTurnsAKeyboardNewlineIntoEnter() =
+        runTest {
+            val controller = controller()
+            controller.toggleModifier()
+            controller.sendText("\n")
+            assertEquals(listOf(TerminalKeyStroke(TerminalKey.Enter, TerminalKeyModifiers.CONTROL)), source.strokes)
+        }
+
+    @Test
     fun stickyShiftUppercasesTheCharacter() =
         runTest {
             val controller = controller()

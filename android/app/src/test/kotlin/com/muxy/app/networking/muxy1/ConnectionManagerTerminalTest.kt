@@ -97,9 +97,9 @@ class ConnectionManagerTerminalTest {
             val session =
                 TerminalSession(UUID.randomUUID(), ConnectionTerminalChannel(studio.id, manager), backgroundScope, backgroundScope, {})
             session.source.resize(TerminalGridSize(80, 24))
-            session.activate(manager.status.value.connectedSession(studio.id))
+            session.activate(ConnectionState.Connected, manager.status.value.connectedSession(studio.id))
             session.deactivate()
-            session.activate(manager.status.value.connectedSession(studio.id))
+            session.activate(ConnectionState.Connected, manager.status.value.connectedSession(studio.id))
             val methods = checkNotNull(recorder.latest).sentFrames.map(Frames::method).filter { it in setOf("takeOverPane", "releasePane") }
             assertEquals(listOf("takeOverPane", "releasePane", "takeOverPane"), methods)
         }
@@ -136,7 +136,7 @@ class ConnectionManagerTerminalTest {
             val session =
                 TerminalSession(paneId, ConnectionTerminalChannel(DemoConnection.id, manager), backgroundScope, backgroundScope, {})
             session.source.resize(TerminalGridSize(80, 24))
-            session.activate(manager.status.value.connectedSession(DemoConnection.id))
+            session.activate(ConnectionState.Connected, manager.status.value.connectedSession(DemoConnection.id))
             assertEquals(TerminalOwnership.Owned, session.ownership.value)
             session.controller.sendText("ls")
             session.controller.sendText("\n")

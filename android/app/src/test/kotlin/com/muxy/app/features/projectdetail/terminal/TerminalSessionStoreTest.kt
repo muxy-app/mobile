@@ -83,6 +83,19 @@ class TerminalSessionStoreTest {
         }
 
     @Test
+    fun aTabOpenedWhileDisconnectedShowsDisconnectedUntilTheNextConnection() =
+        test {
+            val store = store()
+            store.selectionChanged(first.id, tabs)
+            store.connectionChanged(ConnectionState.Disconnected, null)
+            store.selectionChanged(second.id, tabs)
+            assertEquals(TerminalOwnership.Disconnected, store.session(second)?.ownership?.value)
+            assertEquals(1, channel.requests(Method.TAKE_OVER_PANE).size)
+            store.connectionChanged(ConnectionState.Connected, 2)
+            assertEquals(TerminalOwnership.Owned, store.session(second)?.ownership?.value)
+        }
+
+    @Test
     fun teardownReleasesOnlyTheActivePane() =
         test {
             val store = store()

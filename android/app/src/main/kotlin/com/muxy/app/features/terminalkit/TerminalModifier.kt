@@ -21,10 +21,18 @@ data class StickyModifier(
 
     fun stroke(text: String): TerminalKeyStroke? {
         if (!Graphemes.isSingle(text)) return null
+        controlKey(text)?.let { return TerminalKeyStroke(it, active.keyModifiers) }
         return when (active) {
             TerminalModifier.CTRL -> TerminalKeyStroke(TerminalKey.Character(text), TerminalKeyModifiers.CONTROL)
             TerminalModifier.ALT -> TerminalKeyStroke(TerminalKey.Character(text), TerminalKeyModifiers.ALT)
             TerminalModifier.SHIFT -> TerminalKeyStroke(TerminalKey.Character(text.uppercase()))
         }
     }
+
+    private fun controlKey(text: String): TerminalKey? =
+        when (text) {
+            "\n", "\r", "\r\n" -> TerminalKey.Enter
+            "\t" -> TerminalKey.Tab
+            else -> null
+        }
 }

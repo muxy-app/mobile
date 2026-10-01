@@ -3,7 +3,6 @@ package com.muxy.app.features.terminal.input
 import android.text.InputType
 import android.view.View
 import android.view.inputmethod.BaseInputConnection
-import android.view.inputmethod.CorrectionInfo
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.ExtractedText
 import android.view.inputmethod.ExtractedTextRequest
@@ -25,7 +24,7 @@ class TerminalInputConnection(
     ): Boolean {
         val composed = text?.toString().orEmpty()
         val cursor = if (newCursorPosition > 0) composed.length + newCursorPosition - 1 else newCursorPosition
-        return session.edit(connection) { it.setComposing(composed, cursor, session.composesEagerly()) }
+        return session.edit(connection) { it.setComposing(composed, cursor, session::composesEagerly) }
     }
 
     override fun setComposingRegion(
@@ -44,12 +43,6 @@ class TerminalInputConnection(
         beforeLength: Int,
         afterLength: Int,
     ): Boolean = session.edit(connection) { it.deleteSurroundingCodePoints(beforeLength, afterLength) }
-
-    override fun commitCorrection(correctionInfo: CorrectionInfo?): Boolean {
-        val correction = correctionInfo ?: return false
-        val range = InputRange(correction.offset, correction.oldText?.length ?: 0)
-        return session.edit(connection) { it.replace(range, correction.newText?.toString().orEmpty()) }
-    }
 
     override fun setSelection(
         start: Int,

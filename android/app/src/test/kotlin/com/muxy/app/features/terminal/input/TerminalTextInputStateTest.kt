@@ -28,7 +28,7 @@ class TerminalTextInputStateTest {
 
     @Test
     fun deferredCompositionIsNotSentUntilCommitted() {
-        assertTrue(state.setComposing("ni", cursor = 2, eager = false).isEmpty())
+        assertTrue(state.setComposing("ni", cursor = 2, eager = { false }).isEmpty())
         assertEquals("ni", state.markedText)
         assertEquals(listOf(Text("你")), state.insert("你"))
         assertNull(state.markedText)
@@ -37,39 +37,48 @@ class TerminalTextInputStateTest {
 
     @Test
     fun finishingADeferredCompositionCommitsIt() {
-        state.setComposing("かな", cursor = 2, eager = false)
+        state.setComposing("かな", cursor = 2, eager = { false })
         assertEquals(listOf(Text("かな")), state.finishComposing())
         assertNull(state.markedText)
     }
 
     @Test
     fun clearingTheCompositionSendsNothing() {
-        state.setComposing("n", cursor = 1, eager = false)
-        assertTrue(state.setComposing("", cursor = 0, eager = false).isEmpty())
+        state.setComposing("n", cursor = 1, eager = { false })
+        assertTrue(state.setComposing("", cursor = 0, eager = { false }).isEmpty())
         assertNull(state.markedText)
         assertTrue(state.finishComposing().isEmpty())
     }
 
     @Test
     fun eagerCompositionSendsEachChangeAsItHappens() {
-        assertEquals(listOf(Text("h")), state.setComposing("h", cursor = 1, eager = true))
-        assertEquals(listOf(Text("e")), state.setComposing("he", cursor = 2, eager = true))
+        assertEquals(listOf(Text("h")), state.setComposing("h", cursor = 1, eager = { true }))
+        assertEquals(listOf(Text("e")), state.setComposing("he", cursor = 2, eager = { true }))
         assertNull(state.markedText)
-        assertEquals(listOf(Backspaces(1)), state.setComposing("h", cursor = 1, eager = true))
+        assertEquals(listOf(Backspaces(1)), state.setComposing("h", cursor = 1, eager = { true }))
         assertEquals(listOf(Backspaces(1), Text("the ")), state.insert("the "))
         assertTrue(state.finishComposing().isEmpty())
     }
 
     @Test
+    fun deletingBeforeACompositionKeepsTheComposedWord() {
+        state.insert("git ")
+        state.setComposing("hel", cursor = 3, eager = { true })
+        assertEquals(listOf(Backspaces(4), Text("hel")), state.deleteSurrounding(1, 0))
+        assertEquals("githel", state.text)
+        assertEquals(listOf(Text("p")), state.setComposing("help", cursor = 4, eager = { true }))
+        assertEquals("githelp", state.text)
+    }
+
+    @Test
     fun deletingWithNothingBufferedStillSendsBackspace() {
-        assertEquals(listOf(Backspaces(1)), state.deleteBackward())
         assertEquals(listOf(Backspaces(1)), state.deleteSurrounding(1, 0))
     }
 
     @Test
     fun deletingRemovesAWholeEmoji() {
         state.insert("a👍🏽")
-        assertEquals(listOf(Backspaces(1)), state.deleteBackward())
+        assertEquals(listOf(Backspaces(1)), state.deleteSurrounding("👍🏽".length, 0))
         assertEquals("a", state.text)
     }
 
@@ -88,9 +97,10 @@ class TerminalTextInputStateTest {
     }
 
     @Test
-    fun replacingAWordSendsOnlyTheChangedTail() {
+    fun typingOverAWordSendsOnlyTheChangedTail() {
         state.insert("git stauts")
-        assertEquals(listOf(Backspaces(3), Text("tus")), state.replace(InputRange(4, 6), "status"))
+        state.select(InputRange(4, 6))
+        assertEquals(listOf(Backspaces(3), Text("tus")), state.insert("status"))
         assertEquals("git status", state.text)
     }
 
@@ -114,15 +124,9 @@ class TerminalTextInputStateTest {
     fun aDeferredRecompositionWaitsAndIsNotDrawnTwice() {
         state.insert("teh ")
         state.setComposingRegion(0, 3, eager = false)
-        assertTrue(state.setComposing("the", cursor = 3, eager = false).isEmpty())
+        assertTrue(state.setComposing("the", cursor = 3, eager = { false }).isEmpty())
         assertNull(state.markedText)
         assertEquals(listOf(Backspaces(3), Text("he ")), state.finishComposing())
-    }
-
-    @Test
-    fun replacingDuringCompositionIsIgnored() {
-        state.setComposing("ni", cursor = 2, eager = false)
-        assertTrue(state.replace(InputRange(0, 2), "x").isEmpty())
     }
 
     @Test
