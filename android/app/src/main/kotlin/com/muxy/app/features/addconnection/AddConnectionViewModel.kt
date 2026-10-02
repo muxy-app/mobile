@@ -13,15 +13,18 @@ import com.muxy.app.core.serialization.uuidString
 import com.muxy.app.core.validation.ConnectionInputValidator
 import com.muxy.app.core.validation.InputValidation
 import com.muxy.app.core.validation.ValidatedConnectionInput
+import com.muxy.app.core.validation.ValidatedSshInput
 import com.muxy.app.models.Connection
 import com.muxy.app.models.ConnectionKind
 import com.muxy.app.models.DiscoverySource
 import com.muxy.app.models.PairingState
+import com.muxy.app.models.SshAuthMethod
 import com.muxy.app.networking.muxy1.ConnectionManager
 import com.muxy.app.networking.muxy1.PairingUri
 import com.muxy.app.networking.muxy1.PairingUriParse
 import com.muxy.app.networking.muxy1.discovery.DiscoveredService
 import com.muxy.app.networking.muxy1.discovery.ServiceDiscovery
+import com.muxy.app.networking.ssh.SshError
 import com.muxy.app.persistence.connections.ConnectionStore
 import com.muxy.app.persistence.secrets.DeviceCredential
 import com.muxy.app.persistence.secrets.TokenStore
@@ -68,11 +71,18 @@ class AddConnectionViewModel(
     private val discovery: ServiceDiscovery,
     private val inbox: AddConnectionInbox,
     val serverPairing: ServerPairingModel,
+    private val sshAdding: SshConnectionAdding,
 ) : ViewModel() {
     private var hostText by mutableStateOf("")
     private var portValue by mutableStateOf(Endpoint.DEFAULT_PORT.toString())
 
     var name by mutableStateOf("")
+    var username by mutableStateOf("")
+    var authMethod by mutableStateOf(SshAuthMethod.PASSWORD)
+    var password by mutableStateOf("")
+    var privateKey by mutableStateOf("")
+    var passphrase by mutableStateOf("")
+    private var sshDefaultsApplied = false
 
     var kind by mutableStateOf(ConnectionKind.DEVICE)
         private set
@@ -123,7 +133,8 @@ class AddConnectionViewModel(
             if (isWorking) return false
             return when (kind) {
                 ConnectionKind.SERVER -> serverPairing.canPair
-                ConnectionKind.DEVICE, ConnectionKind.SSH -> validatedInput() != null
+                ConnectionKind.DEVICE -> validatedInput() != null
+                ConnectionKind.SSH -> validatedSshInput() != null
             }
         }
 
@@ -146,9 +157,13 @@ class AddConnectionViewModel(
     }
 
     fun selectKind(kind: ConnectionKind) {
-        if (this.kind == kind) return
+        if (isWorking || this.kind == kind) return
         this.kind = kind
         status = AddConnectionStatus.Idle
+        if (kind == ConnectionKind.SSH && !sshDefaultsApplied) {
+            portText = "22"
+            sshDefaultsApplied = true
+        }
     }
 
     fun applyPairingCode(code: String): Boolean {
@@ -214,6 +229,12 @@ class AddConnectionViewModel(
             viewModelScope.launch { serverPairing.pair()?.let { addedConnection = it } }
             return
         }
+        if (kind == ConnectionKind.SSH) {
+            val input = validatedSshInput() ?: return
+            status = AddConnectionStatus.Connecting
+            viewModelScope.launch { addSsh(input) }
+            return
+        }
         val input = validatedInput() ?: return
         status = AddConnectionStatus.Connecting
         viewModelScope.launch { pair(input) }
@@ -234,6 +255,34 @@ class AddConnectionViewModel(
         serviceName = null
         discoverySource = DiscoverySource.MANUAL
     }
+
+    private suspend fun addSsh(input: ValidatedSshInput) {
+        attempt { sshAdding.add(input) }
+            .onSuccess {
+                password = ""
+                privateKey = ""
+                passphrase = ""
+                status = AddConnectionStatus.Succeeded
+                addedConnection = it
+            }.onFailure {
+                Log.ssh.error("Adding SSH failed: ${it.javaClass.simpleName}")
+                val message = if (it is SshCredentialStorageException) it.message.orEmpty() else SshError.classify(it).message
+                status = AddConnectionStatus.Failed(message)
+            }
+    }
+
+    private fun validatedSshInput(): ValidatedSshInput? =
+        (
+            validator.validateSsh(
+                name,
+                host,
+                portText,
+                username,
+                authMethod,
+                if (authMethod == SshAuthMethod.PASSWORD) password else privateKey,
+                passphrase,
+            ) as? InputValidation.Valid
+        )?.value
 
     private suspend fun pair(input: ValidatedConnectionInput) {
         val saved = store.load().savedMac(serviceName, input.host, input.port)

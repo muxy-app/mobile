@@ -8,6 +8,7 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.input.VisualTransformation
 import com.muxy.app.design.LocalAppTheme
 
 @Composable
@@ -20,6 +21,8 @@ fun ThemedTextField(
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     singleLine: Boolean = true,
     minLines: Int = 1,
+    maxLines: Int = Int.MAX_VALUE,
+    visualTransformation: VisualTransformation = VisualTransformation.None,
 ) {
     val theme = LocalAppTheme.current
     TextField(
@@ -30,6 +33,8 @@ fun ThemedTextField(
         label = { Text(label) },
         singleLine = singleLine,
         minLines = minLines,
+        maxLines = maxLines,
+        visualTransformation = visualTransformation,
         keyboardOptions = keyboardOptions,
         colors =
             TextFieldDefaults.colors(

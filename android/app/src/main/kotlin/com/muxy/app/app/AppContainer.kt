@@ -10,6 +10,7 @@ import com.muxy.app.core.validation.ConnectionInputValidator
 import com.muxy.app.features.addconnection.AddConnectionInbox
 import com.muxy.app.features.addconnection.AddConnectionViewModel
 import com.muxy.app.features.addconnection.ServerPairingModel
+import com.muxy.app.features.addconnection.SshConnectionAdder
 import com.muxy.app.features.connections.ConnectionsListViewModel
 import com.muxy.app.features.demo.syncDemoMode
 import com.muxy.app.features.navigation.AppRoute
@@ -21,6 +22,7 @@ import com.muxy.app.features.server.ServerDirectory
 import com.muxy.app.features.server.ServerProjectViewModel
 import com.muxy.app.features.server.ServerProjectsViewModel
 import com.muxy.app.features.settings.SettingsViewModel
+import com.muxy.app.features.sshterminal.SshTerminalViewModel
 import com.muxy.app.features.terminal.SystemTerminalClipboard
 import com.muxy.app.networking.muxy1.ConnectionLifecycle
 import com.muxy.app.networking.muxy1.ConnectionManager
@@ -28,6 +30,10 @@ import com.muxy.app.networking.muxy1.discovery.NsdDiscovery
 import com.muxy.app.networking.muxy1.transport.WebSocketTransport
 import com.muxy.app.networking.server.sdk.SdkPairingService
 import com.muxy.app.networking.server.sdk.SdkServerConnector
+import com.muxy.app.networking.ssh.SshClientFactory
+import com.muxy.app.networking.ssh.SshConnectionTester
+import com.muxy.app.networking.ssh.SshHostKeyTrust
+import com.muxy.app.networking.ssh.SshjClient
 import com.muxy.app.persistence.connections.ConnectionStore
 import com.muxy.app.persistence.connections.DataStoreConnectionStore
 import com.muxy.app.persistence.credentials.CredentialStore
@@ -84,6 +90,10 @@ class AppContainer(
 
     val tokenStore: TokenStore = SecretTokenStore(secretStore)
 
+    private val sshClients = SshClientFactory { SshjClient() }
+    private val sshTrust = SshHostKeyTrust(secretStore)
+    private val sshTester = SshConnectionTester(sshClients, secretStore, sshTrust)
+
     private val credentialStore: CredentialStore = SecretCredentialStore(secretStore)
 
     private val workspaceSelectionStore: WorkspaceSelectionStore =
@@ -139,6 +149,7 @@ class AppContainer(
             tokenGenerator = tokenGenerator,
             discovery = NsdDiscovery(context.getSystemService(NsdManager::class.java)),
             inbox = addConnectionRequests,
+            sshAdding = SshConnectionAdder(connectionStore, secretStore, sshTester),
             serverPairing =
                 ServerPairingModel(
                     pairing = SdkPairingService(),
@@ -146,6 +157,18 @@ class AppContainer(
                     store = connectionStore,
                     deviceName = phoneName.current(),
                 ),
+        )
+
+    fun makeSshTerminalViewModel(connectionId: UUID): SshTerminalViewModel =
+        SshTerminalViewModel(
+            connectionId,
+            connectionStore,
+            settingsStore,
+            secretStore,
+            sshTrust,
+            sshClients,
+            ioScope,
+            terminalClipboard,
         )
 
     fun makeProjectsViewModel(connectionId: UUID): ProjectsViewModel =

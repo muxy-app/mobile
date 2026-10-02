@@ -73,7 +73,7 @@ Debug builds install as `com.muxy.app` and are signed with your debug key. Andro
 
 ## Terminal emulator
 
-Muxy 1 terminals, and SSH terminals later, run on Termux's `terminal-emulator` library, vendored as the `:terminal-emulator` module under the Apache License 2.0. [terminal-emulator/NOTICE.md](terminal-emulator/NOTICE.md) names the upstream tag and lists the changes. The module keeps its upstream sources and tests and is excluded from ktlint and the rule that rejects comments.
+Muxy 1 and SSH terminals run on Termux's `terminal-emulator` library, vendored as the `:terminal-emulator` module under the Apache License 2.0. [terminal-emulator/NOTICE.md](terminal-emulator/NOTICE.md) names the upstream tag and lists the changes. The module keeps its upstream sources and tests and is excluded from ktlint and the rule that rejects comments.
 
 ## Other commands
 
@@ -121,3 +121,17 @@ The app connects to Muxy 2 builds that share a protocol version with its SDK. Se
 3. Confirm the address and the device name, then tap **Add**.
 
 The phone and the computer must be on the same network or connected through a VPN such as Tailscale. The emulator reaches the addresses in the pairing link through your Mac's network.
+
+## Connect over SSH
+
+Choose **Add Connection > SSH**, enter the name, host, port (22 by default), and username, then choose **Password** or paste a **Private Key** with an optional passphrase. OpenSSH Ed25519 and RSA keys are supported. The app tests an 80×24 shell before saving the connection.
+
+From the emulator, use `10.0.2.2` to reach your Mac's SSH server (enable **System Settings > General > Sharing > Remote Login** yourself). Other servers must be reachable from the Mac's network.
+
+Each tab owns its own SSH session. Switching tabs keeps sessions open; closing a tab or going back closes them. `exit` removes the tab, and **Retry** creates a fresh session after a drop. There is no keepalive or background foreground service.
+
+The first host key is trusted silently and its SHA-256 fingerprint is pinned in encrypted, non-backed-up storage, alongside the credentials. A different host key is refused. Verify the change independently before deleting and adding the connection again; deleting a connection removes its credentials and host-key pin.
+
+SSH uses sshj and the full BouncyCastle provider in place of Android's trimmed provider. `app/proguard-rules.pro` retains BouncyCastle's reflective algorithm registration for R8; removing those rules can break authentication only in release builds. The SLF4J binding is no-op so library logs cannot expose SSH details; application SSH logs contain only lifecycle events and exception types.
+
+The pinned `bcpkix-jdk18on-1.84.jar` also contains an unused EST TLS trust manager (`JcaJceUtils$1`). `app/lint.xml` excludes only that dependency jar from `TrustAllX509TrustManager`; the rule remains active for application code and other dependencies. R8's `-checkdiscard` asserts that the entire unused `org.bouncycastle.est` package is absent from release builds.

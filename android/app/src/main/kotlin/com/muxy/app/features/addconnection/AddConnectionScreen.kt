@@ -7,8 +7,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyListScope
@@ -87,11 +89,15 @@ fun AddConnectionScreen(
     ) { padding ->
         val scan = { scope.launch { viewModel.onScanResult(scanner.scan()) } }
         val paste = { scope.launch { viewModel.pasteServerLink(clipboard.text()) } }
-        ThemedList(contentPadding = padding) {
+        ThemedList(
+            contentPadding = padding,
+            modifier = Modifier.consumeWindowInsets(padding).imePadding(),
+        ) {
             item(key = "kind") { KindPicker(viewModel.kind, enabled = !isWorking, onSelect = viewModel::selectKind) }
             when (viewModel.kind) {
                 ConnectionKind.SERVER -> serverSections(viewModel.serverPairing, !isWorking, { scan() }, { paste() })
-                ConnectionKind.DEVICE, ConnectionKind.SSH -> deviceSections(viewModel, services, !isWorking) { scan() }
+                ConnectionKind.DEVICE -> deviceSections(viewModel, services, !isWorking) { scan() }
+                ConnectionKind.SSH -> sshSections(viewModel, !isWorking)
             }
             val status = viewModel.displayedStatus
             if (status != AddConnectionStatus.Idle) {
@@ -147,7 +153,7 @@ private fun KindPicker(
 private const val PAIRING_WARNING =
     "Only pair with a code shown on your own computer. A paired phone can do anything a terminal on that computer can."
 
-private val pickerKinds = listOf(ConnectionKind.DEVICE to "Muxy 1", ConnectionKind.SERVER to "Muxy 2")
+private val pickerKinds = listOf(ConnectionKind.DEVICE to "Muxy 1", ConnectionKind.SERVER to "Muxy 2", ConnectionKind.SSH to "SSH")
 
 private fun LazyListScope.deviceSections(
     viewModel: AddConnectionViewModel,

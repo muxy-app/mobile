@@ -29,6 +29,11 @@ sealed interface AppRoute : NavKey {
     ) : AppRoute
 
     @Serializable
+    data class SshTerminal(
+        val connectionId: UUID,
+    ) : AppRoute
+
+    @Serializable
     data class ProjectDetail(
         val connectionId: UUID,
         val projectId: UUID,
@@ -74,7 +79,7 @@ fun List<AppRoute>.connectionFocus(): ConnectionFocus =
             ConnectionFocus.Device(top.connectionId)
         }
 
-        AppRoute.Connections, is AppRoute.Server, null -> {
+        AppRoute.Connections, is AppRoute.Server, is AppRoute.SshTerminal, null -> {
             ConnectionFocus.None
         }
 

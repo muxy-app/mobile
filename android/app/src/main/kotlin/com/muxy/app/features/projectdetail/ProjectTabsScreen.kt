@@ -77,7 +77,7 @@ fun ProjectTabsScreen(
 }
 
 @Composable
-private fun TabPager(
+fun TabPager(
     tabs: List<TabStripItem>,
     selectedTabId: Any?,
     onSelect: (TabStripItem) -> Unit,

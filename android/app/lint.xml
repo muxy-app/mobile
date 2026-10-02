@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<lint>
+    <issue id="TrustAllX509TrustManager">
+        <ignore path="**/bcpkix-jdk18on-1.84.jar" />
+    </issue>
+</lint>

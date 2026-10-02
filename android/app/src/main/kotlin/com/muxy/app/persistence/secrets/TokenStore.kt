@@ -16,6 +16,16 @@ enum class ConnectionSecret(
     val suffix: String,
 ) {
     TOKEN("token"),
+    SSH_PASSWORD("sshPassword"),
+    SSH_PRIVATE_KEY("sshPrivateKey"),
+    SSH_PASSPHRASE("sshPassphrase"),
+    SSH_HOST_KEY("sshHostKey"),
+    ;
+
+    fun name(connectionId: UUID): String {
+        if (this == TOKEN) return "connection.${connectionId.uuidString}.$suffix"
+        return "${connectionId.uuidString}.$suffix"
+    }
 }
 
 interface TokenStore {
@@ -56,5 +66,5 @@ class SecretTokenStore(
     private fun name(
         secret: ConnectionSecret,
         connectionId: UUID,
-    ): String = "connection.${connectionId.uuidString}.${secret.suffix}"
+    ): String = secret.name(connectionId)
 }

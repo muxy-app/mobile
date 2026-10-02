@@ -428,6 +428,7 @@ class AddConnectionViewModelTest {
                 discovery = discovery,
                 inbox = inbox,
                 serverPairing = ServerPairingModel(pairing, InMemoryCredentialStore(), store, PHONE_NAME),
+                sshAdding = SshConnectionAdding { error("SSH is not used by this fixture") },
             )
 
         fun fill(host: String = "studio.local") {

@@ -32,6 +32,7 @@ import com.muxy.app.features.projects.ProjectsScreen
 import com.muxy.app.features.server.ServerProjectScreen
 import com.muxy.app.features.server.ServerProjectsScreen
 import com.muxy.app.features.settings.SettingsModal
+import com.muxy.app.features.sshterminal.SshTerminalScreen
 import com.muxy.app.models.Connection
 import com.muxy.app.models.ConnectionKind
 import com.muxy.app.networking.muxy1.ConnectionFocus
@@ -113,6 +114,12 @@ private fun AppNavigation(
                             backStack.close(AppRoute.AddConnection)
                             openConnection(connection)
                         },
+                    )
+                }
+                entry<AppRoute.SshTerminal> { route ->
+                    SshTerminalScreen(
+                        viewModel = viewModel { container.makeSshTerminalViewModel(route.connectionId) },
+                        onBack = { backStack.close(route) },
                     )
                 }
                 entry<AppRoute.Projects> { route ->
@@ -210,7 +217,7 @@ private fun NavBackStack<AppRoute>.openConnection(connection: Connection) {
         }
 
         ConnectionKind.SSH -> {
-            Log.connection.info("Opening SSH connections isn't available yet")
+            open(AppRoute.SshTerminal(connection.id))
         }
     }
 }
