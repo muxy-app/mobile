@@ -106,7 +106,9 @@ Build products are stored in `.build/xcode/`. The first build can take several m
 
 ## Release
 
-In GitHub Actions, the **Release** workflow ships this app when **Release iOS** is selected, alongside Android. The **Release iOS** workflow releases iOS alone and tags `ios-v<version>`. Both install the pinned Muxy SDK, archive with the App Store profile, and upload the build to App Store Connect for TestFlight. To release from a Mac with the secrets in the repository's `.env`, run from the repository root:
+In GitHub Actions, the **Release** workflow ships this app when **Release iOS** is selected, alongside Android. The **Release iOS** workflow releases iOS alone and tags `ios-v<version>`. Both select the highest stable Muxy 2.x SDK version, falling back to the highest 2.x beta only when no stable 2.x release exists. The selected release must include both mobile SDKs and their checksums; missing assets or lookup failures stop the release. Downloads are checksum-verified, and release notes record the installed SDK version. The combined workflow resolves the version once for both platforms.
+
+Both workflows archive with the App Store profile and upload the build to App Store Connect for TestFlight. Local SDK installs and the local release script still use the committed pin. To release from a Mac with the secrets in the repository's `.env`, run from the repository root:
 
 ```sh
 scripts/release-ios.sh <version>

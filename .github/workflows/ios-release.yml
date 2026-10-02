@@ -19,6 +19,10 @@ on:
       build_number:
         required: false
         type: string
+      sdk_version:
+        description: "SDK version resolved by the combined release workflow"
+        required: false
+        type: string
       skip_release_tag:
         description: "Skip the GitHub Release step (caller will create the tag)"
         required: false
@@ -107,8 +111,14 @@ jobs:
 
       - name: Install Muxy SDK
         id: sdk
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SDK_VERSION: ${{ inputs.sdk_version }}
         run: |
-          ios/scripts/sdk.sh install
+          if [[ -z "$SDK_VERSION" ]]; then
+            SDK_VERSION=$(python3 scripts/lib/sdk_release.py)
+          fi
+          ios/scripts/sdk.sh pin "$SDK_VERSION"
           SDK_VERSION=$(cat ios/MuxyMobileSDK/Build/REVISION)
           echo "version=$SDK_VERSION" >> "$GITHUB_OUTPUT"
 
