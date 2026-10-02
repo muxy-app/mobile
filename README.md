@@ -18,10 +18,8 @@ Native iOS and Android clients for the [Muxy](https://github.com/muxy-app/muxy) 
 
 ## Development
 
-```sh
-npm install
-npm start
-```
+- [iOS development](ios-native/README.md) — Swift, SwiftUI and SwiftTerm.
+- [Android development](android/README.md) — Kotlin and Jetpack Compose.
 
 ## License
 

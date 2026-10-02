@@ -23,6 +23,7 @@ check(missingSigningEnvironment.isEmpty() || missingSigningEnvironment.size == s
 android {
     namespace = "com.muxy.app"
     compileSdk = 37
+    ndkVersion = "30.0.16248370"
 
     defaultConfig {
         applicationId = "com.muxy.app"
@@ -71,6 +72,7 @@ android {
         release {
             buildConfigField("boolean", "BILLING_ENFORCED", "true")
             buildConfigField("long", "TRIAL_MINUTES", "0L")
+            ndk.debugSymbolLevel = "FULL"
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")

@@ -1,23 +1,27 @@
 name: Release Android
 
-# Required secrets:
-#   ANDROID_SIGNING_KEY_BASE64   base64 of upload-keystore.jks
-#   ANDROID_KEY_STORE_PASSWORD
-#   ANDROID_KEY_ALIAS
-#   ANDROID_KEY_PASSWORD
-#   PLAY_SERVICE_ACCOUNT_JSON    Play service-account JSON (raw, not base64). Optional; if absent, Play upload is skipped.
-
 on:
   workflow_dispatch:
     inputs:
       version_name:
-        description: "Version name (e.g. 1.0.0)"
+        description: "Version name (X.Y.Z)"
         required: true
         type: string
       version_code:
-        description: "Version code (integer, defaults to a Unix timestamp)"
+        description: "Version code (defaults to a Unix timestamp)"
         required: false
         type: string
+      track:
+        description: "Play track (auto: production for 1.x or later, otherwise alpha)"
+        required: false
+        type: choice
+        default: auto
+        options: [auto, internal, alpha, production]
+      skip_release_tag:
+        description: "Skip the GitHub Release step"
+        required: false
+        type: boolean
+        default: false
   workflow_call:
     inputs:
       version_name:
@@ -26,11 +30,19 @@ on:
       version_code:
         required: false
         type: string
+      track:
+        required: false
+        type: string
+        default: auto
       skip_release_tag:
         description: "Skip the GitHub Release step (caller will create the tag)"
         required: false
         type: boolean
         default: false
+    outputs:
+      sdk_version:
+        description: "Muxy SDK release the app was built with"
+        value: ${{ jobs.build-android.outputs.sdk_version }}
     secrets:
       ANDROID_SIGNING_KEY_BASE64:
         required: true
@@ -43,119 +55,102 @@ on:
       PLAY_SERVICE_ACCOUNT_JSON:
         required: false
 
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: android-play-release
+  cancel-in-progress: false
+
 jobs:
   build-android:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
       contents: read
-    env:
-      PACKAGE_NAME: com.muxy.app
     outputs:
       version_name: ${{ steps.validate.outputs.version_name }}
       version_code: ${{ steps.validate.outputs.version_code }}
       track: ${{ steps.validate.outputs.track }}
       artifact_name: ${{ steps.validate.outputs.artifact_name }}
+      sdk_version: ${{ steps.sdk.outputs.version }}
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          persist-credentials: false
 
       - name: Validate inputs
         id: validate
+        env:
+          VERSION_NAME: ${{ inputs.version_name }}
+          VERSION_CODE: ${{ inputs.version_code }}
+          TRACK: ${{ inputs.track }}
         run: |
-          VERSION_NAME="${{ inputs.version_name }}"
-          if ! [[ "$VERSION_NAME" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Error: version_name must be X.Y.Z"
-            exit 1
-          fi
-          if [[ -n "${{ inputs.version_code }}" ]]; then
-            VERSION_CODE="${{ inputs.version_code }}"
-          else
-            VERSION_CODE=$(date +%s)
-          fi
-          if ! [[ "$VERSION_CODE" =~ ^[0-9]+$ ]]; then
-            echo "Error: version_code must be numeric"
-            exit 1
-          fi
-          MAJOR="${VERSION_NAME%%.*}"
-          if [[ "$MAJOR" -ge 1 ]]; then
-            TRACK="production"
-          else
-            TRACK="alpha"
-          fi
-          echo "Resolved track: $TRACK (versionName=$VERSION_NAME)"
-          echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
-          echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
-          echo "track=$TRACK" >> "$GITHUB_OUTPUT"
-          echo "artifact_name=android-release-$VERSION_NAME-$VERSION_CODE" >> "$GITHUB_OUTPUT"
+          source android/scripts/release-inputs.sh
+          validate_release_inputs
+          {
+            echo "version_name=$VERSION_NAME"
+            echo "version_code=$VERSION_CODE"
+            echo "track=$TRACK"
+            echo "artifact_name=android-release-$VERSION_NAME-$VERSION_CODE"
+          } >> "$GITHUB_OUTPUT"
 
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
+      - name: Set up JDK 21
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: "21"
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Set version in app.json
-        env:
-          VERSION_NAME: ${{ steps.validate.outputs.version_name }}
-          VERSION_CODE: ${{ steps.validate.outputs.version_code }}
+      - name: Install Muxy SDK
+        id: sdk
         run: |
-          node -e '
-            const fs = require("fs");
-            const path = "app.json";
-            const cfg = JSON.parse(fs.readFileSync(path, "utf8"));
-            cfg.expo.version = process.env.VERSION_NAME;
-            cfg.expo.android = cfg.expo.android || {};
-            cfg.expo.android.versionCode = parseInt(process.env.VERSION_CODE, 10);
-            fs.writeFileSync(path, JSON.stringify(cfg, null, 2) + "\n");
-          '
+          android/scripts/sdk.sh install
+          echo "version=$(cat android/MuxyMobileSDK/Installed/REVISION)" >> "$GITHUB_OUTPUT"
 
-      - name: Expo prebuild (Android)
-        run: npx expo prebuild --platform android --no-install --clean --non-interactive
-
-      - name: Make gradlew executable
-        working-directory: android
-        run: chmod +x ./gradlew
+      - name: Install NDK
+        run: android/scripts/install-ndk.sh
 
       - name: Decode signing key
         env:
           SIGNING_KEY_BASE64: ${{ secrets.ANDROID_SIGNING_KEY_BASE64 }}
         run: |
-          if [[ -z "$SIGNING_KEY_BASE64" ]]; then
-            echo "Error: ANDROID_SIGNING_KEY_BASE64 secret is required"
-            exit 1
-          fi
-          echo "$SIGNING_KEY_BASE64" | base64 --decode > android/app/upload-keystore.jks
-
-      - name: Patch android/app/build.gradle with release signing config
-        run: node scripts/lib/patch_signing.js android/app/build.gradle
+          test -n "$SIGNING_KEY_BASE64"
+          umask 077
+          printf '%s' "$SIGNING_KEY_BASE64" | base64 --decode > "$RUNNER_TEMP/upload-keystore.jks"
 
       - name: Build signed Release AAB
         working-directory: android
         env:
+          VERSION_NAME: ${{ steps.validate.outputs.version_name }}
+          VERSION_CODE: ${{ steps.validate.outputs.version_code }}
+          ANDROID_SIGNING_KEY_PATH: ${{ runner.temp }}/upload-keystore.jks
           ANDROID_KEY_STORE_PASSWORD: ${{ secrets.ANDROID_KEY_STORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: ./gradlew bundleRelease -PreactNativeArchitectures=arm64-v8a,armeabi-v7a
+        run: ./gradlew :app:bundleRelease -PversionName="$VERSION_NAME" -PversionCode="$VERSION_CODE"
 
-      - name: Upload AAB artifact
+      - name: Remove signing key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/upload-keystore.jks"
+
+      - name: Check release artifacts
+        run: |
+          test -s android/app/build/outputs/bundle/release/app-release.aab
+          test -s android/app/build/outputs/mapping/release/mapping.txt
+          test -s android/app/build/outputs/native-debug-symbols/release/native-debug-symbols.zip
+
+      - name: Upload release artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.validate.outputs.artifact_name }}
-          path: android/app/build/outputs/bundle/release/*.aab
+          path: |
+            android/app/build/outputs/bundle/release/app-release.aab
+            android/app/build/outputs/mapping/release/mapping.txt
+            android/app/build/outputs/native-debug-symbols/release/native-debug-symbols.zip
           if-no-files-found: error
 
   play-upload:
@@ -177,12 +172,12 @@ jobs:
             echo "PLAY_SERVICE_ACCOUNT_JSON not set; skipping Play upload."
           fi
 
-      - name: Download AAB artifact
+      - name: Download release artifacts
         if: steps.play_secret.outputs.present == 'true'
         uses: actions/download-artifact@v4
         with:
           name: ${{ needs.build-android.outputs.artifact_name }}
-          path: aab
+          path: release
 
       - name: Upload to Play Store
         if: steps.play_secret.outputs.present == 'true'
@@ -190,9 +185,12 @@ jobs:
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: com.muxy.app
-          releaseFiles: aab/*.aab
+          releaseFiles: release/bundle/release/app-release.aab
+          mappingFile: release/mapping/release/mapping.txt
+          debugSymbols: release/native-debug-symbols/release/native-debug-symbols.zip
           track: ${{ needs.build-android.outputs.track }}
           status: draft
+          changesNotSentForReview: ${{ needs.build-android.outputs.track == 'production' }}
 
   release-tag:
     needs: [build-android, play-upload]
@@ -205,35 +203,36 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
+          TARGET_SHA: ${{ github.sha }}
           VERSION_NAME: ${{ needs.build-android.outputs.version_name }}
+          SDK_VERSION: ${{ needs.build-android.outputs.sdk_version }}
         run: |
           PREV_TAG=$(gh release list \
-            --repo "${{ github.repository }}" \
+            --repo "$REPOSITORY" \
             --limit 100 \
             --json tagName \
             -q '[.[] | select(.tagName | startswith("android-v"))][0].tagName')
 
+          RANGE="HEAD"
           if [[ -n "$PREV_TAG" ]]; then
             RANGE="$PREV_TAG..HEAD"
-          else
-            RANGE="HEAD"
           fi
 
-          git log --no-merges -i --grep='^android:' --format='%s' "$RANGE" \
-            | sed -E 's/^[Aa]ndroid:[[:space:]]*/- /' \
-            > notes.md
-
+          git log --no-merges --format='- %s' "$RANGE" -- android > notes.md
           if [[ ! -s notes.md ]]; then
-            echo "- No Android-facing changes since ${PREV_TAG:-initial release}" > notes.md
+            echo "- No Android changes since ${PREV_TAG:-initial release}" > notes.md
           fi
+          printf '\nBuilt with Muxy SDK %s.\n' "$SDK_VERSION" >> notes.md
 
           gh release create "android-v$VERSION_NAME" \
-            --repo "${{ github.repository }}" \
+            --repo "$REPOSITORY" \
             --title "Android v$VERSION_NAME" \
             --notes-file notes.md \
             --latest=false \
-            --target "${{ github.sha }}"
+            --target "$TARGET_SHA"

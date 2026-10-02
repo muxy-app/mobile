@@ -79,6 +79,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ needs.validate.outputs.version }}
           IOS_SDK_VERSION: ${{ needs.ios.outputs.sdk_version }}
+          ANDROID_SDK_VERSION: ${{ needs.android.outputs.sdk_version }}
         run: |
           PREV_TAG=$(gh release list \
             --repo "${{ github.repository }}" \
@@ -100,6 +101,10 @@ jobs:
 
           if [[ -n "$IOS_SDK_VERSION" ]]; then
             printf '\niOS: built with Muxy SDK %s.\n' "$IOS_SDK_VERSION" >> notes.md
+          fi
+
+          if [[ -n "$ANDROID_SDK_VERSION" ]]; then
+            printf '\nAndroid: built with Muxy SDK %s.\n' "$ANDROID_SDK_VERSION" >> notes.md
           fi
 
           gh release create "v$VERSION" \

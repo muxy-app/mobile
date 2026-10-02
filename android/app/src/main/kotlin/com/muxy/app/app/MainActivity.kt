@@ -5,7 +5,9 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
+import androidx.compose.runtime.getValue
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.muxy.app.design.AppTheme
@@ -25,11 +27,16 @@ class MainActivity : ComponentActivity() {
     private val themedWindow = ThemedWindow(this)
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        installSplashScreen().setKeepOnScreenCondition { viewModel.settings.value == null || !container.billing.state.value.trialLoaded }
+        installSplashScreen().setKeepOnScreenCondition {
+            !container.ready.value || viewModel.settings.value == null || !container.billing.state.value.trialLoaded
+        }
         super.onCreate(savedInstanceState)
         themedWindow.apply(AppTheme.muxy)
         if (savedInstanceState == null) openLink(intent)
-        setContent { MuxyApp(container, viewModel, themedWindow) }
+        setContent {
+            val ready by container.ready.collectAsStateWithLifecycle()
+            if (ready) MuxyApp(container, viewModel, themedWindow)
+        }
     }
 
     override fun onResume() {

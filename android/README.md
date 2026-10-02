@@ -93,9 +93,31 @@ Build outputs are stored in each module's `build/` folder. The first build downl
 
 ## Release builds
 
-Play releases still ship the React Native app until the native app replaces it. The Release workflow regenerates `android/` with `expo prebuild` on a fresh checkout. Don't run `expo prebuild` or `npm run android` in this checkout: prebuild replaces `android/`, and `npm run android` compiles whatever project `android/` holds instead of the React Native app. `scripts/release-android.sh` refuses to run here for the same reason.
+The **Release Android** workflow builds the Kotlin app from `android/`. Its optional `track` input selects `internal`, `alpha`, or `production`; `auto` preserves the default of production for 1.x or later and alpha for 0.x. Uploads are drafts. Use `internal` for the first native release, then promote the verified build in Play Console. The combined **Release** workflow keeps the automatic track rule.
 
-`./gradlew :app:assembleRelease` builds with R8. `-PversionName` and `-PversionCode` set the version, and the build signs with the upload key when `ANDROID_SIGNING_KEY_PATH`, `ANDROID_KEY_STORE_PASSWORD`, `ANDROID_KEY_ALIAS` and `ANDROID_KEY_PASSWORD` are all set. A relative key path is resolved from the repository root, as in `.env.example`. With none of them set, the APK is unsigned.
+`./gradlew :app:assembleRelease` builds an APK with R8; `:app:bundleRelease` builds the Play AAB. `-PversionName` and `-PversionCode` set the version, and the build signs with the upload key when `ANDROID_SIGNING_KEY_PATH`, `ANDROID_KEY_STORE_PASSWORD`, `ANDROID_KEY_ALIAS` and `ANDROID_KEY_PASSWORD` are all set. A relative key path is resolved from the repository root, as in `.env.example`. With none of them set, the APK is unsigned. Releases must use the existing Play upload key.
+
+NDK `30.0.16248370` strips the packaged native libraries and extracts full debug symbols. Install it with `android --no-metrics sdk install 'ndk;30.0.16248370'`; AGP can also install it when its license is accepted. CI retains the AAB, `app/build/outputs/mapping/release/mapping.txt`, and `app/build/outputs/native-debug-symbols/release/native-debug-symbols.zip`, and uploads all three to Play. Release notes include the installed Muxy SDK version.
+
+From the repository root, the local script reads the same signing values and Play service account path from `.env`:
+
+```sh
+scripts/release-android.sh --track internal 3.0.0
+scripts/release-android.sh --upload --track internal 3.0.0
+scripts/release-android.sh --upload-only --track internal path/to/app-release.aab
+```
+
+The first command asks before uploading when Play credentials are configured; `--upload` and `--upload-only` request an upload without that prompt. Version codes default to Unix timestamps and must be greater than the final RN upload, `1788620580`, and no greater than Play's `2100000000` limit. Upload-only requires `bundletool` (`brew install bundletool`), reads the version and package from the AAB, and takes mapping and symbols from that AAB rather than potentially stale build outputs.
+
+Before uploading, inspect the AAB with `bundletool dump manifest --bundle=app/build/outputs/bundle/release/app-release.aab`, verify 16 KB alignment, and run on API 29 and API 37. Target API 36 meets [Play's August 2026 update requirement](https://support.google.com/googleplay/android-developer/answer/11926878). Keep target 36 until the local-network permission changes for target 37 are implemented. Update Play's Data safety declarations and release notes; Android 7–9 users retain the old app but cannot receive this update.
+
+## React Native upgrade check
+
+The one-time importer reads the old SQLite and SecureStore data before screens, deep links, billing refresh, or demo syncing can consume it. It preserves Muxy 1 connection IDs, approval credentials, workspace selections, the trial timestamp, and the four RN settings. Demo connections are regenerated from the setting. Invalid records are skipped; a missing or invalid token requires pairing again. Purchases restore through Play, not local migration. Old stores and obsolete Keystore aliases are removed after import; a failed cleanup can retry without importing again.
+
+Use a separate disposable emulator so the test does not overwrite your normal Muxy data. A phone is not required. See [upgrade-check.md](upgrade-check.md) for the release-APK build and install sequence. The retired RN source is available at `v2.5.2`; build it only in a separate worktree. Do not run `expo prebuild` in this checkout: it would replace the Kotlin project.
+
+JVM tests use saved JSON fixtures. Instrumented tests create SQLite and real Android Keystore fixtures, exercise cleanup, and verify the durable once-only marker. Run them on a disposable emulator: `run.sh test-device` uninstalls the tested app by default. Release helpers have offline tests, runnable from the repository root with `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts/tests -v`.
 
 ## Trial and unlock
 

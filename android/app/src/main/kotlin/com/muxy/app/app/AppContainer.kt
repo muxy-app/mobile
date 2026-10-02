@@ -19,6 +19,8 @@ import com.muxy.app.features.billing.GooglePlayBilling
 import com.muxy.app.features.billing.SecretTrialStore
 import com.muxy.app.features.connections.ConnectionsListViewModel
 import com.muxy.app.features.demo.syncDemoMode
+import com.muxy.app.features.legacyimport.AndroidLegacyStorage
+import com.muxy.app.features.legacyimport.LegacyImporter
 import com.muxy.app.features.navigation.AppRoute
 import com.muxy.app.features.navigation.RootViewModel
 import com.muxy.app.features.projectdetail.ProjectDetailViewModel
@@ -58,6 +60,10 @@ import com.muxy.app.persistence.worktrees.DataStoreWorktreeCache
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import java.io.File
 import java.util.UUID
@@ -143,14 +149,30 @@ class AppContainer(
             DataStoreWorktreeCache(preferencesDataStore("Worktrees", ioScope) { context.preferencesDataStoreFile(WORKTREES_FILE) }),
         )
 
+    private val mutableReady = MutableStateFlow(false)
+    val ready = mutableReady.asStateFlow()
+
     fun start(lifecycle: Lifecycle) {
-        lifecycle.addObserver(connectionLifecycle)
-        lifecycle.addObserver(serverDirectory)
-        lifecycle.addObserver(billingLifecycle)
-        ioScope.syncDemoMode(settingsStore.settings, connectionStore, tokenStore)
+        mainScope.launch {
+            withContext(Dispatchers.IO) {
+                LegacyImporter(
+                    AndroidLegacyStorage(context),
+                    connectionStore,
+                    tokenStore,
+                    settingsStore,
+                    workspaceSelectionStore,
+                    SecretTrialStore(secretStore),
+                ).run()
+            }
+            lifecycle.addObserver(connectionLifecycle)
+            lifecycle.addObserver(serverDirectory)
+            lifecycle.addObserver(billingLifecycle)
+            ioScope.syncDemoMode(settingsStore.settings, connectionStore, tokenStore)
+            mutableReady.value = true
+        }
     }
 
-    fun makeRootViewModel(): RootViewModel = RootViewModel(settingsStore, addConnectionRequests)
+    fun makeRootViewModel(): RootViewModel = RootViewModel(settingsStore, addConnectionRequests, ready)
 
     fun makeSettingsViewModel(): SettingsViewModel = SettingsViewModel(settingsStore)
 
