@@ -46,7 +46,7 @@ jobs:
   ios:
     if: ${{ inputs.release_ios }}
     needs: validate
-    uses: ./.github/workflows/ios-native-release.yml
+    uses: ./.github/workflows/ios-release.yml
     with:
       version: ${{ needs.validate.outputs.version }}
       build_number: ${{ needs.validate.outputs.version_code }}

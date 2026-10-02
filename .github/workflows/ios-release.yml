@@ -61,9 +61,9 @@ jobs:
       cancel-in-progress: false
     env:
       APP_SCHEME: Muxy
-      APP_PROJECT: ios-native/Muxy.xcodeproj
-      APP_ARCHIVE_PATH: ios-native/build/Muxy.xcarchive
-      APP_EXPORT_PATH: ios-native/build/export
+      APP_PROJECT: ios/Muxy.xcodeproj
+      APP_ARCHIVE_PATH: ios/build/Muxy.xcarchive
+      APP_EXPORT_PATH: ios/build/export
       BUNDLE_ID: com.muxy.app
     outputs:
       version: ${{ steps.validate.outputs.version }}
@@ -108,8 +108,8 @@ jobs:
       - name: Install Muxy SDK
         id: sdk
         run: |
-          ios-native/scripts/sdk.sh install
-          SDK_VERSION=$(cat ios-native/MuxyMobileSDK/Build/REVISION)
+          ios/scripts/sdk.sh install
+          SDK_VERSION=$(cat ios/MuxyMobileSDK/Build/REVISION)
           echo "version=$SDK_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Import distribution certificate
@@ -285,8 +285,8 @@ jobs:
         with:
           name: ${{ steps.validate.outputs.artifact_name }}
           path: |
-            ios-native/build/Muxy.xcarchive
-            ios-native/build/export/*.ipa
+            ios/build/Muxy.xcarchive
+            ios/build/export/*.ipa
           if-no-files-found: error
 
   release-tag:
@@ -322,7 +322,7 @@ jobs:
             RANGE="HEAD"
           fi
 
-          git log --no-merges --format='- %s' "$RANGE" -- ios-native > notes.md
+          git log --no-merges --format='- %s' "$RANGE" -- ios ios-native > notes.md
 
           if [[ ! -s notes.md ]]; then
             echo "- No iOS changes since ${PREV_TAG:-initial release}" > notes.md

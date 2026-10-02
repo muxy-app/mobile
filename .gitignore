@@ -21,11 +21,11 @@
 
 .venv-play-upload/
 
-ios-native/.build
-ios-native/build
-ios-native/MuxyMobileSDK/Build
-ios-native/MuxyMobileSDK/.build
-ios-native/MuxyMobileSDK/.swiftpm
+ios/.build
+ios/build
+ios/MuxyMobileSDK/Build
+ios/MuxyMobileSDK/.build
+ios/MuxyMobileSDK/.swiftpm
 xcuserdata/
 
 android/.gradle/

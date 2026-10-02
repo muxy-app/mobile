@@ -12,7 +12,7 @@ Check the selected Xcode installation with `xcodebuild -version`. If it points t
 sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 ```
 
-Run the following commands from `ios-native/`, or prefix them with `ios-native/` from the repository root.
+Run the following commands from `ios/`, or prefix them with `ios/` from the repository root.
 
 ## Muxy SDK
 
@@ -109,7 +109,7 @@ Build products are stored in `.build/xcode/`. The first build can take several m
 In GitHub Actions, the **Release** workflow ships this app when **Release iOS** is selected, alongside Android. The **Release iOS** workflow releases iOS alone and tags `ios-v<version>`. Both install the pinned Muxy SDK, archive with the App Store profile, and upload the build to App Store Connect for TestFlight. To release from a Mac with the secrets in the repository's `.env`, run from the repository root:
 
 ```sh
-scripts/release-ios-native.sh <version>
+scripts/release-ios.sh <version>
 ```
 
 Use a version higher than the one on the App Store. The app requires iOS 26.2 or newer.

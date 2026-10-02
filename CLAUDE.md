@@ -4,13 +4,13 @@ Companion app for Muxy (github.com/muxy-app/muxy)
 
 ## Stack
 
-- Swift, SwiftUI, SwiftTerm for iOS (ios-native/)
+- Swift, SwiftUI, SwiftTerm for iOS (ios/)
 - Kotlin, Jetpack Compose for Android (android/)
 
 ### Commands
 
-- `ios-native/scripts/sdk.sh install`
-- `ios-native/scripts/run.sh test`
+- `ios/scripts/sdk.sh install`
+- `ios/scripts/run.sh test`
 - `android/scripts/sdk.sh install`
 - `android/scripts/run.sh test`
 - `android/scripts/checks.sh`
