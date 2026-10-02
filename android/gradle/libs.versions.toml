@@ -13,6 +13,7 @@ serialization = "1.11.0"
 jna = "5.19.1"
 okhttp = "5.5.0"
 codeScanner = "16.1.0"
+billing = "9.1.0"
 turbine = "1.2.1"
 ktlintGradle = "14.2.0"
 ktlint = "1.8.0"
@@ -43,6 +44,7 @@ androidx-test-runner = { module = "androidx.test:runner", version.ref = "android
 jna = { module = "net.java.dev.jna:jna", version.ref = "jna" }
 okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
 play-services-code-scanner = { module = "com.google.android.gms:play-services-code-scanner", version.ref = "codeScanner" }
+play-billing = { module = "com.android.billingclient:billing-ktx", version.ref = "billing" }
 turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
 junit = { module = "junit:junit", version.ref = "junit" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }

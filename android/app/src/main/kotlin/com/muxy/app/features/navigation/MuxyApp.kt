@@ -15,12 +15,13 @@ import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.runtime.serialization.NavBackStackSerializer
 import androidx.navigation3.ui.NavDisplay
 import com.muxy.app.app.AppContainer
-import com.muxy.app.core.logging.Log
 import com.muxy.app.design.MuxyTheme
 import com.muxy.app.design.ThemeCatalog
 import com.muxy.app.design.ThemedWindow
 import com.muxy.app.features.addconnection.AddConnectionRequest
 import com.muxy.app.features.addconnection.AddConnectionScreen
+import com.muxy.app.features.billing.EntitlementFooter
+import com.muxy.app.features.billing.PaywallScreen
 import com.muxy.app.features.connections.ConnectionsListScreen
 import com.muxy.app.features.files.FilesModal
 import com.muxy.app.features.git.GitModal
@@ -34,8 +35,8 @@ import com.muxy.app.features.server.ServerProjectsScreen
 import com.muxy.app.features.settings.SettingsModal
 import com.muxy.app.features.sshterminal.SshTerminalScreen
 import com.muxy.app.models.Connection
-import com.muxy.app.models.ConnectionKind
 import com.muxy.app.networking.muxy1.ConnectionFocus
+import kotlinx.coroutines.flow.map
 
 @Composable
 fun MuxyApp(
@@ -44,7 +45,9 @@ fun MuxyApp(
     themedWindow: ThemedWindow,
 ) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
+    val billingState by container.billing.state.collectAsStateWithLifecycle()
     val loaded = settings ?: return
+    if (!billingState.trialLoaded) return
     val backStack =
         rememberSerializable(serializer = NavBackStackSerializer(AppRoute.serializer())) {
             NavBackStack<AppRoute>(AppRoute.Connections)
@@ -71,16 +74,24 @@ private fun AppNavigation(
 ) {
     ConnectionFocusBridge(container, backStack)
     LaunchedEffect(backStack) {
-        pendingPairingRequests(container.addConnectionRequests.request, snapshotFlow { backStack.toList() }).collect {
-            if (backStack.any { it is AppRoute.ProjectTools }) return@collect
+        pendingPairingRequests(
+            container.addConnectionRequests.request,
+            snapshotFlow { backStack.toList() },
+            container.billing.state.map { it.purchasing },
+        ).collect {
             backStack.removeAll { it == AppRoute.Settings }
             backStack.open(AppRoute.AddConnection)
         }
     }
-    val openConnection = { connection: Connection -> backStack.openConnection(connection) }
+    val openConnection = { connection: Connection ->
+        backStack.openConnection(connection, container.billing.enforcement, container.billing.refreshEntitlement())
+    }
     NavDisplay(
         backStack = backStack,
-        onBack = { backStack.removeLastOrNull() },
+        onBack = {
+            val purchasing = backStack.lastOrNull() == AppRoute.Paywall && container.billing.state.value.purchasing
+            if (!purchasing) backStack.removeLastOrNull()
+        },
         entryDecorators =
             listOf(
                 rememberSaveableStateHolderNavEntryDecorator(),
@@ -97,7 +108,11 @@ private fun AppNavigation(
                         onSelect = openConnection,
                         onAddConnection = { backStack.open(AppRoute.AddConnection) },
                         onSettings = { backStack.open(AppRoute.Settings) },
+                        footer = { EntitlementFooter(container.billing) },
                     )
+                }
+                entry<AppRoute.Paywall>(metadata = NavigationTransitions.modal) {
+                    PaywallScreen(container.billing, onClose = { backStack.close(AppRoute.Paywall) })
                 }
                 entry<AppRoute.Settings>(metadata = NavigationTransitions.modal) {
                     SettingsModal(
@@ -198,26 +213,5 @@ private fun ConnectionFocusBridge(
     }
     DisposableEffect(container) {
         onDispose { container.connectionLifecycle.focus(ConnectionFocus.Hold) }
-    }
-}
-
-private fun NavBackStack<AppRoute>.openConnection(connection: Connection) {
-    when (connection.kind) {
-        ConnectionKind.DEVICE -> {
-            open(AppRoute.Projects(connection.id))
-        }
-
-        ConnectionKind.SERVER -> {
-            val serverId = connection.serverId
-            if (serverId == null) {
-                Log.connection.error("A Muxy 2 connection has no server id")
-                return
-            }
-            open(AppRoute.ServerProjects(connection.id, serverId))
-        }
-
-        ConnectionKind.SSH -> {
-            open(AppRoute.SshTerminal(connection.id))
-        }
     }
 }

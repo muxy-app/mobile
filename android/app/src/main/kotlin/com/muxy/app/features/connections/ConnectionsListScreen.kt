@@ -24,6 +24,7 @@ fun ConnectionsListScreen(
     onSelect: (Connection) -> Unit,
     onAddConnection: () -> Unit,
     onSettings: () -> Unit,
+    footer: @Composable () -> Unit = {},
 ) {
     val connections by viewModel.connections.collectAsStateWithLifecycle()
     Scaffold(
@@ -34,6 +35,7 @@ fun ConnectionsListScreen(
                 actions = { TopBarAction(R.drawable.ic_add, "Add Connection", onAddConnection) },
             )
         },
+        bottomBar = footer,
     ) { padding ->
         val loaded = connections ?: return@Scaffold
         if (loaded.isEmpty()) {

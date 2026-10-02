@@ -97,6 +97,28 @@ Play releases still ship the React Native app until the native app replaces it. 
 
 `./gradlew :app:assembleRelease` builds with R8. `-PversionName` and `-PversionCode` set the version, and the build signs with the upload key when `ANDROID_SIGNING_KEY_PATH`, `ANDROID_KEY_STORE_PASSWORD`, `ANDROID_KEY_ALIAS` and `ANDROID_KEY_PASSWORD` are all set. A relative key path is resolved from the repository root, as in `.env.example`. With none of them set, the APK is unsigned.
 
+## Trial and unlock
+
+The 3-day trial starts on the first app launch after installation, before adding any connections. Its timestamp is kept in encrypted, non-backed-up storage and isn't reset by restarting, updating, or pairing. Once expired, opening any connection, including SSH and demo, shows the paywall. The one-time Google Play product `muxy_unlock` restores access; pending purchases do not unlock.
+
+Billing is enforced in release builds. Debug builds bypass it unless you enable the visual-test overrides:
+
+```sh
+./gradlew :app:assembleDebug -PmuxyBillingEnforced=true -PmuxyTrialMinutes=2
+```
+
+When using the runner from the repository root, pass the same properties through the environment so its rebuild keeps them:
+
+```sh
+ORG_GRADLE_PROJECT_muxyBillingEnforced=true \
+ORG_GRADLE_PROJECT_muxyTrialMinutes=2 \
+android/scripts/run.sh
+```
+
+Install that APK and launch it yourself. A fresh installation shows “Trial: 1 day left” immediately, without pairing; after two minutes, the next minute tick or connection tap detects expiry. The footer opens trial details, Unlock, and Restore purchase. Reinstalling or clearing app data deletes the saved trial and connections. Release builds ignore both overrides and always use three days.
+
+Real purchase, cancellation, pending payment, and restore testing requires the active `muxy_unlock` product, a Play test track, and a signed-in license tester. Debug-only enforcement does not simulate Play purchases. On startup and foreground return, the app queries Play purchases; a successful refresh never re-locks an unlocked running app. Unacknowledged purchases are retried every minute and on later purchase queries.
+
 ## Connect to Muxy 1
 
 In the macOS Muxy app, open **Settings > Mobile** and enable **Allow mobile device connection**. In the app, choose **Add Connection > Muxy 1**, then pick your Mac under **Nearby**, scan its pairing QR code, or enter its address:

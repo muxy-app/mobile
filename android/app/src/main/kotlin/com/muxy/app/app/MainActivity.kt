@@ -25,11 +25,16 @@ class MainActivity : ComponentActivity() {
     private val themedWindow = ThemedWindow(this)
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        installSplashScreen().setKeepOnScreenCondition { viewModel.settings.value == null }
+        installSplashScreen().setKeepOnScreenCondition { viewModel.settings.value == null || !container.billing.state.value.trialLoaded }
         super.onCreate(savedInstanceState)
         themedWindow.apply(AppTheme.muxy)
         if (savedInstanceState == null) openLink(intent)
         setContent { MuxyApp(container, viewModel, themedWindow) }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        container.billing.onActivityResumed()
     }
 
     override fun onNewIntent(intent: Intent) {
