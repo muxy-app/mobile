@@ -60,7 +60,7 @@ final class EditConnectionViewModel {
     var canSave: Bool {
         guard !isSaving, !hasSaved, connection.id != DemoConnection.id else { return false }
         guard (try? validatedEndpoint().get()) != nil else { return false }
-        guard connection.kind == .ssh else { return true }
+        guard connection.usesSSH else { return true }
         guard (try? validatedSSHConfig().get()) != nil else { return false }
         guard replacesCredentials else { return authMethod == connection.sshConfig?.authMethod }
         return (try? validatedSSHReplacement().get()) != nil
@@ -92,7 +92,7 @@ final class EditConnectionViewModel {
             return false
         }
         store.upsert(updated)
-        if let serverID = updated.serverID, updated.kind == .server {
+        if let serverID = updated.serverRouteID {
             directory.credentialDidChange(for: serverID)
         }
         hasSaved = true
@@ -101,6 +101,16 @@ final class EditConnectionViewModel {
     }
 
     private func updateCredentials(for updated: inout Connection, endpointChanged: Bool) throws {
+        if updated.usesSSH {
+            updated.sshConfig = try validatedSSHConfig().get()
+            guard replacesCredentials else { return }
+            let input = try validatedSSHReplacement().get()
+            try keychain.replaceSSHCredentials(
+                SSHCredentials(authMethod: input.authMethod, secret: input.secret, passphrase: input.passphrase),
+                for: updated.id
+            )
+            return
+        }
         switch updated.kind {
         case .device:
             return
@@ -119,13 +129,7 @@ final class EditConnectionViewModel {
                 token: credential.token
             ))
         case .ssh:
-            updated.sshConfig = try validatedSSHConfig().get()
-            guard replacesCredentials else { return }
-            let input = try validatedSSHReplacement().get()
-            try keychain.replaceSSHCredentials(
-                SSHCredentials(authMethod: input.authMethod, secret: input.secret, passphrase: input.passphrase),
-                for: updated.id
-            )
+            return
         }
     }
 

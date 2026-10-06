@@ -12,6 +12,8 @@ nonisolated enum ServerFailure: Equatable, Sendable {
     case timeout
     case disconnected
     case server(String)
+    case ssh(SSHError)
+    case bridge(String)
     case unknown
 
     enum Context: Sendable {
@@ -21,6 +23,14 @@ nonisolated enum ServerFailure: Equatable, Sendable {
     }
 
     init(_ error: any Error) {
+        if let error = error as? SSHError {
+            self = .ssh(error)
+            return
+        }
+        if let error = error as? SSHBridgeFailure {
+            self = .bridge(error.reason)
+            return
+        }
         guard let error = error as? MobileError else {
             self = .unknown
             return
@@ -51,9 +61,11 @@ nonisolated enum ServerFailure: Equatable, Sendable {
 
     var isFatal: Bool {
         switch self {
+        case let .ssh(error):
+            return error != .unreachable
         case .invalidCredential, .identityMismatch, .unauthorized, .incompatibleVersion, .unsupported:
             return true
-        case .invalidLink, .unreachable, .timeout, .disconnected, .server, .unknown:
+        case .invalidLink, .unreachable, .timeout, .disconnected, .server, .bridge, .unknown:
             return false
         }
     }
@@ -62,7 +74,7 @@ nonisolated enum ServerFailure: Equatable, Sendable {
         switch self {
         case .invalidCredential, .identityMismatch, .unauthorized:
             return true
-        case .invalidLink, .unreachable, .incompatibleVersion, .unsupported, .timeout, .disconnected, .server, .unknown:
+        case .invalidLink, .unreachable, .incompatibleVersion, .unsupported, .timeout, .disconnected, .server, .ssh, .bridge, .unknown:
             return false
         }
     }
@@ -88,6 +100,10 @@ nonisolated enum ServerFailure: Equatable, Sendable {
         case .disconnected:
             return "Disconnected from \(serverName)."
         case let .server(reason):
+            return reason
+        case let .ssh(error):
+            return error.message
+        case let .bridge(reason):
             return reason
         case .unknown:
             return "Something went wrong. Try again."

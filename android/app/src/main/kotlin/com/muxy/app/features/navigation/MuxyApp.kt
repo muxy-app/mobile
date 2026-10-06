@@ -127,7 +127,7 @@ private fun AppNavigation(
                         viewModel = viewModel { container.makeAddConnectionViewModel() },
                         onCancel = { backStack.close(AppRoute.AddConnection) },
                         onAdded = { connection ->
-                            connection.serverId?.let(container.serverDirectory::credentialDidChange)
+                            connection.serverRouteId?.let(container.serverDirectory::credentialDidChange)
                             backStack.close(AppRoute.AddConnection)
                             openConnection(connection)
                         },

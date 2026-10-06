@@ -21,7 +21,7 @@ class ConnectionsListViewModel(
     val connections: StateFlow<List<Connection>?> = store.connections
 
     fun delete(connection: Connection) {
-        connection.serverId?.let(directory::forget)
+        connection.serverRouteId?.let(directory::forget)
         viewModelScope.launch {
             store.delete(connection.id)
             attempt { tokens.deleteSecrets(connection.id) }
@@ -31,6 +31,7 @@ class ConnectionsListViewModel(
     }
 
     private suspend fun forgetServer(connection: Connection) {
+        if (connection.isRemoteServer) return
         val serverId = connection.serverId ?: return
         attempt { credentials.delete(serverId) }
             .onFailure { Log.persistence.error("Failed to delete server credential", it) }

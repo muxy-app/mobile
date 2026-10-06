@@ -5,8 +5,10 @@ import com.muxy.app.core.logging.Log
 import com.muxy.app.core.validation.ValidatedSshInput
 import com.muxy.app.models.Connection
 import com.muxy.app.models.ConnectionKind
+import com.muxy.app.models.ServerTransport
 import com.muxy.app.models.SshAuthMethod
 import com.muxy.app.models.SshConfig
+import com.muxy.app.networking.server.RemoteServerConnector
 import com.muxy.app.networking.ssh.SshConnectionTesting
 import com.muxy.app.persistence.connections.ConnectionStore
 import com.muxy.app.persistence.secrets.ConnectionSecret
@@ -23,6 +25,7 @@ class SshConnectionAdder(
     private val store: ConnectionStore,
     private val secrets: SecretStore,
     private val tester: SshConnectionTesting,
+    private val remote: RemoteServerConnector? = null,
 ) : SshConnectionAdding {
     override suspend fun add(input: ValidatedSshInput): Connection {
         val connection =
@@ -31,20 +34,35 @@ class SshConnectionAdder(
                 name = input.name,
                 host = input.host,
                 port = input.port,
-                kind = ConnectionKind.SSH,
+                kind = if (remote == null) ConnectionKind.SSH else ConnectionKind.SERVER,
                 sshConfig = SshConfig(input.username, input.authMethod),
+                serverTransport = ServerTransport.SSH.takeIf { remote != null },
             )
         var saved = false
         try {
             saveCredentials(input, connection.id)
-            tester.test(connection)
+            val validated = validate(connection)
             withContext(NonCancellable) {
-                store.upsert(connection)
+                store.upsert(validated)
                 saved = true
             }
-            return connection
+            return validated
         } finally {
             if (!saved) deleteCredentials(connection.id)
+        }
+    }
+
+    private suspend fun validate(connection: Connection): Connection {
+        val connector = remote
+        if (connector == null) {
+            tester.test(connection)
+            return connection
+        }
+        val opened = connector.connect(connection) {}
+        return try {
+            connection.copy(serverId = opened.serverId())
+        } finally {
+            opened.disconnect()
         }
     }
 

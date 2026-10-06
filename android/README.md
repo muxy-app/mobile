@@ -186,6 +186,12 @@ The app connects to Muxy 2 builds that share a protocol version with its SDK. Se
 
 The phone and the computer must be on the same network or connected through a VPN such as Tailscale. The emulator reaches the addresses in the pairing link through your Mac's network.
 
+### Connect to Muxy 2 over SSH
+
+Choose **Add Connection > Muxy 2 > SSH**, enter the name, host, SSH port (22 by default), and username, then choose **Password** or **Private Key** with an optional passphrase. Muxy must be installed on the remote computer. The app verifies the Muxy connection before saving it, then opens its projects, sessions, files, and Git tools.
+
+This connection uses SSH without a pairing code or an open Muxy mobile port. SSH credentials and host-key verification follow the same rules as standalone SSH connections. **Add Connection > SSH** continues to open a regular terminal shell.
+
 ## Connect over SSH
 
 Choose **Add Connection > SSH**, enter the name, host, port (22 by default), and username, then choose **Password** or paste a **Private Key** with an optional passphrase. OpenSSH Ed25519 and RSA keys are supported. The app tests an 80×24 shell before saving the connection.

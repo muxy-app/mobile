@@ -4,6 +4,7 @@ package com.muxy.app.models
 
 import com.muxy.app.core.Endpoint
 import com.muxy.app.core.serialization.UuidSerializer
+import com.muxy.app.core.serialization.uuidString
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.UseSerializers
@@ -16,6 +17,15 @@ enum class ConnectionKind {
 
     @SerialName("server")
     SERVER,
+
+    @SerialName("ssh")
+    SSH,
+}
+
+@Serializable
+enum class ServerTransport {
+    @SerialName("paired")
+    PAIRED,
 
     @SerialName("ssh")
     SSH,
@@ -55,7 +65,17 @@ data class Connection(
     val sshConfig: SshConfig? = null,
     @SerialName("serverID")
     val serverId: String? = null,
+    val serverTransport: ServerTransport? = null,
 ) {
     val endpoint: Endpoint
         get() = Endpoint(host, port)
+
+    val isRemoteServer: Boolean
+        get() = kind == ConnectionKind.SERVER && serverTransport == ServerTransport.SSH
+
+    val usesSsh: Boolean
+        get() = kind == ConnectionKind.SSH || isRemoteServer
+
+    val serverRouteId: String?
+        get() = if (isRemoteServer) "ssh:${id.uuidString}" else serverId
 }

@@ -40,7 +40,7 @@ struct ConnectionRowView: View {
     }
 
     private var subtitle: String {
-        guard connection.kind == .ssh, let username = connection.sshConfig?.username else {
+        guard connection.usesSSH, let username = connection.sshConfig?.username else {
             return "\(connection.host):\(String(connection.port))"
         }
         return "\(username)@\(connection.host):\(String(connection.port))"

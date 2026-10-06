@@ -107,7 +107,7 @@ struct RootView: View {
     }
 
     private func serverController(for connection: Connection) -> ServerController? {
-        connection.serverID.flatMap(container.directory.controller(for:))
+        connection.serverRouteID.flatMap(container.directory.controller(for:))
     }
 
     private func navigate(to connection: Connection) {
@@ -123,7 +123,7 @@ struct RootView: View {
 
     private func didAdd(_ connection: Connection) {
         addRequest = nil
-        if let serverID = connection.serverID {
+        if let serverID = connection.serverRouteID {
             container.directory.credentialDidChange(for: serverID)
         }
         navigate(to: connection)

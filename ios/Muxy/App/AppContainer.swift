@@ -40,7 +40,7 @@ final class AppContainer {
         self.makeBrowser = makeBrowser
         self.credentials = credentials
         self.serverPairing = serverPairing
-        directory = ServerDirectory(credentials: credentials, connector: serverConnector)
+        directory = ServerDirectory(credentials: credentials, connector: serverConnector, connections: connectionStore, keychain: keychain)
         let connectionManager = ConnectionManager(
             makeTransport: { url in WebSocketTransport(url: url) },
             pairingService: pairingService

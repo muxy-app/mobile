@@ -1,5 +1,6 @@
 package com.muxy.app.networking.server
 
+import com.muxy.app.networking.ssh.SshError
 import uniffi.muxy_mobile.MobileException
 
 sealed interface ServerFailure {
@@ -27,6 +28,10 @@ sealed interface ServerFailure {
 
     data object Unknown : ServerFailure
 
+    data class Ssh(
+        val error: SshError,
+    ) : ServerFailure
+
     enum class Context {
         PAIRING,
         CONNECTING,
@@ -38,6 +43,7 @@ sealed interface ServerFailure {
             when (this) {
                 InvalidCredential, IdentityMismatch, Unauthorized, IncompatibleVersion, Unsupported -> true
                 InvalidLink, Unreachable, Timeout, Disconnected, is Server, Unknown -> false
+                is Ssh -> error != SshError.UNREACHABLE
             }
 
     val requiresPairing: Boolean
@@ -45,6 +51,7 @@ sealed interface ServerFailure {
             when (this) {
                 InvalidCredential, IdentityMismatch, Unauthorized -> true
                 InvalidLink, Unreachable, IncompatibleVersion, Unsupported, Timeout, Disconnected, is Server, Unknown -> false
+                is Ssh -> false
             }
 
     fun message(
@@ -63,11 +70,13 @@ sealed interface ServerFailure {
             Disconnected -> "Disconnected from $serverName."
             is Server -> reason
             Unknown -> "Something went wrong. Try again."
+            is Ssh -> error.message
         }
 
     companion object {
         fun from(error: Throwable): ServerFailure =
             when (error) {
+                is RemoteServerException -> error.failure
                 is MobileException.InvalidLink -> InvalidLink
                 is MobileException.InvalidCredential -> InvalidCredential
                 is MobileException.Unreachable -> Unreachable

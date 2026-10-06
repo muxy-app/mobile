@@ -28,6 +28,7 @@ import com.muxy.app.features.navigation.RootViewModel
 import com.muxy.app.features.projectdetail.ProjectDetailViewModel
 import com.muxy.app.features.projectdetail.ProjectToolsFactory
 import com.muxy.app.features.projects.ProjectsViewModel
+import com.muxy.app.features.server.RemoteServerConnectionProvider
 import com.muxy.app.features.server.ServerDirectory
 import com.muxy.app.features.server.ServerProjectViewModel
 import com.muxy.app.features.server.ServerProjectsViewModel
@@ -39,9 +40,11 @@ import com.muxy.app.networking.muxy1.ConnectionManager
 import com.muxy.app.networking.muxy1.discovery.NsdDiscovery
 import com.muxy.app.networking.muxy1.transport.WebSocketTransport
 import com.muxy.app.networking.server.sdk.SdkPairingService
+import com.muxy.app.networking.server.sdk.SdkRemoteServerConnector
 import com.muxy.app.networking.server.sdk.SdkServerConnector
 import com.muxy.app.networking.ssh.SshClientFactory
 import com.muxy.app.networking.ssh.SshConnectionTester
+import com.muxy.app.networking.ssh.SshExecClientFactory
 import com.muxy.app.networking.ssh.SshHostKeyTrust
 import com.muxy.app.networking.ssh.SshjClient
 import com.muxy.app.persistence.connections.ConnectionStore
@@ -116,6 +119,7 @@ class AppContainer(
     private val sshClients = SshClientFactory { SshjClient() }
     private val sshTrust = SshHostKeyTrust(secretStore)
     private val sshTester = SshConnectionTester(sshClients, secretStore, sshTrust)
+    private val remoteConnector = SdkRemoteServerConnector(SshExecClientFactory { SshjClient() }, secretStore, sshTrust)
 
     private val credentialStore: CredentialStore = SecretCredentialStore(secretStore)
 
@@ -141,7 +145,10 @@ class AppContainer(
 
     val connectionLifecycle = ConnectionLifecycle(connectionManager, connectionStore, mainScope)
 
-    val serverDirectory = ServerDirectory(credentialStore, SdkServerConnector(), mainScope)
+    val serverDirectory =
+        ServerDirectory(credentialStore, SdkServerConnector(), mainScope) { connectionId ->
+            RemoteServerConnectionProvider(connectionId, connectionStore, remoteConnector)
+        }
 
     val projectTools =
         ProjectToolsFactory(
@@ -198,6 +205,7 @@ class AppContainer(
             discovery = NsdDiscovery(context.getSystemService(NsdManager::class.java)),
             inbox = addConnectionRequests,
             sshAdding = SshConnectionAdder(connectionStore, secretStore, sshTester),
+            remoteAdding = SshConnectionAdder(connectionStore, secretStore, sshTester, remoteConnector),
             serverPairing =
                 ServerPairingModel(
                     pairing = SdkPairingService(),

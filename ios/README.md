@@ -138,3 +138,9 @@ The app connects to Muxy 2 builds that share a protocol version with its SDK. Se
 3. Confirm the address and the device name, then tap **Add**.
 
 The phone and the computer must be on the same network or connected through a VPN such as Tailscale. Allow local network access when iOS asks. To try the app without a computer, turn on **Settings > Demo Mode**.
+
+## Connect to Muxy 2 over SSH
+
+Choose **Add Connection > Muxy 2 > SSH** and enter the computer's SSH host, port, username, and password or private key. Install Muxy on that computer first. The app verifies the SSH login and Muxy connection before saving it, then opens its projects, terminals, files, and Git views. Muxy starts automatically; mobile pairing and an exposed Muxy port are not needed.
+
+SSH host keys are pinned on the first connection and changes are rejected. Passwords and keys stay in the iOS Keychain. The separate **SSH** connection type still opens a standalone shell.

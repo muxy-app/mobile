@@ -10,7 +10,7 @@ enum AppRoute: Hashable {
     var serverID: String? {
         switch self {
         case let .serverProjects(connection), let .serverProject(connection, _):
-            return connection.serverID
+            return connection.serverRouteID
         case .projects, .projectDetail, .sshTerminal:
             return nil
         }

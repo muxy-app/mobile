@@ -98,7 +98,7 @@ final class ServerPairingModel {
     }
 
     private func saveConnection(for credential: ServerCredential, source: DiscoverySource) -> Connection {
-        let existing = store.load().first { $0.kind == .server && $0.serverID == credential.serverId }
+        let existing = store.load().first { $0.kind == .server && $0.serverTransport != .ssh && $0.serverID == credential.serverId }
         let connection = Connection(
             id: existing?.id ?? UUID(),
             name: credential.serverName,

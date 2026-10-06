@@ -13,7 +13,6 @@ import com.muxy.app.core.validation.ValidatedConnectionInput
 import com.muxy.app.core.validation.ValidatedSshInput
 import com.muxy.app.features.demo.DemoConnection
 import com.muxy.app.models.Connection
-import com.muxy.app.models.ConnectionKind
 import com.muxy.app.models.SshAuthMethod
 import com.muxy.app.persistence.connections.ConnectionStore
 import com.muxy.app.persistence.secrets.SecretUpdateRecoveryException
@@ -51,7 +50,7 @@ class EditConnectionViewModel(
         get() {
             val current = connection ?: return false
             if (isSaving || saved || recoveryFailed || validatedInput() == null) return false
-            if (current.kind != ConnectionKind.SSH) return true
+            if (!current.usesSsh) return true
             if (current.sshConfig == null || username.isBlank()) return false
             if (!replaceCredentials) return authMethod == current.sshConfig.authMethod
             return validatedReplacement() != null

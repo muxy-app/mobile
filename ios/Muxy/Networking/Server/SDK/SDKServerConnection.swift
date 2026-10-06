@@ -4,10 +4,21 @@ import MuxyMobile
 nonisolated final class SDKServerConnection: ServerConnection {
     private let connection: MuxyMobile.Connection
     private let lanes: SDKLanes
+    private let onDisconnect: (@Sendable () -> Void)?
 
-    init(connection: MuxyMobile.Connection, lanes: SDKLanes) {
+    init(connection: MuxyMobile.Connection, lanes: SDKLanes, onDisconnect: (@Sendable () -> Void)? = nil) {
         self.connection = connection
         self.lanes = lanes
+        self.onDisconnect = onDisconnect
+    }
+
+    deinit {
+        connection.disconnect()
+        onDisconnect?()
+    }
+
+    func serverID() async throws -> String {
+        try await lanes.request { [connection] in try connection.serverId() }
     }
 
     var serverVersion: String {
@@ -55,5 +66,6 @@ nonisolated final class SDKServerConnection: ServerConnection {
 
     func disconnect() {
         connection.disconnect()
+        onDisconnect?()
     }
 }

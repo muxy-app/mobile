@@ -58,6 +58,7 @@ import com.muxy.app.design.components.TopBarTextAction
 import com.muxy.app.design.components.themedSection
 import com.muxy.app.models.Connection
 import com.muxy.app.models.ConnectionKind
+import com.muxy.app.models.ServerTransport
 import com.muxy.app.networking.muxy1.discovery.DiscoveredService
 import kotlinx.coroutines.launch
 
@@ -95,9 +96,27 @@ fun AddConnectionScreen(
         ) {
             item(key = "kind") { KindPicker(viewModel.kind, enabled = !isWorking, onSelect = viewModel::selectKind) }
             when (viewModel.kind) {
-                ConnectionKind.SERVER -> serverSections(viewModel.serverPairing, !isWorking, { scan() }, { paste() })
-                ConnectionKind.DEVICE -> deviceSections(viewModel, services, !isWorking) { scan() }
-                ConnectionKind.SSH -> sshSections(viewModel, !isWorking)
+                ConnectionKind.SERVER -> {
+                    item(key = "server-transport") {
+                        ServerTransportPicker(viewModel.serverTransport, !isWorking, viewModel::selectServerTransport)
+                    }
+                    if (viewModel.usesSsh) {
+                        sshSections(viewModel, !isWorking)
+                        item(key = "remote-footer") {
+                            ThemedSectionFooter("Connect to a computer with Muxy installed using SSH. No pairing code is needed.")
+                        }
+                    } else {
+                        serverSections(viewModel.serverPairing, !isWorking, { scan() }, { paste() })
+                    }
+                }
+
+                ConnectionKind.DEVICE -> {
+                    deviceSections(viewModel, services, !isWorking) { scan() }
+                }
+
+                ConnectionKind.SSH -> {
+                    sshSections(viewModel, !isWorking)
+                }
             }
             val status = viewModel.displayedStatus
             if (status != AddConnectionStatus.Idle) {
@@ -154,6 +173,27 @@ private const val PAIRING_WARNING =
     "Only pair with a code shown on your own computer. A paired phone can do anything a terminal on that computer can."
 
 private val pickerKinds = listOf(ConnectionKind.DEVICE to "Muxy 1", ConnectionKind.SERVER to "Muxy 2", ConnectionKind.SSH to "SSH")
+
+@Composable
+private fun ServerTransportPicker(
+    selected: ServerTransport,
+    enabled: Boolean,
+    onSelect: (ServerTransport) -> Unit,
+) {
+    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+        ServerTransport.entries.forEachIndexed { index, transport ->
+            SegmentedButton(
+                selected = transport == selected,
+                onClick = { onSelect(transport) },
+                shape = SegmentedButtonDefaults.itemShape(index, ServerTransport.entries.size),
+                enabled = enabled,
+                icon = {},
+            ) {
+                Text(if (transport == ServerTransport.PAIRED) "Pairing Code" else "SSH")
+            }
+        }
+    }
+}
 
 private fun LazyListScope.deviceSections(
     viewModel: AddConnectionViewModel,

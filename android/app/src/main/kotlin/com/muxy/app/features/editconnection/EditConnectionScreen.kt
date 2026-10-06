@@ -76,7 +76,7 @@ fun EditConnectionScreen(
                     )
                 }
                 detailFields(viewModel, enabled)
-                if (connection.kind == ConnectionKind.SSH) sshFields(viewModel, enabled)
+                if (connection.usesSsh) sshFields(viewModel, enabled)
                 item(key = "save-footer") {
                     ThemedSectionFooter(
                         "Changes are saved on this phone without connecting. Existing pairing and host verification are kept.",

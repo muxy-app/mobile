@@ -49,10 +49,11 @@ class ConnectionEditor(
             val changes = credentialChanges(previous, updated, endpointChanged, replacement)
             if (changes.isEmpty()) {
                 connections.update(previous, updated)
+                updated.serverRouteId?.let(directory::credentialDidChange)
                 return@withContext updated
             }
             secrets.update(changes) { connections.update(previous, updated) }
-            updated.serverId?.let(directory::credentialDidChange)
+            updated.serverRouteId?.let(directory::credentialDidChange)
             updated
         }
 
@@ -62,7 +63,7 @@ class ConnectionEditor(
         endpointChanged: Boolean,
         replacement: ValidatedSshInput?,
     ): Map<String, String?> {
-        if (previous.kind == ConnectionKind.SERVER) {
+        if (previous.kind == ConnectionKind.SERVER && !previous.isRemoteServer) {
             val serverId = requireNotNull(previous.serverId)
             val saved = checkNotNull(credentials.credential(serverId)) { "The saved server credential is unavailable" }
             val credential =
@@ -73,7 +74,7 @@ class ConnectionEditor(
                 )
             return mapOf(SecretCredentialStore.name(serverId) to SecretCredentialStore.encode(credential))
         }
-        if (previous.kind != ConnectionKind.SSH || replacement == null) return emptyMap()
+        if (!previous.usesSsh || replacement == null) return emptyMap()
         requireNotNull(previous.sshConfig)
         val password = replacement.authMethod == SshAuthMethod.PASSWORD
         return mapOf(

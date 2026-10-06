@@ -35,8 +35,9 @@ final class ConnectionsListViewModel {
     }
 
     private func forgetServer(of connection: Connection) {
-        guard connection.kind == .server, let serverID = connection.serverID else { return }
-        directory.forget(serverID)
+        guard let routeID = connection.serverRouteID else { return }
+        directory.forget(routeID)
+        guard connection.serverTransport != .ssh, let serverID = connection.serverID else { return }
         do {
             try credentials.delete(serverId: serverID)
         } catch {

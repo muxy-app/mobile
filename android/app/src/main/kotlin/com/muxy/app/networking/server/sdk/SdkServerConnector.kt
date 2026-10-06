@@ -14,10 +14,13 @@ class SdkServerConnector : ServerConnector {
     ): ServerConnection {
         val lanes = SdkLanes()
         val listener = ConnectionEventRelay(events)
+        var opened: SdkConnection? = null
         val connection =
             try {
-                lanes.request { SdkConnection.connect(credential, listener) }
+                lanes.request { SdkConnection.connect(credential, listener).also { opened = it } }
             } catch (error: Throwable) {
+                opened?.disconnect()
+                opened?.close()
                 lanes.close()
                 throw error
             }

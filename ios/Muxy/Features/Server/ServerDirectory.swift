@@ -6,13 +6,22 @@ import OSLog
 final class ServerDirectory {
     private let credentials: CredentialStore
     private let connector: ServerConnector
+    private let connections: ConnectionStore?
+    private let keychain: KeychainStore
     private var controllers: [String: ServerController] = [:]
     private var activeServerID: String?
     private var isForeground = true
 
-    init(credentials: CredentialStore, connector: ServerConnector) {
+    init(
+        credentials: CredentialStore,
+        connector: ServerConnector,
+        connections: ConnectionStore? = nil,
+        keychain: KeychainStore = KeychainTokenStore()
+    ) {
         self.credentials = credentials
         self.connector = connector
+        self.connections = connections
+        self.keychain = keychain
     }
 
     func controller(for serverID: String) -> ServerController? {
@@ -44,6 +53,9 @@ final class ServerDirectory {
     }
 
     private func makeController(for serverID: String) -> ServerController? {
+        if let saved = connections?.load().first(where: { $0.serverRouteID == serverID && $0.serverTransport == .ssh }) {
+            return makeSSHController(for: saved)
+        }
         guard let credential = storedCredential(for: serverID) else { return nil }
         let credentials = credentials
         return ServerController(
@@ -51,6 +63,22 @@ final class ServerDirectory {
             serverName: credential.serverName,
             connector: connector,
             credentialProvider: { Self.credential(for: serverID, in: credentials) }
+        )
+    }
+
+    private func makeSSHController(for saved: Connection) -> ServerController {
+        let connections = connections
+        let connector = SDKSSHServerConnector(keychain: keychain)
+        return ServerController(
+            serverID: saved.serverRouteID ?? saved.id.uuidString,
+            serverName: saved.name,
+            nameProvider: { connections?.load().first { $0.id == saved.id }?.name },
+            openConnection: { events in
+                guard let current = connections?.load().first(where: { $0.id == saved.id }) else {
+                    throw SSHError.missingCredentials
+                }
+                return try await connector.connect(to: current, events: events)
+            }
         )
     }
 

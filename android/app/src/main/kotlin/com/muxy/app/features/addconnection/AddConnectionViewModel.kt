@@ -18,12 +18,15 @@ import com.muxy.app.models.Connection
 import com.muxy.app.models.ConnectionKind
 import com.muxy.app.models.DiscoverySource
 import com.muxy.app.models.PairingState
+import com.muxy.app.models.ServerTransport
 import com.muxy.app.models.SshAuthMethod
 import com.muxy.app.networking.muxy1.ConnectionManager
 import com.muxy.app.networking.muxy1.PairingUri
 import com.muxy.app.networking.muxy1.PairingUriParse
 import com.muxy.app.networking.muxy1.discovery.DiscoveredService
 import com.muxy.app.networking.muxy1.discovery.ServiceDiscovery
+import com.muxy.app.networking.server.RemoteServerException
+import com.muxy.app.networking.server.ServerFailure
 import com.muxy.app.networking.ssh.SshError
 import com.muxy.app.persistence.connections.ConnectionStore
 import com.muxy.app.persistence.secrets.DeviceCredential
@@ -72,6 +75,7 @@ class AddConnectionViewModel(
     private val inbox: AddConnectionInbox,
     val serverPairing: ServerPairingModel,
     private val sshAdding: SshConnectionAdding,
+    private val remoteAdding: SshConnectionAdding? = null,
 ) : ViewModel() {
     private var hostText by mutableStateOf("")
     private var portValue by mutableStateOf(Endpoint.DEFAULT_PORT.toString())
@@ -86,6 +90,12 @@ class AddConnectionViewModel(
 
     var kind by mutableStateOf(ConnectionKind.DEVICE)
         private set
+
+    var serverTransport by mutableStateOf(ServerTransport.PAIRED)
+        private set
+
+    val usesSsh: Boolean
+        get() = kind == ConnectionKind.SSH || (kind == ConnectionKind.SERVER && serverTransport == ServerTransport.SSH)
 
     var host: String
         get() = hostText
@@ -132,7 +142,7 @@ class AddConnectionViewModel(
         get() {
             if (isWorking) return false
             return when (kind) {
-                ConnectionKind.SERVER -> serverPairing.canPair
+                ConnectionKind.SERVER -> if (usesSsh) validatedSshInput() != null else serverPairing.canPair
                 ConnectionKind.DEVICE -> validatedInput() != null
                 ConnectionKind.SSH -> validatedSshInput() != null
             }
@@ -140,7 +150,7 @@ class AddConnectionViewModel(
 
     val displayedStatus: AddConnectionStatus
         get() {
-            if (kind != ConnectionKind.SERVER) return status
+            if (kind != ConnectionKind.SERVER || usesSsh) return status
             if (serverPairing.isPairing) return AddConnectionStatus.Connecting
             return serverPairing.failure?.let(AddConnectionStatus::Failed) ?: AddConnectionStatus.Idle
         }
@@ -160,7 +170,18 @@ class AddConnectionViewModel(
         if (isWorking || this.kind == kind) return
         this.kind = kind
         status = AddConnectionStatus.Idle
-        if (kind == ConnectionKind.SSH && !sshDefaultsApplied) {
+        applySshDefaults()
+    }
+
+    fun selectServerTransport(transport: ServerTransport) {
+        if (isWorking || serverTransport == transport) return
+        serverTransport = transport
+        status = AddConnectionStatus.Idle
+        applySshDefaults()
+    }
+
+    private fun applySshDefaults() {
+        if (usesSsh && !sshDefaultsApplied) {
             portText = "22"
             sshDefaultsApplied = true
         }
@@ -169,6 +190,7 @@ class AddConnectionViewModel(
     fun applyPairingCode(code: String): Boolean {
         if (serverPairing.accepts(code)) {
             selectKind(ConnectionKind.SERVER)
+            selectServerTransport(ServerTransport.PAIRED)
             serverPairing.receive(code, DiscoverySource.QR)
             return true
         }
@@ -225,11 +247,11 @@ class AddConnectionViewModel(
 
     fun submit() {
         if (isWorking) return
-        if (kind == ConnectionKind.SERVER) {
+        if (kind == ConnectionKind.SERVER && !usesSsh) {
             viewModelScope.launch { serverPairing.pair()?.let { addedConnection = it } }
             return
         }
-        if (kind == ConnectionKind.SSH) {
+        if (usesSsh) {
             val input = validatedSshInput() ?: return
             status = AddConnectionStatus.Connecting
             viewModelScope.launch { addSsh(input) }
@@ -257,7 +279,8 @@ class AddConnectionViewModel(
     }
 
     private suspend fun addSsh(input: ValidatedSshInput) {
-        attempt { sshAdding.add(input) }
+        val adding = if (kind == ConnectionKind.SERVER) checkNotNull(remoteAdding) else sshAdding
+        attempt { adding.add(input) }
             .onSuccess {
                 password = ""
                 privateKey = ""
@@ -266,7 +289,12 @@ class AddConnectionViewModel(
                 addedConnection = it
             }.onFailure {
                 Log.ssh.error("Adding SSH failed: ${it.javaClass.simpleName}")
-                val message = if (it is SshCredentialStorageException) it.message.orEmpty() else SshError.classify(it).message
+                val message =
+                    when (it) {
+                        is SshCredentialStorageException -> it.message.orEmpty()
+                        is RemoteServerException -> it.failure.message(ServerFailure.Context.CONNECTING, name)
+                        else -> SshError.classify(it).message
+                    }
                 status = AddConnectionStatus.Failed(message)
             }
     }

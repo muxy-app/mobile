@@ -11,7 +11,7 @@ struct EditConnectionView: View {
         NavigationStack {
             ThemedForm {
                 detailsSection
-                if viewModel.connection.kind == .ssh {
+                if viewModel.connection.usesSSH {
                     authenticationSection
                 }
                 if let failure = viewModel.failure {
@@ -47,7 +47,7 @@ struct EditConnectionView: View {
         Section {
             LabeledContent("Type", value: kindName)
             ConnectionDetailsFields(name: $viewModel.name, host: $viewModel.host, portText: $viewModel.portText)
-            if viewModel.connection.kind == .ssh {
+            if viewModel.connection.usesSSH {
                 TextField("Username", text: $viewModel.username)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
@@ -84,7 +84,7 @@ struct EditConnectionView: View {
     private var kindName: String {
         switch viewModel.connection.kind {
         case .device: "Muxy 1"
-        case .server: "Muxy 2"
+        case .server: viewModel.connection.serverTransport == .ssh ? "Muxy 2 over SSH" : "Muxy 2"
         case .ssh: "SSH"
         }
     }

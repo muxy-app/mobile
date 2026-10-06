@@ -22,19 +22,26 @@ import kotlin.time.Duration
 
 class ServerController(
     val serverId: String,
-    private val connector: ServerConnector,
-    private val credentialProvider: suspend () -> ServerCredential?,
+    private val provider: ServerConnectionProvider,
     private val scope: CoroutineScope,
     private val schedule: ReconnectSchedule = ReconnectSchedule(),
 ) {
+    constructor(
+        serverId: String,
+        connector: ServerConnector,
+        credentialProvider: suspend () -> ServerCredential?,
+        scope: CoroutineScope,
+        schedule: ReconnectSchedule = ReconnectSchedule(),
+    ) : this(serverId, PairedServerConnectionProvider(connector, credentialProvider), scope, schedule)
+
     private val mutablePhase = MutableStateFlow<ServerPhase>(ServerPhase.Idle)
     private val mutableCatalog = MutableStateFlow(ProjectCatalog())
 
     val phase: StateFlow<ServerPhase> = mutablePhase.asStateFlow()
     val catalog: StateFlow<ProjectCatalog> = mutableCatalog.asStateFlow()
 
-    var serverName: String = DEFAULT_SERVER_NAME
-        private set
+    val serverName: String
+        get() = provider.serverName
 
     var connection: ServerConnection? = null
         private set
@@ -52,6 +59,7 @@ class ServerController(
     private var isConnecting = false
     private var restartPending = false
     private var reconnectJob: Job? = null
+    private var connectJob: Job? = null
 
     fun project(projectId: String): ServerProject? = mutableCatalog.value.projects.firstOrNull { it.id == projectId }
 
@@ -149,19 +157,11 @@ class ServerController(
         val token = generation
         isConnecting = true
         if (mutablePhase.value == ServerPhase.Idle) mutablePhase.value = ServerPhase.Connecting
-        scope.launch { connect(token) }
+        connectJob = scope.launch { connect(token) }
     }
 
     private suspend fun connect(token: Int) {
-        val credential = credentialProvider()
-        if (token != generation) return
-        if (credential == null) {
-            isConnecting = false
-            mutablePhase.value = ServerPhase.Failed(ServerFailure.InvalidCredential)
-            return
-        }
-        serverName = credential.serverName
-        attempt { connector.connect(credential) { event -> scope.launch { handle(event, token) } } }
+        attempt { provider.connect { event -> scope.launch { handle(event, token) } } }
             .onSuccess { didConnect(it, token) }
             .onFailure { didFailToConnect(ServerFailure.from(it), token) }
     }
@@ -242,6 +242,8 @@ class ServerController(
     private fun closeConnection() {
         reconnectJob?.cancel()
         reconnectJob = null
+        connectJob?.cancel()
+        connectJob = null
         generation += 1
         isConnecting = false
         restartPending = false
@@ -311,9 +313,5 @@ class ServerController(
         projectModels.values
             .filter { it.projectId !in existing && it.tabs.value.isNotEmpty() }
             .forEach(ProjectModel::removeAllTabs)
-    }
-
-    private companion object {
-        const val DEFAULT_SERVER_NAME = "the computer"
     }
 }

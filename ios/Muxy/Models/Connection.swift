@@ -6,6 +6,11 @@ nonisolated enum ConnectionKind: String, Codable, Sendable {
     case ssh
 }
 
+nonisolated enum ServerTransport: String, Codable, Sendable {
+    case paired
+    case ssh
+}
+
 nonisolated struct Connection: Codable, Identifiable, Sendable, Equatable, Hashable {
     let id: UUID
     var name: String
@@ -16,8 +21,18 @@ nonisolated struct Connection: Codable, Identifiable, Sendable, Equatable, Hasha
     var serviceName: String?
     var discoverySource: DiscoverySource
     var sshConfig: SSHConfig?
+    var serverTransport: ServerTransport?
     var serverID: String?
     var authenticationDeviceID: String?
+
+    var usesSSH: Bool {
+        kind == .ssh || (kind == .server && serverTransport == .ssh)
+    }
+
+    var serverRouteID: String? {
+        guard kind == .server else { return nil }
+        return serverTransport == .ssh ? "ssh:\(id.uuidString)" : serverID
+    }
 
     var endpoint: Endpoint {
         Endpoint(host: host, port: port)
@@ -34,6 +49,7 @@ nonisolated struct Connection: Codable, Identifiable, Sendable, Equatable, Hasha
         discoverySource: DiscoverySource = .manual,
         sshConfig: SSHConfig? = nil,
         serverID: String? = nil,
+        serverTransport: ServerTransport? = nil,
         authenticationDeviceID: String? = nil
     ) {
         self.id = id
@@ -45,6 +61,7 @@ nonisolated struct Connection: Codable, Identifiable, Sendable, Equatable, Hasha
         self.serviceName = serviceName
         self.discoverySource = discoverySource
         self.sshConfig = sshConfig
+        self.serverTransport = serverTransport
         self.serverID = serverID
         self.authenticationDeviceID = authenticationDeviceID
     }
@@ -60,6 +77,7 @@ nonisolated struct Connection: Codable, Identifiable, Sendable, Equatable, Hasha
         serviceName = try container.decodeIfPresent(String.self, forKey: .serviceName)
         discoverySource = try container.decode(DiscoverySource.self, forKey: .discoverySource)
         sshConfig = try container.decodeIfPresent(SSHConfig.self, forKey: .sshConfig)
+        serverTransport = try container.decodeIfPresent(ServerTransport.self, forKey: .serverTransport)
         serverID = try container.decodeIfPresent(String.self, forKey: .serverID)
         authenticationDeviceID = try container.decodeIfPresent(String.self, forKey: .authenticationDeviceID)
     }

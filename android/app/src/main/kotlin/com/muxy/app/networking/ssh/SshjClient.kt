@@ -24,7 +24,7 @@ import java.security.PublicKey
 
 class SshjClient(
     private val io: CoroutineDispatcher = Dispatchers.IO,
-) : SshClient {
+) : SshExecClient {
     private val lifecycle = Mutex()
 
     @Volatile
@@ -88,6 +88,19 @@ class SshjClient(
             }
         }
     }
+
+    override suspend fun execute(command: String): SshCommand =
+        lifecycle.withLock {
+            runInterruptible(io) {
+                val session = requireClient().startSession()
+                try {
+                    ExecCommand(session, session.exec(command))
+                } catch (error: Throwable) {
+                    session.close()
+                    throw error
+                }
+            }
+        }
 
     override fun output(): Flow<ByteArray> =
         channelFlow {
@@ -165,6 +178,35 @@ class SshjClient(
             hostname: String,
             port: Int,
         ): List<String> = emptyList()
+    }
+
+    private class ExecCommand(
+        private val session: Session,
+        private val command: Session.Command,
+    ) : SshCommand {
+        override val output: InputStream
+            get() = command.inputStream
+
+        override val errors: InputStream
+            get() = command.errorStream
+
+        override fun write(bytes: ByteArray) {
+            command.outputStream.write(bytes)
+            command.outputStream.flush()
+        }
+
+        override fun awaitExit(): Int? {
+            command.join()
+            return command.exitStatus
+        }
+
+        override fun close() {
+            try {
+                command.close()
+            } finally {
+                session.close()
+            }
+        }
     }
 
     private companion object {

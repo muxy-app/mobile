@@ -5,6 +5,8 @@ struct AddConnectionView: View {
     let pairingCode: String?
     let onAdded: (Connection) -> Void
 
+    @State private var submissionTask: Task<Void, Never>?
+    @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dismiss) private var dismiss
     @Environment(\.appTheme) private var theme
     @State private var scanError: String?
@@ -30,9 +32,12 @@ struct AddConnectionView: View {
             .screenTitle("Add Connection")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                        .tint(theme.foreground)
-                        .disabled(viewModel.isWorking)
+                    Button("Cancel") {
+                        submissionTask?.cancel()
+                        dismiss()
+                    }
+                    .tint(theme.foreground)
+                    .disabled(viewModel.isWorking && !viewModel.isRemoteSSH)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     submitButton
@@ -54,7 +59,14 @@ struct AddConnectionView: View {
                 applyInitialPairingCode()
                 viewModel.startDiscovery()
             }
-            .onDisappear { viewModel.stopDiscovery() }
+            .onDisappear {
+                viewModel.stopDiscovery()
+                submissionTask?.cancel()
+            }
+            .onChange(of: scenePhase) { _, phase in
+                guard phase == .background else { return }
+                submissionTask?.cancel()
+            }
         }
         .interactiveDismissDisabled(viewModel.isWorking)
     }
@@ -80,6 +92,27 @@ struct AddConnectionView: View {
 
     @ViewBuilder
     private var serverSections: some View {
+        Section {
+            Picker("Connection Method", selection: serverTransportBinding) {
+                Text("Pairing Code").tag(ServerTransport.paired)
+                Text("SSH").tag(ServerTransport.ssh)
+            }
+            .pickerStyle(.segmented)
+        }
+        .disabled(viewModel.isWorking)
+        if viewModel.serverTransport == .ssh {
+            sshSections
+            Section {
+                Text("Connect to a computer with Muxy installed using its SSH login. Muxy starts automatically; no pairing code is needed.")
+                    .foregroundStyle(theme.secondaryForeground)
+            }
+        } else {
+            serverPairingSections
+        }
+    }
+
+    @ViewBuilder
+    private var serverPairingSections: some View {
         Section {
             Button {
                 viewModel.isShowingScanner = true
@@ -216,7 +249,7 @@ struct AddConnectionView: View {
 
     private var submitButton: some View {
         Button("Add") {
-            Task { await viewModel.submit(onAdded: onAdded) }
+            submissionTask = Task { await viewModel.submit(onAdded: onAdded) }
         }
         .disabled(!viewModel.canSubmit)
     }
@@ -225,6 +258,13 @@ struct AddConnectionView: View {
         Binding(
             get: { viewModel.serverPairing.deviceName },
             set: { viewModel.serverPairing.deviceName = $0 }
+        )
+    }
+
+    private var serverTransportBinding: Binding<ServerTransport> {
+        Binding(
+            get: { viewModel.serverTransport },
+            set: { viewModel.selectServerTransport($0) }
         )
     }
 

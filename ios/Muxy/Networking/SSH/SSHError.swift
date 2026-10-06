@@ -7,6 +7,15 @@ nonisolated enum SSHError: Error, Equatable, Sendable {
     case keyParseFailed
     case missingCredentials
 
+    static func connectionFailure(_ error: any Error) -> SSHError {
+        if let error = error as? SSHError { return error }
+        let description = String(describing: error).lowercased()
+        if description.contains("authentication") || description.contains("unauthorized") {
+            return .authenticationFailed
+        }
+        return .unreachable
+    }
+
     var message: String {
         switch self {
         case .unreachable:

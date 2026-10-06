@@ -118,7 +118,10 @@ class ServerPairingModel(
         credential: ServerCredential,
         source: DiscoverySource,
     ): Connection {
-        val existing = store.load().firstOrNull { it.kind == ConnectionKind.SERVER && it.serverId == credential.serverId }
+        val existing =
+            store.load().firstOrNull {
+                it.kind == ConnectionKind.SERVER && !it.isRemoteServer && it.serverId == credential.serverId
+            }
         val connection =
             Connection(
                 id = existing?.id ?: UUID.randomUUID(),

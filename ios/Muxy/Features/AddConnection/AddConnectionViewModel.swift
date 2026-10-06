@@ -15,6 +15,7 @@ final class AddConnectionViewModel {
     }
 
     var kind: ConnectionKind = .device
+    var serverTransport: ServerTransport = .paired
     var name: String = ""
     var host: String = ""
     var portText: String = String(Endpoint.defaultPort)
@@ -56,6 +57,10 @@ final class AddConnectionViewModel {
         self.serverPairing = serverPairing
     }
 
+    var isRemoteSSH: Bool {
+        kind == .server && serverTransport == .ssh
+    }
+
     var isWorking: Bool {
         if serverPairing.isPairing { return true }
         switch status {
@@ -74,14 +79,14 @@ final class AddConnectionViewModel {
         case .device:
             return (try? validator.validate(name: name, host: host, portText: portText).get()) != nil
         case .server:
-            return serverPairing.canPair
+            return serverTransport == .ssh ? (try? validatedSSH().get()) != nil : serverPairing.canPair
         case .ssh:
             return (try? validatedSSH().get()) != nil
         }
     }
 
     var displayedStatus: Status {
-        guard kind == .server else { return status }
+        guard kind == .server, serverTransport == .paired else { return status }
         if serverPairing.isPairing { return .connecting }
         guard let failure = serverPairing.failure else { return .idle }
         return .failed(failure)
@@ -109,6 +114,15 @@ final class AddConnectionViewModel {
         }
     }
 
+    func selectServerTransport(_ transport: ServerTransport) {
+        guard serverTransport != transport else { return }
+        serverTransport = transport
+        status = .idle
+        guard transport == .ssh, !sshDefaultsApplied else { return }
+        portText = "22"
+        sshDefaultsApplied = true
+    }
+
     func applyScan(_ uri: PairingURI) {
         host = uri.host
         portText = String(uri.port)
@@ -122,6 +136,7 @@ final class AddConnectionViewModel {
         isShowingScanner = false
         if serverPairing.accepts(code) {
             selectKind(.server)
+            selectServerTransport(.paired)
             serverPairing.receive(link: code, source: source)
             return true
         }
@@ -144,6 +159,10 @@ final class AddConnectionViewModel {
         case .device:
             await pairDevice(onAdded: onAdded)
         case .server:
+            if serverTransport == .ssh {
+                await addSSH(onAdded: onAdded)
+                return
+            }
             guard let connection = await serverPairing.pair() else { return }
             onAdded(connection)
         case .ssh:
@@ -186,37 +205,49 @@ final class AddConnectionViewModel {
 
     private func addSSH(onAdded: @escaping (Connection) -> Void) async {
         guard case let .success(input) = validatedSSH() else { return }
-        let connection = Connection(
+        let isServer = kind == .server
+        var connection = Connection(
             id: UUID(),
             name: input.name,
             host: input.host,
             port: input.port,
-            kind: .ssh,
-            sshConfig: SSHConfig(username: input.username, authMethod: input.authMethod)
+            kind: isServer ? .server : .ssh,
+            sshConfig: SSHConfig(username: input.username, authMethod: input.authMethod),
+            serverTransport: isServer ? .ssh : nil
         )
-
-        do {
-            let secretKind: KeychainSecret = input.authMethod == .password ? .sshPassword : .sshPrivateKey
-            try keychain.setSecret(input.secret, secretKind, for: connection.id)
-            if let passphrase = input.passphrase {
-                try keychain.setSecret(passphrase, .sshPassphrase, for: connection.id)
-            }
-        } catch {
-            Log.ssh.error("Failed to store SSH secrets: \(error.localizedDescription, privacy: .public)")
-            status = .failed("Couldn't securely store the credentials.")
-            return
-        }
-
         status = .connecting
-        let result = await SSHConnectionTester.test(connection: connection, keychain: keychain)
-        switch result {
-        case .success:
-            status = .succeeded
+        do {
+            try keychain.replaceSSHCredentials(
+                SSHCredentials(authMethod: input.authMethod, secret: input.secret, passphrase: input.passphrase),
+                for: connection.id
+            )
+            if isServer {
+                let connected = try await SDKSSHServerConnector(keychain: keychain).connect(to: connection, events: { _ in })
+                defer { connected.disconnect() }
+                connection.serverID = try await withTaskCancellationHandler {
+                    try await connected.serverID()
+                } onCancel: {
+                    connected.disconnect()
+                }
+            } else {
+                try await SSHConnectionTester.test(connection: connection, keychain: keychain).get()
+            }
+            try Task.checkCancellation()
             store.upsert(connection)
+            status = .succeeded
             onAdded(connection)
-        case let .failure(error):
+        } catch {
             try? keychain.deleteSecrets(for: connection.id)
-            status = .failed(error.message)
+            guard !(error is CancellationError) else {
+                status = .idle
+                return
+            }
+            Log.ssh.error("Adding SSH connection failed: \(String(describing: error), privacy: .private)")
+            if error is KeychainError {
+                status = .failed("Couldn't securely store the credentials.")
+                return
+            }
+            status = .failed(ServerFailure(error).message(context: .connecting, serverName: connection.name))
         }
     }
 

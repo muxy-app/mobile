@@ -27,8 +27,9 @@ final class ServerController {
     private(set) var projectsLoadFailed = false
 
     @ObservationIgnored private(set) var connection: (any ServerConnection)?
-    @ObservationIgnored private let connector: ServerConnector
-    @ObservationIgnored private let credentialProvider: () -> ServerCredential?
+    @ObservationIgnored private let nameProvider: () -> String?
+    @ObservationIgnored private let openConnection: (@escaping @Sendable (ConnectionEvent) -> Void) async throws -> any ServerConnection
+    @ObservationIgnored private var connectionTask: Task<Void, Never>?
     @ObservationIgnored private let attachment = AttachmentCoordinator()
     @ObservationIgnored private let fileWatches = FileWatches()
     @ObservationIgnored private var connectionContinuations: [UUID: AsyncStream<Bool>.Continuation] = [:]
@@ -52,8 +53,27 @@ final class ServerController {
     ) {
         self.serverID = serverID
         self.serverName = serverName
-        self.connector = connector
-        self.credentialProvider = credentialProvider
+        self.nameProvider = { credentialProvider()?.serverName }
+        self.openConnection = { events in
+            guard let credential = credentialProvider() else { throw MobileError.InvalidCredential }
+            return try await connector.connect(to: credential, events: events)
+        }
+        self.schedule = schedule
+        attachment.server = self
+        fileWatches.server = self
+    }
+
+    init(
+        serverID: String,
+        serverName: String,
+        nameProvider: @escaping () -> String?,
+        openConnection: @escaping (@escaping @Sendable (ConnectionEvent) -> Void) async throws -> any ServerConnection,
+        schedule: ReconnectSchedule = ReconnectSchedule()
+    ) {
+        self.serverID = serverID
+        self.serverName = serverName
+        self.nameProvider = nameProvider
+        self.openConnection = openConnection
         self.schedule = schedule
         attachment.server = self
         fileWatches.server = self
@@ -108,8 +128,8 @@ final class ServerController {
         closeConnection()
         phase = .idle
         schedule.reset()
-        if let credential = credentialProvider() {
-            serverName = credential.serverName
+        if let name = nameProvider() {
+            serverName = name
         }
         connect()
     }
@@ -185,11 +205,11 @@ final class ServerController {
     private func connect() {
         guard wantsConnection, connection == nil, !isConnecting else { return }
         if case .failed = phase { return }
-        guard let credential = credentialProvider() else {
+        guard let name = nameProvider() else {
             phase = .failed(.invalidCredential)
             return
         }
-        serverName = credential.serverName
+        serverName = name
         reconnectTask?.cancel()
         reconnectTask = nil
         generation += 1
@@ -199,9 +219,9 @@ final class ServerController {
             phase = .connecting
         }
         let events = eventHandler(for: attempt)
-        Task {
+        connectionTask = Task {
             do {
-                let connection = try await connector.connect(to: credential, events: events)
+                let connection = try await openConnection(events)
                 didConnect(connection, generation: attempt)
             } catch {
                 didFailToConnect(ServerFailure(error), generation: attempt)
@@ -291,6 +311,8 @@ final class ServerController {
     private func closeConnection() {
         reconnectTask?.cancel()
         reconnectTask = nil
+        connectionTask?.cancel()
+        connectionTask = nil
         generation += 1
         isConnecting = false
         restartPending = false

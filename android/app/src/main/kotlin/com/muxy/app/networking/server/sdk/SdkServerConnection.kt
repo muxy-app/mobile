@@ -1,6 +1,6 @@
 package com.muxy.app.networking.server.sdk
 
-import com.muxy.app.networking.server.ServerConnection
+import com.muxy.app.networking.server.RemoteServerConnection
 import com.muxy.app.networking.server.ServerProject
 import com.muxy.app.networking.server.ServerTerminalChannel
 import uniffi.muxy_mobile.Session
@@ -9,9 +9,12 @@ import uniffi.muxy_mobile.Connection as SdkConnection
 class SdkServerConnection(
     private val connection: SdkConnection,
     private val lanes: SdkLanes,
-) : ServerConnection {
+    private val closeTransport: () -> Unit = {},
+) : RemoteServerConnection {
     override val serverVersion: String
         get() = connection.serverVersion()
+
+    override suspend fun serverId(): String = lanes.request { connection.serverId() }
 
     override suspend fun projects(): List<ServerProject> = lanes.request { connection.projects() }
 
@@ -41,9 +44,13 @@ class SdkServerConnection(
     override fun git(projectId: String) = SdkGitRepository(connection.git(projectId), lanes)
 
     override fun disconnect() {
-        connection.disconnect()
-        lanes.close()
-        connection.close()
+        try {
+            connection.disconnect()
+            lanes.close()
+            connection.close()
+        } finally {
+            closeTransport()
+        }
     }
 }
 

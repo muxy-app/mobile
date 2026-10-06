@@ -24,7 +24,7 @@ internal fun NavBackStack<AppRoute>.openConnection(
         }
 
         ConnectionKind.SERVER -> {
-            val serverId = connection.serverId
+            val serverId = connection.serverRouteId
             if (serverId == null) {
                 Log.connection.error("A Muxy 2 connection has no server id")
                 return

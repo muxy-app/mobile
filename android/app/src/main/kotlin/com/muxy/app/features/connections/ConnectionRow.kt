@@ -94,7 +94,7 @@ fun ConnectionRow(
 val Connection.subtitle: String
     get() {
         val username = sshConfig?.username
-        if (kind != ConnectionKind.SSH || username == null) return "$host:$port"
+        if (!usesSsh || username == null) return "$host:$port"
         return "$username@$host:$port"
     }
 
