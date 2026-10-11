@@ -32,8 +32,8 @@ class ProjectDetailViewModelTest {
             val fixture = fixture()
             val state = fixture.viewModel.uiState.value
             assertEquals(ProjectTabsStatus.READY, state.status)
-            assertEquals(listOf("zsh"), state.tabs.map { it.title })
-            assertEquals(state.tabs.single().id, state.selectedTabId)
+            assertEquals(listOf("agent", "nvim", "zsh"), state.tabs.map { it.title })
+            assertEquals(state.tabs.first().id, state.selectedTabId)
             assertEquals("Muxy", state.projectName)
             assertEquals(DemoConnection.NAME, state.connectionName)
         }
@@ -52,7 +52,7 @@ class ProjectDetailViewModelTest {
             fixture.viewModel.createTab()
             advanceUntilIdle()
             val state = fixture.viewModel.uiState.value
-            assertEquals(listOf("zsh", "zsh 3"), state.tabs.map { it.title })
+            assertEquals(listOf("agent", "nvim", "zsh", "zsh 3"), state.tabs.map { it.title })
             assertEquals(state.tabs.last().id, state.selectedTabId)
         }
 
@@ -85,10 +85,10 @@ class ProjectDetailViewModelTest {
             fixture.viewModel.closeTab(created)
             val optimistic = fixture.viewModel.uiState.value
             assertFalse(optimistic.tabs.any { it.id == created.id })
-            assertEquals(optimistic.tabs.single().id, optimistic.selectedTabId)
+            assertEquals(optimistic.tabs.first().id, optimistic.selectedTabId)
             advanceUntilIdle()
             assertEquals(
-                listOf("zsh"),
+                listOf("agent", "nvim", "zsh"),
                 fixture.viewModel.uiState.value.tabs
                     .map { it.title },
             )
@@ -98,11 +98,11 @@ class ProjectDetailViewModelTest {
     fun closingTheLastTabShowsTheEmptyState() =
         runTest {
             val fixture = fixture()
-            fixture.viewModel.closeTab(
-                fixture.viewModel.uiState.value.tabs
-                    .single(),
-            )
-            advanceUntilIdle()
+            val tabs = fixture.viewModel.uiState.value.tabs
+            for (tab in tabs) {
+                fixture.viewModel.closeTab(tab)
+                advanceUntilIdle()
+            }
             val state = fixture.viewModel.uiState.value
             assertTrue(state.tabs.isEmpty())
             assertEquals(ProjectTabsStatus.READY, state.status)

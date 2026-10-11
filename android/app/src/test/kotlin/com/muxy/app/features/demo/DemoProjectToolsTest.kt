@@ -20,13 +20,14 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.encodeToJsonElement
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.Base64
 
 class DemoProjectToolsTest {
     @Test
-    fun bothProjectsHaveIndependentFilesGitAndPrimaryWorktrees() =
+    fun allProjectsHaveIndependentFilesGitAndPrimaryWorktrees() =
         runTest {
             val backend = DemoBackend()
             val projects =
@@ -45,20 +46,25 @@ class DemoProjectToolsTest {
                         .result
                         .decode<List<RemoteFileEntry>>()
                 assertTrue(files.any { it.path == ".build" && it.isIgnored })
-                assertTrue(files.any { it.path == "archive.bin" })
+                assertTrue(files.any { it.path == "README.md" })
                 assertEquals(1, trees.size)
                 assertTrue(trees.single().isPrimary)
                 assertFalse(trees.single().canBeRemoved)
+                assertEquals(status.branch, trees.single().branch)
                 if (project.name == "Muxy") {
-                    assertEquals("main", status.branch)
-                    assertEquals(1, status.stagedFiles.size)
+                    assertEquals("feature/reopen-tab", status.branch)
+                    assertEquals(3, status.stagedFiles.size)
                     assertEquals(1, status.changedFiles.size)
-                } else {
-                    assertEquals("feature/native-git", status.branch)
-                    assertEquals(2L, status.aheadCount)
-                    assertEquals(42L, status.pullRequest?.number)
+                    assertEquals(3L, status.aheadCount)
+                    assertEquals(128L, status.pullRequest?.number)
                     assertEquals("4/4 passing", status.pullRequest?.checks?.label)
+                } else {
+                    assertEquals("main", status.branch)
+                    assertEquals(0L, status.aheadCount)
+                    assertNull(status.pullRequest)
+                    assertTrue(status.stagedFiles.isEmpty())
                     assertTrue(status.changedFiles.isEmpty())
+                    assertTrue(files.any { it.path == "archive.bin" })
                 }
             }
             val project = projects.first()
@@ -90,7 +96,7 @@ class DemoProjectToolsTest {
 
     @Test
     fun fileCrudPreservesContentsAndUsesUniqueDestinations() {
-        val files = DemoFileStore("Demo")
+        val files = DemoFileStore(listOf(DemoFile.directory("Sources")))
         files.write("note.txt", "hello", FileEncoding.UTF8)
         assertEquals(listOf("note.txt"), files.changedPaths)
         assertEquals(listOf("renamed.txt"), files.rename("note.txt", "renamed.txt"))
@@ -107,7 +113,7 @@ class DemoProjectToolsTest {
     @Test
     fun binaryAndImageDataAreAvailableWithoutPretendingBinaryIsUtf8() =
         runTest {
-            val files = DemoFileStore("Demo")
+            val files = DemoFileStore(DemoCatalog.projects.single { it.project.name == "Web App" }.files)
             expectFailure<ProtocolException> { files.read("archive.bin", FileEncoding.UTF8) }
             val image: RemoteFileContent = files.read("assets/icon.png", FileEncoding.BASE64)
             val bytes = Base64.getDecoder().decode(image.content)
@@ -118,7 +124,14 @@ class DemoProjectToolsTest {
     @Test
     fun failedRenameAndInvalidBatchMoveLeaveFilesUnchanged() =
         runTest {
-            val files = DemoFileStore("Demo")
+            val files =
+                DemoFileStore(
+                    listOf(
+                        DemoFile.text("README.md", "original"),
+                        DemoFile.binary("archive.bin", byteArrayOf(0xff.toByte())),
+                        DemoFile.directory("Sources"),
+                    ),
+                )
             val before = files.read("README.md", FileEncoding.UTF8)
             expectFailure<ProtocolException> { files.rename("archive.bin", "README.md") }
             expectFailure<ProtocolException> { files.move(listOf("README.md", "missing"), "Sources") }
@@ -129,7 +142,7 @@ class DemoProjectToolsTest {
     @Test
     fun demoWritesEnforceTheSameFiveMiBLimit() =
         runTest {
-            val files = DemoFileStore("Demo")
+            val files = DemoFileStore(emptyList())
             files.write("large", "x".repeat(FileLimits.MAXIMUM_BYTES), FileEncoding.UTF8)
             assertEquals(FileLimits.MAXIMUM_BYTES.toLong(), files.stat("large").size)
             expectFailure<ProtocolException> { files.write("large", "x".repeat(FileLimits.MAXIMUM_BYTES + 1), FileEncoding.UTF8) }

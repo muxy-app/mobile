@@ -93,7 +93,7 @@ class ChannelFileBackendTest {
                     .getValue("encoding")
                     .jsonPrimitive.content,
             )
-            expectFailure<FileException.NotText> { backend.readText("archive.bin") }
+            expectFailure<FileException.NotText> { backend.readText("assets/icon.png") }
         }
 
     @Test

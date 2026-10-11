@@ -2,6 +2,7 @@ package com.muxy.app.networking.muxy1
 
 import app.cash.turbine.test
 import com.muxy.app.core.serialization.uuidString
+import com.muxy.app.features.demo.DemoCatalog
 import com.muxy.app.features.demo.DemoConnection
 import com.muxy.app.models.Project
 import com.muxy.app.networking.muxy1.protocol.CreateTabParams
@@ -85,7 +86,7 @@ class ConnectionManagerRequestTest {
             manager.ensureConnected(DemoConnection.connection)
             assertEquals(ConnectionState.Connected, manager.status.value.of(DemoConnection.id))
             val projects = manager.request(DemoConnection.id, Method.LIST_PROJECTS).decode(ProjectsResult.serializer()).projects
-            assertEquals(listOf("Muxy", "Web App"), projects.map(Project::name))
+            assertEquals(DemoCatalog.projects.map { it.project }, projects)
             assertTrue(demoRecorder.transports.isEmpty())
         }
 
