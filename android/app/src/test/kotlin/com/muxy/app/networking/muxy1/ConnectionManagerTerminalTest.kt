@@ -130,7 +130,7 @@ class ConnectionManagerTerminalTest {
                         .tabAreas(workspace)
                         .first()
                         .tabs
-                        .first()
+                        .single { it.title == "zsh" }
                         .paneId,
                 )
             val session =

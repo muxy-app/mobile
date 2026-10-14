@@ -43,8 +43,11 @@ class DemoBackendTest {
             val result = backend.handle(Method.LIST_PROJECTS, null).result
             assertEquals(ResultType.PROJECTS, result.type)
             val projects = result.decode(ProjectsResult.serializer()).projects
-            assertEquals(listOf("Muxy", "Web App"), projects.map(Project::name))
-            assertEquals(listOf("Work", "Personal"), projects.map { it.workspaceName })
+            assertEquals(
+                listOf("Muxy", "Web App", "API Server", "Mobile App", "Design System", "Docs", "Dotfiles", "Blog", "Homelab"),
+                projects.map(Project::name),
+            )
+            assertEquals(List(6) { "Work" } + List(3) { "Personal" }, projects.map { it.workspaceName })
         }
 
     @Test

@@ -1,6 +1,7 @@
 package com.muxy.app.features.git
 
 import androidx.lifecycle.viewModelScope
+import com.muxy.app.features.demo.DemoSources
 import com.muxy.app.models.GitDiffKey
 import com.muxy.app.models.VcsBranches
 import com.muxy.app.models.VcsDiff
@@ -42,26 +43,26 @@ class GitViewModelTest {
             val model = model()
             model.refreshStatus()
             model.refreshBranches()
-            val key = GitDiffKey("Sources/App.swift", true)
+            val key = GitDiffKey(DemoSources.TAB_STORE_PATH, true)
             model.loadDiff(key)
             assertEquals(
-                "main",
+                "feature/reopen-tab",
                 model.state.value.status
                     ?.branch,
             )
-            assertEquals(2, model.state.value.totalChanges)
+            assertEquals(4, model.state.value.totalChanges)
             assertEquals(
                 "main",
                 model.state.value.branches
                     ?.defaultBranch,
             )
             assertEquals(
-                2L,
+                17L,
                 model.state.value.diffs[key]
                     ?.additions,
             )
             assertEquals(
-                1L,
+                2L,
                 model.state.value.diffs[key]
                     ?.deletions,
             )
@@ -72,11 +73,11 @@ class GitViewModelTest {
     fun commitClearsChangesAndInvalidatesDiffCache() =
         runTest {
             val model = model()
-            model.loadDiff(GitDiffKey("README.md", false))
+            model.loadDiff(GitDiffKey(DemoSources.CHANGELOG_PATH, false))
             assertTrue(model.commit("  First commit  ", true))
             assertEquals(0, model.state.value.totalChanges)
             assertEquals(
-                1L,
+                4L,
                 model.state.value.status
                     ?.aheadCount,
             )
@@ -85,7 +86,7 @@ class GitViewModelTest {
                     .isEmpty(),
             )
             assertFalse(model.state.value.isBusy)
-            assertEquals("Push 1", model.pushTitle(model.state.value.status!!))
+            assertEquals("Push 4", model.pushTitle(model.state.value.status!!))
             assertTrue(model.push())
             assertEquals(
                 0L,
@@ -101,7 +102,7 @@ class GitViewModelTest {
             assertTrue(model.commit("Staged only", false))
             assertEquals(1, model.state.value.totalChanges)
             assertEquals(
-                "README.md",
+                DemoSources.CHANGELOG_PATH,
                 model.state.value.status
                     ?.changedFiles
                     ?.single()
@@ -146,16 +147,15 @@ class GitViewModelTest {
         }
 
     @Test
-    fun webDemoStartsCleanAheadWithPassingPullRequest() =
+    fun webDemoStartsCleanOnMain() =
         runTest {
             val model = model(ChannelGitBackend(DEMO_WEB_PROJECT_ID, channel))
             model.refreshStatus()
             val status = model.state.value.status!!
-            assertEquals("feature/native-git", status.branch)
+            assertEquals("main", status.branch)
             assertEquals(0, model.state.value.totalChanges)
-            assertEquals(2L, status.aheadCount)
-            assertEquals(42L, status.pullRequest?.number)
-            assertEquals("4/4 passing", status.pullRequest?.checks?.label)
+            assertEquals(0L, status.aheadCount)
+            assertNull(status.pullRequest)
         }
 
     @Test
@@ -224,7 +224,7 @@ class GitViewModelTest {
     @Test
     fun fullDiffWinsOverOlderCappedResponseAndInvalidationDropsInflightDiffs() =
         runTest {
-            val key = GitDiffKey("README.md", false)
+            val key = GitDiffKey(DemoSources.CHANGELOG_PATH, false)
             val original = backend.diff(key, false)
             var pending = CompletableDeferred<VcsDiff>()
             val model =
@@ -315,7 +315,7 @@ class GitViewModelTest {
             assertEquals("Cannot pull", model.state.value.errorMessage)
             assertFalse(model.state.value.isBusy)
             assertEquals(
-                "main",
+                "feature/reopen-tab",
                 model.state.value.status
                     ?.branch,
             )
