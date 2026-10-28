@@ -14,7 +14,7 @@ struct ThemePickerView: View {
                 .buttonStyle(.plain)
             }
         }
-        .screenTitle("Theme")
+        .screenTitle("Terminal theme")
     }
 }
 

@@ -5,6 +5,7 @@ struct ServerProjectDetailView: View {
     let connection: Connection
     let server: ServerController?
     let projectID: String
+    let initialTabID: UUID?
     let settings: AppSettings
     let onOpenProject: (String) -> Void
 
@@ -14,6 +15,7 @@ struct ServerProjectDetailView: View {
                 connection: connection,
                 server: server,
                 model: server.projectModel(for: projectID),
+                initialTabID: initialTabID,
                 settings: settings,
                 onOpenProject: onOpenProject
             )
@@ -51,11 +53,13 @@ private struct ServerProjectTabsView: View {
     let connection: Connection
     let server: ServerController
     let model: ProjectModel
+    let initialTabID: UUID?
     let settings: AppSettings
     let onOpenProject: (String) -> Void
 
     @State private var sheet: ServerProjectSheet?
     @State private var pendingProjectID: String?
+    @State private var hasAppliedInitialSelection = false
 
     var body: some View {
         ProjectTabsScreen(
@@ -86,7 +90,15 @@ private struct ServerProjectTabsView: View {
                 ServerWorktreesSheetView(model: worktrees, onOpen: open)
             }
         }
-        .onAppear { model.setVisible(true) }
+        .onAppear {
+            if !hasAppliedInitialSelection {
+                if let tab = model.tabs.first(where: { $0.id == initialTabID }) {
+                    model.select(tab)
+                }
+                hasAppliedInitialSelection = true
+            }
+            model.setVisible(true)
+        }
         .onDisappear { model.setVisible(false) }
     }
 

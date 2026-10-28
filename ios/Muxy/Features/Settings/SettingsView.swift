@@ -14,7 +14,7 @@ struct SettingsView: View {
                         ThemePickerView(settings: settings)
                     } label: {
                         HStack {
-                            Text("Theme")
+                            Text("Terminal theme")
                                 .foregroundStyle(theme.foreground)
                             Spacer()
                             Text(settings.themePalette.name)
@@ -23,6 +23,9 @@ struct SettingsView: View {
                     }
                 } header: {
                     ThemedSectionHeader("Appearance")
+                } footer: {
+                    Text("The app follows your device’s light or dark appearance. Terminal colors are independent.")
+                        .foregroundStyle(theme.secondaryForeground)
                 }
 
                 Section {
@@ -51,7 +54,6 @@ struct SettingsView: View {
                     ThemedSectionHeader("Demo")
                 }
             }
-            .tint(theme.accent)
             .screenTitle("Settings")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -72,6 +74,6 @@ struct SettingsView: View {
                     .foregroundStyle(theme.secondaryForeground)
             }
         }
-        .tint(theme.accent)
+        .tint(theme.green)
     }
 }

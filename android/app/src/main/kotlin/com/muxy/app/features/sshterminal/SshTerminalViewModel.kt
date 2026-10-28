@@ -2,7 +2,6 @@ package com.muxy.app.features.sshterminal
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.muxy.app.R
 import com.muxy.app.core.concurrency.attempt
 import com.muxy.app.design.components.TabStripItem
 import com.muxy.app.features.terminal.TerminalClipboard
@@ -92,7 +91,7 @@ class SshTerminalViewModel(
         mutableState.value = state.copy(tabs = tabItems(), selectedId = selected)
     }
 
-    private fun tabItems(): List<TabStripItem> = sessions.keys.map { TabStripItem(it, "Terminal", R.drawable.ic_terminal) }
+    private fun tabItems(): List<TabStripItem> = sessions.keys.map { TabStripItem(it, "Terminal") }
 
     override fun onCleared() {
         sessions.values.forEach(SshTerminalTab::close)

@@ -1,5 +1,6 @@
 package com.muxy.app.networking.server
 
+import uniffi.muxy_mobile.Activity
 import uniffi.muxy_mobile.ConnectionEvent
 import uniffi.muxy_mobile.Key
 import uniffi.muxy_mobile.Line
@@ -34,6 +35,10 @@ interface ServerConnection {
     ): Session
 
     suspend fun endSession(sessionId: ULong)
+
+    suspend fun activity(): Activity
+
+    suspend fun acknowledgeActivity(eventIds: List<ULong>)
 
     suspend fun attach(
         sessionId: ULong,

@@ -45,6 +45,19 @@ data class AppTheme(
                 terminalPalette = palette.replacingBackground(tokens.groupedBackground.rgb),
             )
         }
+
+        fun interfaceTheme(
+            isDark: Boolean,
+            terminalPalette: ThemePalette,
+        ): AppTheme {
+            val palette =
+                ThemeCatalog.muxy.copy(
+                    foreground = if (isDark) 0xF3F4F8 else 0x20232D,
+                    background = if (isDark) 0x171A21 else 0xF4F5F8,
+                )
+            val terminalBackground = ThemeTokens.from(terminalPalette).groupedBackground.rgb
+            return from(palette).copy(terminalPalette = terminalPalette.replacingBackground(terminalBackground))
+        }
     }
 }
 

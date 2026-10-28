@@ -41,8 +41,8 @@ fun SettingsScreen(
             item(key = "theme") {
                 ThemedCell(RowPosition.SINGLE) {
                     ThemedListItem(
-                        headline = { Text("Theme") },
-                        supporting = { Text(themeName) },
+                        headline = { Text("Terminal theme") },
+                        supporting = { Text("$themeName · App appearance follows your system.") },
                         modifier = Modifier.clickable(onClick = onTheme),
                     )
                 }

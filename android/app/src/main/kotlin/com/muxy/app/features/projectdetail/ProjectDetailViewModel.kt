@@ -16,13 +16,12 @@ import com.muxy.app.features.terminal.TerminalSettings
 import com.muxy.app.models.Connection
 import com.muxy.app.models.Tab
 import com.muxy.app.models.TabArea
-import com.muxy.app.models.TabKind
 import com.muxy.app.models.Workspace
 import com.muxy.app.models.WorkspaceFlattening
 import com.muxy.app.networking.muxy1.ConnectionManager
 import com.muxy.app.networking.muxy1.ConnectionState
+import com.muxy.app.networking.muxy1.createTerminalTab
 import com.muxy.app.networking.muxy1.protocol.CloseTabParams
-import com.muxy.app.networking.muxy1.protocol.CreateTabParams
 import com.muxy.app.networking.muxy1.protocol.ErrorCode
 import com.muxy.app.networking.muxy1.protocol.EventEnvelope
 import com.muxy.app.networking.muxy1.protocol.EventName
@@ -74,8 +73,12 @@ class ProjectDetailViewModel(
     settingsStore: SettingsStore,
     outbound: CoroutineScope,
     clipboard: TerminalClipboard,
+    initialTabId: UUID? = null,
 ) : ViewModel() {
-    private val content = MutableStateFlow(Content())
+    private val content = MutableStateFlow(Content(selectedTabId = initialTabId))
+    private var pendingInitialTabId = initialTabId
+    private val selectsProjectOnLoad = initialTabId == null
+    private var workspaceRevision = 0
 
     private val terminals = TerminalSessionStore(ConnectionTerminalChannel(connectionId, manager), viewModelScope, outbound, clipboard)
 
@@ -154,14 +157,11 @@ class ProjectDetailViewModel(
     }
 
     fun createTab() {
-        val params = CreateTabParams(projectId.uuidString, focusedArea()?.id?.uuidString, TabKind.Terminal.rawValue)
         viewModelScope.launch {
-            attempt { manager.request(connectionId, Method.CREATE_TAB, params) }
-                .mapCatching { result ->
-                    check(result.type == ResultType.TAB) { "Unexpected result ${result.type}" }
-                    result.decode(Tab.serializer())
-                }.onSuccess { tab -> content.update { it.copy(selectedTabId = tab.id) } }
-                .onFailure { Log.client.error("Failed to create tab", it) }
+            attempt { manager.createTerminalTab(connectionId, projectId) }
+                .onSuccess { tab ->
+                    if (tab != null) content.update { it.copy(selectedTabId = tab.id) }
+                }.onFailure { Log.client.error("Failed to create tab", it) }
         }
     }
 
@@ -172,16 +172,25 @@ class ProjectDetailViewModel(
     }
 
     private suspend fun loadWorkspace() {
-        attempt { manager.request(connectionId, Method.SELECT_PROJECT, SelectProjectParams(projectId.uuidString)) }
-            .onFailure { Log.client.error("Failed to select project", it) }
+        val session = manager.status.value.connectedSession(connectionId) ?: return
+        if (selectsProjectOnLoad) {
+            attempt { manager.request(connectionId, Method.SELECT_PROJECT, SelectProjectParams(projectId.uuidString)) }
+                .onFailure { Log.client.error("Failed to select project", it) }
+        }
+        if (manager.status.value.connectedSession(connectionId) != session) return
+        val revision = workspaceRevision
         attempt { manager.request(connectionId, Method.GET_WORKSPACE, GetWorkspaceParams(projectId.uuidString)) }
             .mapCatching { result ->
                 check(result.type == ResultType.WORKSPACE) { "Unexpected result ${result.type}" }
                 result.decode(Workspace.serializer())
-            }.onSuccess(::apply)
-            .onFailure { error ->
+            }.onSuccess {
+                if (manager.status.value.connectedSession(connectionId) == session && revision == workspaceRevision) apply(it)
+            }.onFailure { error ->
+                if (manager.status.value.connectedSession(connectionId) != session || revision != workspaceRevision) return@onFailure
                 if ((error as? ProtocolException)?.code == ErrorCode.NOT_FOUND) {
-                    content.update { it.copy(workspace = null, hasLoaded = true) }
+                    pendingInitialTabId = null
+                    workspaceRevision += 1
+                    content.update { it.copy(workspace = null, hasLoaded = true, selectedTabId = null) }
                     return
                 }
                 Log.client.error("Failed to load workspace", error)
@@ -197,21 +206,30 @@ class ProjectDetailViewModel(
 
     private fun apply(workspace: Workspace) {
         if (workspace.projectId != projectId) return
+        workspaceRevision += 1
+        val initialTabId = pendingInitialTabId
+        pendingInitialTabId = null
         content.update { current ->
             val tabs = tabs(workspace)
             val keepsSelection = current.selectedTabId != null && tabs.any { it.id == current.selectedTabId }
             val selection =
-                if (keepsSelection) {
-                    current.selectedTabId
-                } else {
-                    WorkspaceFlattening.focusedTabArea(workspace)?.activeTabId
-                        ?: tabs.firstOrNull()?.id
-                }
+                initialTabId?.takeIf { id -> tabs.any { it.id == id } }
+                    ?: if (keepsSelection) {
+                        current.selectedTabId
+                    } else {
+                        WorkspaceFlattening.focusedTabArea(workspace)?.activeTabId?.takeIf { id -> tabs.any { it.id == id } }
+                            ?: tabs.firstOrNull()?.id
+                    }
             current.copy(workspace = workspace, hasLoaded = true, selectedTabId = selection)
         }
+        if (initialTabId == null || content.value.selectedTabId != initialTabId) return
+        val area = areaContaining(initialTabId) ?: return
+        if (area.activeTabId == initialTabId) return
+        send(Method.SELECT_TAB, SelectTabParams(projectId.uuidString, area.id.uuidString, initialTabId.uuidString), "select initial tab")
     }
 
     private fun removeLocally(tabId: UUID) {
+        workspaceRevision += 1
         content.update { current ->
             val workspace = current.workspace ?: return@update current
             val owning = WorkspaceFlattening.areaContaining(tabId, workspace) ?: return@update current
@@ -235,8 +253,6 @@ class ProjectDetailViewModel(
                 .onFailure { Log.client.error("Failed to $action", it) }
         }
     }
-
-    private fun focusedArea(): TabArea? = content.value.workspace?.let(WorkspaceFlattening::focusedTabArea)
 
     private fun areaContaining(tabId: UUID): TabArea? = content.value.workspace?.let { WorkspaceFlattening.areaContaining(tabId, it) }
 

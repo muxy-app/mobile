@@ -18,21 +18,26 @@ final class ProjectDetailViewModel {
     private let sessionStore: TerminalSessionStore
     private let gitViewModel: GitViewModel
     private let worktreesViewModel: WorktreesViewModel
+    private let initialTabID: UUID?
     private var observationTask: Task<Void, Never>?
     private var eventsTask: Task<Void, Never>?
+    private var hasAppliedInitialSelection = false
 
     init(
         connection: Connection,
         project: Project,
         keychain: KeychainStore,
         connectionManager: ConnectionManager,
-        sessionStore: TerminalSessionStore
+        sessionStore: TerminalSessionStore,
+        initialTabID: UUID? = nil
     ) {
         self.connection = connection
         self.project = project
         self.keychain = keychain
         self.connectionManager = connectionManager
         self.sessionStore = sessionStore
+        self.initialTabID = initialTabID
+        selectedTabID = initialTabID
         let git = GitViewModel(backend: ChannelGitBackend(projectID: project.id, connectionManager: connectionManager))
         gitViewModel = git
         worktreesViewModel = WorktreesViewModel(
@@ -179,8 +184,10 @@ final class ProjectDetailViewModel {
     }
 
     private func loadWorkspace() async {
-        let selectParams = SelectProjectParams(projectID: project.id.uuidString)
-        _ = try? await connectionManager.request(.selectProject, params: selectParams)
+        if initialTabID == nil {
+            let selectParams = SelectProjectParams(projectID: project.id.uuidString)
+            _ = try? await connectionManager.request(.selectProject, params: selectParams)
+        }
 
         do {
             let params = GetWorkspaceParams(projectID: project.id.uuidString)
@@ -210,6 +217,13 @@ final class ProjectDetailViewModel {
         guard workspace.projectID == project.id else { return }
         self.workspace = workspace
         worktreesViewModel.setActiveWorktreeID(workspace.worktreeID)
+        if !hasAppliedInitialSelection, let initialTabID {
+            hasAppliedInitialSelection = true
+            if let areaID = area(containing: initialTabID)?.id {
+                selectedTabID = initialTabID
+                sendSelectTab(areaID: areaID, tabID: initialTabID)
+            }
+        }
         reconcileSelection()
         sessionStore.tabsChanged(tabs)
         sessionStore.selectionChanged(to: selectedTabID, tabs: tabs)

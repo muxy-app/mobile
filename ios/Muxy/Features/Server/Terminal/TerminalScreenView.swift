@@ -17,6 +17,7 @@ struct TerminalScreenView: View {
                 autoFocus: settings.autoFocusTerminal,
                 onKeyboardOffsetChange: { keyboardOffset = $0 }
             )
+            .padding(TerminalViewportState.contentInset)
 
             overlay
 
@@ -36,7 +37,8 @@ struct TerminalScreenView: View {
             }
             .allowsHitTesting(false)
         }
-        .background(theme.groupedBackground)
+        .background(ThemeColor(rgb: theme.terminalPalette.background).color)
+        .keyboardIsland(bottomInset: keyboardOffset)
     }
 
     @ViewBuilder

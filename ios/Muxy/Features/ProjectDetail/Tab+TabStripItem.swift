@@ -11,4 +11,16 @@ extension Tab: TabStripItem {
             return "questionmark.circle"
         }
     }
+
+    var tileKind: TabTileKind {
+        switch kind {
+        case .terminal: .shell
+        case .vcs: .git
+        case .unsupported: .other
+        }
+    }
+
+    var activity: TabActivity {
+        .none
+    }
 }

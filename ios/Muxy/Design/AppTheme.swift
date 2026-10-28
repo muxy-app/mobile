@@ -20,7 +20,24 @@ nonisolated struct AppTheme: Equatable, Sendable {
     static let muxy = AppTheme(palette: .muxy)
 
     init(palette: ThemePalette) {
-        let tokens = ThemeTokens(palette: palette)
+        self.init(tokens: ThemeTokens(palette: palette), terminalPalette: palette)
+    }
+
+    init(isDark: Bool, terminalPalette: ThemePalette) {
+        let palette = ThemePalette(
+            name: "Muxy Interface",
+            foreground: isDark ? 0xF3F4F8 : 0x20232D,
+            background: isDark ? 0x171A21 : 0xF4F5F8,
+            ansi: ThemePalette.muxy.ansi,
+            cursor: ThemePalette.muxy.cursor,
+            cursorText: ThemePalette.muxy.cursorText,
+            selectionBackground: ThemePalette.muxy.selectionBackground,
+            selectionForeground: ThemePalette.muxy.selectionForeground
+        )
+        self.init(tokens: ThemeTokens(palette: palette), terminalPalette: terminalPalette, neutralAccent: true)
+    }
+
+    private init(tokens: ThemeTokens, terminalPalette: ThemePalette, neutralAccent: Bool = false) {
         background = tokens.background.color
         secondaryBackground = tokens.secondaryBackground.color
         groupedBackground = tokens.groupedBackground.color
@@ -28,13 +45,13 @@ nonisolated struct AppTheme: Equatable, Sendable {
         separator = tokens.separator.color
         foreground = tokens.foreground.color
         secondaryForeground = tokens.secondaryForeground.color
-        accent = tokens.accent.color
-        onAccent = tokens.onAccent.color
+        accent = neutralAccent ? tokens.foreground.color : tokens.accent.color
+        onAccent = neutralAccent ? tokens.background.color : tokens.onAccent.color
         red = tokens.red.color
         green = tokens.green.color
         yellow = tokens.yellow.color
         cyan = tokens.cyan.color
         isDark = tokens.isDark
-        terminalPalette = palette.replacingBackground(with: tokens.groupedBackground.rgb)
+        self.terminalPalette = terminalPalette.replacingBackground(with: ThemeTokens(palette: terminalPalette).groupedBackground.rgb)
     }
 }

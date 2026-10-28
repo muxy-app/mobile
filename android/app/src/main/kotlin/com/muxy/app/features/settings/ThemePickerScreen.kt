@@ -50,12 +50,20 @@ fun ThemePickerScreen(
     Scaffold(
         topBar = {
             MuxyTopAppBar(
-                title = "Theme",
+                title = "Terminal theme",
                 navigationIcon = { TopBarAction(R.drawable.ic_arrow_back, "Back", onBack) },
             )
         },
     ) { padding ->
         ThemedList(contentPadding = padding, modifier = Modifier.selectableGroup()) {
+            item(key = "appearance") {
+                Text(
+                    "Changes terminal colors only. The app follows your system's light or dark appearance.",
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = LocalAppTheme.current.secondaryForeground,
+                )
+            }
             themedSection(items = ThemeCatalog.all, key = { it.name }, separatorInset = swatchSeparatorInset) { palette ->
                 ThemeRow(
                     palette = palette,

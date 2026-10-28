@@ -56,11 +56,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import com.muxy.app.R
-import com.muxy.app.design.LocalAppTheme
 
 @Composable
 fun ModifierKey(
     sticky: StickyModifier,
+    background: Color,
     foreground: Color,
     onToggle: () -> Unit,
     onSelect: (TerminalModifier) -> Unit,
@@ -148,7 +148,7 @@ fun ModifierKey(
         }
         if (pickerOpen) {
             Popup(popupPositionProvider = AboveAnchor(with(LocalDensity.current) { PICKER_GAP.roundToPx() })) {
-                ModifierPicker(sticky.active, hovered) { entry, bounds -> rows[entry] = bounds }
+                ModifierPicker(sticky.active, hovered, background, foreground) { entry, bounds -> rows[entry] = bounds }
             }
         }
     }
@@ -158,21 +158,22 @@ fun ModifierKey(
 private fun ModifierPicker(
     active: TerminalModifier,
     hovered: TerminalModifier?,
+    background: Color,
+    foreground: Color,
     onRowPlaced: (TerminalModifier, Rect) -> Unit,
 ) {
-    val theme = LocalAppTheme.current
     Column(
         modifier =
             Modifier
                 .width(PICKER_WIDTH)
                 .clip(RoundedCornerShape(PICKER_RADIUS))
-                .background(theme.secondaryGroupedBackground)
-                .border(BorderStroke(1.dp, theme.separator), RoundedCornerShape(PICKER_RADIUS))
+                .background(background)
+                .border(BorderStroke(1.dp, foreground.copy(alpha = BORDER_ALPHA)), RoundedCornerShape(PICKER_RADIUS))
                 .padding(vertical = 6.dp),
     ) {
         TerminalModifier.entries.forEach { entry ->
             val disabled = entry == active
-            val color = if (disabled) theme.foreground.copy(alpha = DISABLED_ALPHA) else theme.foreground
+            val color = if (disabled) foreground.copy(alpha = DISABLED_ALPHA) else foreground
             Row(
                 modifier =
                     Modifier
@@ -181,7 +182,7 @@ private fun ModifierPicker(
                         .onGloballyPositioned { onRowPlaced(entry, it.boundsInWindow()) }
                         .padding(horizontal = 8.dp)
                         .clip(RoundedCornerShape(10.dp))
-                        .background(if (entry == hovered) theme.foreground.copy(alpha = HIGHLIGHT_ALPHA) else Color.Transparent)
+                        .background(if (entry == hovered) foreground.copy(alpha = HIGHLIGHT_ALPHA) else Color.Transparent)
                         .padding(horizontal = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
@@ -224,6 +225,7 @@ private const val PICKER_DELAY_MILLIS = 300L
 private const val ARMED = "On"
 private const val NOT_ARMED = "Off"
 private const val CHEVRON_ALPHA = 0.6f
+private const val BORDER_ALPHA = 0.2f
 private const val DISABLED_ALPHA = 0.4f
 private const val HIGHLIGHT_ALPHA = 0.18f
 private const val GLYPH_SIZE = 15

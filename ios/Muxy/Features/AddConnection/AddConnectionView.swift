@@ -28,7 +28,6 @@ struct AddConnectionView: View {
                     statusSection
                 }
             }
-            .tint(theme.accent)
             .screenTitle("Add Connection")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -126,7 +125,7 @@ struct AddConnectionView: View {
                 guard let link = links.first else { return }
                 viewModel.serverPairing.receive(link: link, source: .manual)
             }
-            .tint(theme.accent)
+            .tint(theme.secondaryForeground)
         }
         .disabled(viewModel.isWorking)
 

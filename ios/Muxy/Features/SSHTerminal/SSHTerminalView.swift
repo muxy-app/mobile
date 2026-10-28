@@ -19,7 +19,7 @@ struct SSHTerminalView: View {
             content
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(theme.groupedBackground)
+        .tabPageChrome(theme)
         .ignoresSafeArea(.keyboard)
         .screenTitle(viewModel.connectionName)
         .task { viewModel.start() }
@@ -39,6 +39,7 @@ struct SSHTerminalView: View {
         TabView(selection: selectionBinding) {
             ForEach(viewModel.tabs) { tab in
                 SSHTerminalTabView(session: viewModel.terminalSession(for: tab))
+                    .tabPageIsland()
                     .tag(Optional(tab.id))
             }
         }

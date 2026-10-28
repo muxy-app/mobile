@@ -5,6 +5,7 @@ import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.muxy.app.design.components.TabStripItem
 import com.muxy.app.features.projectdetail.terminal.TerminalTabPage
+import com.muxy.app.models.TabTileKind
 
 @Composable
 fun ProjectDetailScreen(
@@ -19,7 +20,7 @@ fun ProjectDetailScreen(
         ProjectTabsUiState(
             projectName = state.projectName,
             connectionName = state.connectionName,
-            tabs = state.tabs.map { TabStripItem(it.id, it.title, it.kind.icon()) },
+            tabs = state.tabs.map { TabStripItem(it.id, it.title, TabTileKind.of(it.kind)) },
             selectedTabId = state.selectedTabId,
             status = state.status,
         )

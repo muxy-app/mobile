@@ -22,7 +22,7 @@ private struct WindowThemeApplier: UIViewRepresentable {
 private final class WindowThemeView: UIView {
     var theme: AppTheme {
         didSet {
-            guard theme != oldValue else { return }
+            guard theme.isDark != oldValue.isDark else { return }
             crossfadeToTheme()
         }
     }
@@ -57,10 +57,9 @@ private final class WindowThemeView: UIView {
     private func applyTheme() {
         guard let window else { return }
         let background = UIColor(theme.groupedBackground)
-        window.overrideUserInterfaceStyle = theme.isDark ? .dark : .light
+        window.overrideUserInterfaceStyle = .unspecified
         window.backgroundColor = background
         window.rootViewController?.view.backgroundColor = background
-        NavigationBarAppearance.apply(theme, in: window)
     }
 
     private static let crossfadeDuration: TimeInterval = 0.25

@@ -27,7 +27,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.res.painterResource
@@ -49,9 +48,9 @@ fun TerminalScreen(
     isActive: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    val palette = LocalAppTheme.current.terminalPalette
+    val theme = LocalAppTheme.current
+    val palette = theme.terminalPalette
     val background = rgbColor(palette.background)
-    val foreground = rgbColor(palette.foreground)
     val handle = remember(controller) { TerminalSurfaceHandle(controller) }
     val imeVisible = WindowInsets.isImeVisible
     SideEffect { handle.keyboardVisible = imeVisible }
@@ -71,16 +70,23 @@ fun TerminalScreen(
             )
             Spacer(modifier = Modifier.height(TerminalAccessoryBarDefaults.height))
         }
-        Column(modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().imePadding()) {
+        Column(
+            modifier =
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .background(theme.groupedBackground)
+                    .imePadding(),
+        ) {
             if (mode == TerminalMode.HISTORY || !following) {
-                BackToLiveButton(foreground, Modifier.align(Alignment.End), controller::returnToLive)
+                BackToLiveButton(Modifier.align(Alignment.End), controller::returnToLive)
             }
             TerminalAccessoryBar(
                 sticky = sticky,
                 canCopy = handle.canCopy,
                 keyboardVisible = imeVisible,
-                background = background,
-                foreground = foreground,
+                background = theme.groupedBackground,
+                foreground = theme.foreground,
                 actions = handle,
                 modifier = Modifier.onGloballyPositioned { handle.barPlaced(it.boundsInWindow().top) },
             )
@@ -95,7 +101,6 @@ fun TerminalScreen(
 
 @Composable
 private fun BackToLiveButton(
-    foreground: Color,
     modifier: Modifier,
     onClick: () -> Unit,
 ) {
@@ -105,14 +110,14 @@ private fun BackToLiveButton(
         modifier = modifier.padding(16.dp).size(BUTTON_SIZE),
         shape = CircleShape,
         color = theme.secondaryGroupedBackground,
-        border = BorderStroke(1.dp, foreground.copy(alpha = BORDER_ALPHA)),
+        border = BorderStroke(1.dp, theme.foreground.copy(alpha = BORDER_ALPHA)),
         shadowElevation = 4.dp,
     ) {
         Box(contentAlignment = Alignment.Center) {
             Icon(
                 painter = painterResource(R.drawable.ic_expand_more),
                 contentDescription = BACK_TO_LIVE,
-                tint = foreground,
+                tint = theme.foreground,
                 modifier = Modifier.size(22.dp),
             )
         }

@@ -54,7 +54,7 @@ struct ConnectionsListView: View {
                         } label: {
                             Label("Edit", systemImage: "pencil")
                         }
-                        .tint(theme.accent)
+                        .tint(theme.secondaryForeground)
                     }
                 }
                 .contextMenu {

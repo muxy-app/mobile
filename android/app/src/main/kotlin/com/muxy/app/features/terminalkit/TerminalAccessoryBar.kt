@@ -75,7 +75,7 @@ fun TerminalAccessoryBar(
     ) {
         KeyPill(foreground) {
             TextKey("esc", foreground) { actions.key(TerminalKey.Escape) }
-            ModifierKey(sticky, foreground, actions::toggleModifier, actions::selectModifier)
+            ModifierKey(sticky, background, foreground, actions::toggleModifier, actions::selectModifier)
             TextKey("tab", foreground) { actions.key(TerminalKey.Tab) }
             IconKey(R.drawable.ic_content_paste, PASTE, foreground, enabled = true, onClick = actions::paste)
             IconKey(R.drawable.ic_content_copy, COPY, foreground, enabled = canCopy, onClick = actions::copy)

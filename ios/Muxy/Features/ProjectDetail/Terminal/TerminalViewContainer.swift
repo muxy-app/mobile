@@ -52,7 +52,6 @@ struct TerminalViewContainer: UIViewRepresentable {
         if !theme.palette.isEmpty {
             view.installColors(theme.palette)
         }
-        (view as? FollowAwareTerminalView)?.applyAccessoryTheme(background: theme.background, foreground: theme.foreground)
     }
 
     @MainActor
@@ -198,10 +197,6 @@ final class FollowAwareTerminalView: TerminalView {
 
     func refreshCopyAvailability() {
         accessoryBar.setCanCopySelection(session?.canCopySelection ?? false)
-    }
-
-    func applyAccessoryTheme(background: UIColor, foreground: UIColor) {
-        accessoryBar.applyTheme(background: background, foreground: foreground)
     }
 
     override func didMoveToWindow() {

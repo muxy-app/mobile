@@ -94,6 +94,14 @@ class ConnectionManager(
         scope.launch { operations.withLock { disconnectLocked() } }.join()
     }
 
+    suspend fun close() {
+        try {
+            disconnect()
+        } finally {
+            job.cancel()
+        }
+    }
+
     suspend fun beginPairing(
         connection: Connection,
         credential: DeviceCredential,

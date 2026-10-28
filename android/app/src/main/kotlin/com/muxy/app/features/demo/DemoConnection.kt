@@ -35,8 +35,8 @@ object DemoConnection {
         tokens: TokenStore,
     ) {
         if (enabled) {
-            store.upsert(connection)
             tokens.setCredential(credential, id)
+            store.upsert(connection)
             return
         }
         if (store.load().none { it.id == id }) return

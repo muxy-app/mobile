@@ -28,6 +28,7 @@ struct TerminalTabView: View {
                 autoFocusTerminal: autoFocusTerminal,
                 onKeyboardOffsetChange: { keyboardOffset = $0 }
             )
+            .padding(TerminalViewportState.contentInset)
 
             overlay
 
@@ -37,6 +38,7 @@ struct TerminalTabView: View {
             }
         }
         .background(session.theme.background.asColor)
+        .keyboardIsland(bottomInset: keyboardOffset)
     }
 
     @ViewBuilder
@@ -96,12 +98,12 @@ struct TerminalTabView: View {
         } label: {
             Image(systemName: "chevron.down")
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(session.theme.foreground.asColor)
+                .foregroundStyle(appTheme.foreground)
                 .frame(width: 40, height: 40)
                 .background(.regularMaterial, in: Circle())
                 .overlay {
                     Circle()
-                        .stroke(session.theme.foreground.asColor.opacity(0.18), lineWidth: 1)
+                        .stroke(appTheme.foreground.opacity(0.18), lineWidth: 1)
                 }
                 .contentShape(Circle())
         }

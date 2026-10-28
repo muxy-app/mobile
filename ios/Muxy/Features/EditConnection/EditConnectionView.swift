@@ -22,7 +22,6 @@ struct EditConnectionView: View {
                 }
             }
             .disabled(viewModel.isSaving || viewModel.hasSaved)
-            .tint(theme.accent)
             .screenTitle("Edit Connection")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

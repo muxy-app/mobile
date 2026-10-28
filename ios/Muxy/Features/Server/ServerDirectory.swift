@@ -10,6 +10,7 @@ final class ServerDirectory {
     private let keychain: KeychainStore
     private var controllers: [String: ServerController] = [:]
     private var activeServerID: String?
+    private var browsingServerIDs: Set<String> = []
     private var isForeground = true
 
     init(
@@ -38,6 +39,12 @@ final class ServerDirectory {
         updateConnections()
     }
 
+    func setBrowsingServers(_ serverIDs: Set<String>) {
+        guard browsingServerIDs != serverIDs else { return }
+        browsingServerIDs = serverIDs
+        updateConnections()
+    }
+
     func setForeground(_ foreground: Bool) {
         guard isForeground != foreground else { return }
         isForeground = foreground
@@ -45,6 +52,7 @@ final class ServerDirectory {
     }
 
     func forget(_ serverID: String) {
+        browsingServerIDs.remove(serverID)
         controllers.removeValue(forKey: serverID)?.setWantsConnection(false)
     }
 
@@ -97,7 +105,9 @@ final class ServerDirectory {
 
     private func updateConnections() {
         for (serverID, controller) in controllers {
-            controller.setWantsConnection(isForeground && serverID == activeServerID)
+            let isBrowsing = browsingServerIDs.contains(serverID)
+            controller.setBrowsing(isForeground && isBrowsing)
+            controller.setWantsConnection(isForeground && (isBrowsing || serverID == activeServerID))
         }
     }
 }

@@ -34,7 +34,7 @@ struct ProjectTabsScreen<Item: TabStripItem, Page: View>: View {
             content
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(theme.groupedBackground)
+        .tabPageChrome(theme)
         .ignoresSafeArea(.keyboard)
         .screenTitle(title)
     }
@@ -52,6 +52,7 @@ struct ProjectTabsScreen<Item: TabStripItem, Page: View>: View {
         TabView(selection: selectionBinding) {
             ForEach(tabs) { tab in
                 page(tab)
+                    .tabPageIsland()
                     .tag(Optional(tab.id))
             }
         }

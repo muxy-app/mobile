@@ -46,6 +46,7 @@ sealed interface AppRoute : NavKey {
         val connectionId: UUID,
         val projectId: UUID,
         val projectName: String,
+        val initialTabId: UUID? = null,
     ) : AppRoute
 
     @Serializable
@@ -65,6 +66,7 @@ sealed interface AppRoute : NavKey {
         override val connectionId: UUID,
         override val serverId: String,
         val projectId: String,
+        val initialTabId: UUID? = null,
     ) : Server
 
     @Serializable

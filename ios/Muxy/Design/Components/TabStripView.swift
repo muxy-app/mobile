@@ -3,6 +3,8 @@ import SwiftUI
 protocol TabStripItem: Identifiable {
     var title: String { get }
     var systemImage: String { get }
+    var tileKind: TabTileKind { get }
+    var activity: TabActivity { get }
 }
 
 struct TabStripView<Item: TabStripItem>: View {
@@ -17,35 +19,41 @@ struct TabStripView<Item: TabStripItem>: View {
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             ScrollViewReader { proxy in
-                HStack(spacing: 8) {
-                    ForEach(tabs) { tab in
-                        TabPillView(
-                            tab: tab,
-                            isSelected: tab.id == selectedTabID,
-                            onSelect: { onSelect(tab) },
-                            onClose: { onClose(tab) }
-                        )
-                        .id(tab.id)
+                GlassEffectContainer(spacing: 8) {
+                    HStack(spacing: 4) {
+                        ForEach(tabs) { tab in
+                            TabPillView(
+                                tab: tab,
+                                isSelected: tab.id == selectedTabID,
+                                onSelect: { onSelect(tab) },
+                                onClose: { onClose(tab) }
+                            )
+                            .id(tab.id)
+                        }
+                        newTabButton
                     }
-
-                    Button(action: onCreate) {
-                        Image(systemName: "plus")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(theme.foreground)
-                            .frame(width: 32, height: 32)
-                            .background(Circle().fill(theme.secondaryGroupedBackground))
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("New Tab")
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
                 .onChange(of: selectedTabID) { _, newValue in
                     guard let newValue else { return }
                     withAnimation { proxy.scrollTo(newValue, anchor: .center) }
                 }
             }
         }
+        .scrollClipDisabled()
         .background(theme.groupedBackground)
+    }
+
+    private var newTabButton: some View {
+        Button(action: onCreate) {
+            Image(systemName: "plus.circle")
+                .font(.title3)
+                .foregroundStyle(theme.secondaryForeground)
+                .frame(width: 40, height: 40)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("New Tab")
     }
 }

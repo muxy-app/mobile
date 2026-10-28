@@ -58,7 +58,6 @@ struct FileSheetView: View {
             .screenTitle(title)
             .toolbar { toolbar }
         }
-        .tint(theme.accent)
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
         .interactiveDismissDisabled(viewModel.isDirty || viewModel.isBusy)

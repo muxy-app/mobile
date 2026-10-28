@@ -22,7 +22,6 @@ import com.muxy.app.features.addconnection.AddConnectionRequest
 import com.muxy.app.features.addconnection.AddConnectionScreen
 import com.muxy.app.features.billing.EntitlementFooter
 import com.muxy.app.features.billing.PaywallScreen
-import com.muxy.app.features.connections.ConnectionsListScreen
 import com.muxy.app.features.editconnection.EditConnectionScreen
 import com.muxy.app.features.files.FilesModal
 import com.muxy.app.features.git.GitModal
@@ -35,6 +34,7 @@ import com.muxy.app.features.server.ServerProjectScreen
 import com.muxy.app.features.server.ServerProjectsScreen
 import com.muxy.app.features.settings.SettingsModal
 import com.muxy.app.features.sshterminal.SshTerminalScreen
+import com.muxy.app.features.tabs.TabsHomeScreen
 import com.muxy.app.models.Connection
 import com.muxy.app.networking.muxy1.ConnectionFocus
 import kotlinx.coroutines.flow.map
@@ -104,12 +104,16 @@ private fun AppNavigation(
         entryProvider =
             entryProvider {
                 entry<AppRoute.Connections> {
-                    ConnectionsListScreen(
-                        viewModel = viewModel { container.makeConnectionsListViewModel() },
-                        onSelect = openConnection,
-                        onAddConnection = { backStack.open(AppRoute.AddConnection) },
+                    val connections = viewModel { container.makeConnectionsListViewModel() }
+                    TabsHomeScreen(
+                        viewModel = viewModel { container.makeTabsHomeViewModel() },
+                        onSelect = { backStack.openTab(it, container.billing.enforcement, container.billing.refreshEntitlement()) },
+                        onOpenConnection = openConnection,
+                        onAddDevice = { backStack.open(AppRoute.AddConnection) },
                         onSettings = { backStack.open(AppRoute.Settings) },
                         onEdit = { backStack.open(AppRoute.EditConnection(it.id)) },
+                        onDelete = connections::delete,
+                        onUnlock = { backStack.open(AppRoute.Paywall) },
                         footer = { EntitlementFooter(container.billing) },
                     )
                 }
@@ -128,8 +132,7 @@ private fun AppNavigation(
                         onCancel = { backStack.close(AppRoute.AddConnection) },
                         onAdded = { connection ->
                             connection.serverRouteId?.let(container.serverDirectory::credentialDidChange)
-                            backStack.close(AppRoute.AddConnection)
-                            openConnection(connection)
+                            backStack.open(AppRoute.Connections)
                         },
                     )
                 }
@@ -214,12 +217,18 @@ private fun ConnectionFocusBridge(
     backStack: NavBackStack<AppRoute>,
 ) {
     LaunchedEffect(backStack) {
-        snapshotFlow { backStack.toList().connectionFocus() }.collect(container.connectionLifecycle::focus)
-    }
-    LaunchedEffect(backStack) {
-        snapshotFlow { backStack.toList().serverFocus() }.collect(container.serverDirectory::focus)
+        snapshotFlow { backStack.toList() }.collect { routes ->
+            val isHome = routes.lastOrNull() == AppRoute.Connections
+            container.connectionLifecycle.focus(routes.connectionFocus())
+            if (isHome) container.tabsCatalog.setVisible(true)
+            container.serverDirectory.focus(routes.serverFocus())
+            if (!isHome) container.tabsCatalog.setVisible(false)
+        }
     }
     DisposableEffect(container) {
-        onDispose { container.connectionLifecycle.focus(ConnectionFocus.Hold) }
+        onDispose {
+            container.tabsCatalog.setVisible(false)
+            container.connectionLifecycle.focus(ConnectionFocus.Hold)
+        }
     }
 }

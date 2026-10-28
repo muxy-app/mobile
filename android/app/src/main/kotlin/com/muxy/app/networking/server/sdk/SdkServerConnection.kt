@@ -3,6 +3,7 @@ package com.muxy.app.networking.server.sdk
 import com.muxy.app.networking.server.RemoteServerConnection
 import com.muxy.app.networking.server.ServerProject
 import com.muxy.app.networking.server.ServerTerminalChannel
+import uniffi.muxy_mobile.Activity
 import uniffi.muxy_mobile.Session
 import uniffi.muxy_mobile.Connection as SdkConnection
 
@@ -28,6 +29,12 @@ class SdkServerConnection(
 
     override suspend fun endSession(sessionId: ULong) {
         lanes.request { connection.endSession(sessionId) }
+    }
+
+    override suspend fun activity(): Activity = lanes.request { connection.activity() }
+
+    override suspend fun acknowledgeActivity(eventIds: List<ULong>) {
+        lanes.request { connection.acknowledgeActivity(eventIds) }
     }
 
     override suspend fun attach(

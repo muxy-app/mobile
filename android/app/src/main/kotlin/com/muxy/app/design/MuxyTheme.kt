@@ -2,6 +2,7 @@ package com.muxy.app.design
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -18,7 +19,8 @@ fun MuxyTheme(
     themedWindow: ThemedWindow,
     content: @Composable () -> Unit,
 ) {
-    val target = remember(palette) { AppTheme.from(palette) }
+    val isDark = isSystemInDarkTheme()
+    val target = remember(isDark, palette) { AppTheme.interfaceTheme(isDark, palette) }
     LaunchedEffect(target) { themedWindow.apply(target) }
     val theme = target.animated()
     CompositionLocalProvider(LocalAppTheme provides theme) {

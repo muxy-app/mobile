@@ -4,8 +4,10 @@ struct RootView: View {
     let container: AppContainer
 
     @AppStorage("muxy.hasCompletedOnboarding") private var hasCompletedOnboarding = false
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.scenePhase) private var scenePhase
     @State private var connectionsViewModel: ConnectionsListViewModel
+    @State private var tabsViewModel: TabsHomeViewModel
     @State private var path: [AppRoute] = []
     @State private var addRequest: AddConnectionRequest?
     @State private var editingConnection: Connection?
@@ -14,10 +16,11 @@ struct RootView: View {
     init(container: AppContainer) {
         self.container = container
         _connectionsViewModel = State(initialValue: container.makeConnectionsListViewModel())
+        _tabsViewModel = State(initialValue: container.makeTabsHomeViewModel())
     }
 
     var body: some View {
-        let theme = AppTheme(palette: container.settings.themePalette)
+        let theme = AppTheme(isDark: colorScheme == .dark, terminalPalette: container.settings.themePalette)
         themedContent
             .environment(\.appTheme, theme)
             .tint(theme.accent)
@@ -30,15 +33,21 @@ struct RootView: View {
         Group {
             if hasCompletedOnboarding {
                 NavigationStack(path: $path) {
-                    ConnectionsListView(
-                        viewModel: connectionsViewModel,
-                        onSelect: navigate(to:),
+                    TabsHomeView(
+                        viewModel: tabsViewModel,
+                        onOpen: { path.append($0) },
+                        onOpenDevice: navigate(to:),
                         onEdit: { editingConnection = $0 },
-                        onAddConnection: { addRequest = AddConnectionRequest() },
+                        onDelete: { connection in
+                            connectionsViewModel.delete(connection)
+                            tabsViewModel.load()
+                        },
+                        onAddDevice: { addRequest = AddConnectionRequest() },
                         onSettings: { isShowingSettings = true }
                     )
                     .navigationDestination(for: AppRoute.self) { route in
                         destination(for: route)
+                            .toolbar(.visible, for: .navigationBar)
                     }
                 }
                 .onChange(of: path) { _, newPath in pathDidChange(newPath) }
@@ -51,17 +60,17 @@ struct RootView: View {
         }
         .onAppear { applyDemoMode() }
         .onChange(of: container.settings.demoMode) { _, _ in applyDemoMode() }
-        .sheet(item: $addRequest, onDismiss: { connectionsViewModel.load() }) { request in
+        .sheet(item: $addRequest, onDismiss: reloadConnections) { request in
             AddConnectionView(
                 viewModel: container.makeAddConnectionViewModel(),
                 pairingCode: request.pairingCode,
                 onAdded: didAdd
             )
         }
-        .sheet(item: $editingConnection, onDismiss: { connectionsViewModel.load() }) { connection in
+        .sheet(item: $editingConnection, onDismiss: reloadConnections) { connection in
             EditConnectionView(viewModel: container.makeEditConnectionViewModel(for: connection)) {
                 editingConnection = nil
-                connectionsViewModel.load()
+                reloadConnections()
             }
         }
         .sheet(isPresented: $isShowingSettings) {
@@ -81,8 +90,8 @@ struct RootView: View {
                     path.append(AppRoute.projectDetail(connection: connection, project: project))
                 }
             )
-        case let .projectDetail(connection, project):
-            ProjectDetailView(viewModel: container.makeProjectDetailViewModel(for: project, connection: connection))
+        case let .projectDetail(connection, project, tabID):
+            ProjectDetailView(viewModel: container.makeProjectDetailViewModel(for: project, connection: connection, initialTabID: tabID))
         case let .serverProjects(connection):
             ServerProjectsView(
                 connection: connection,
@@ -91,11 +100,12 @@ struct RootView: View {
                     path.append(AppRoute.serverProject(connection: connection, projectID: projectID))
                 }
             )
-        case let .serverProject(connection, projectID):
+        case let .serverProject(connection, projectID, tabID):
             ServerProjectDetailView(
                 connection: connection,
                 server: serverController(for: connection),
                 projectID: projectID,
+                initialTabID: tabID,
                 settings: container.settings,
                 onOpenProject: { openedProjectID in
                     path = path.opening(.serverProject(connection: connection, projectID: openedProjectID))
@@ -122,11 +132,15 @@ struct RootView: View {
     }
 
     private func didAdd(_ connection: Connection) {
-        addRequest = nil
-        if let serverID = connection.serverRouteID {
-            container.directory.credentialDidChange(for: serverID)
+        Task {
+            await container.connectionManager.disconnect()
+            addRequest = nil
+            if let serverID = connection.serverRouteID {
+                container.directory.credentialDidChange(for: serverID)
+            }
+            path.removeAll()
+            reloadConnections()
         }
-        navigate(to: connection)
     }
 
     private func pathDidChange(_ newPath: [AppRoute]) {
@@ -166,7 +180,12 @@ struct RootView: View {
 
     private func applyDemoMode() {
         DemoConnection.apply(enabled: container.settings.demoMode, store: container.connectionStore, keychain: container.keychain)
+        reloadConnections()
+    }
+
+    private func reloadConnections() {
         connectionsViewModel.load()
+        tabsViewModel.load()
     }
 }
 
