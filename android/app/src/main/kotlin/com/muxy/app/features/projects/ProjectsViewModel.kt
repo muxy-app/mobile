@@ -218,7 +218,6 @@ class ProjectsViewModel(
         id = project.id.uuidString,
         name = project.name,
         path = project.path,
-        icon = ProjectIcon.Symbol(project.icon),
         iconColor = project.iconColor,
         logo = logo,
     )

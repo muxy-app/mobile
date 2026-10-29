@@ -9,39 +9,34 @@ struct TabsHomeNotificationsSheet: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                if !items.isEmpty {
-                    TabsHomeCard {
-                        ForEach(items) { item in
-                            if item.id != items.first?.id {
-                                Divider()
-                                    .padding(.leading, 66)
-                            }
-                            TabsHomeNotificationRow(item: item) { onOpen(item) }
-                        }
+            content
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(theme.groupedBackground.ignoresSafeArea())
+                .screenTitle("Notifications")
+                .toolbar {
+                    DoneToolbarItem { dismiss() }
+                }
+        }
+        .presentationDetents([.medium, .large])
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if items.isEmpty {
+            ThemedEmptyState(
+                title: "No notifications",
+                systemImage: "bell.slash",
+                message: "Agents waiting for you or finished show up here."
+            )
+        } else {
+            CardList {
+                CardSection {
+                    ForEach(items) { item in
+                        TabsHomeNotificationRow(item: item) { onOpen(item) }
                     }
-                    .padding(.top, 8)
-                }
-            }
-            .background(theme.groupedBackground.ignoresSafeArea())
-            .overlay {
-                if items.isEmpty {
-                    ContentUnavailableView(
-                        "No notifications",
-                        systemImage: "bell.slash",
-                        description: Text("Agents waiting for you or finished show up here.")
-                    )
-                }
-            }
-            .navigationTitle("Notifications")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done", systemImage: "checkmark") { dismiss() }
                 }
             }
         }
-        .presentationDetents([.medium, .large])
     }
 }
 
@@ -53,16 +48,16 @@ private struct TabsHomeNotificationRow: View {
 
     var body: some View {
         Button(action: onOpen) {
-            HStack(spacing: 14) {
+            HStack(spacing: CardMetrics.iconSpacing) {
                 TabKindIcon(kind: item.tab.kind, activity: item.tab.activity, size: 22)
-                    .frame(width: 36)
+                    .frame(width: CardMetrics.iconWidth)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(item.tab.title)
                         .foregroundStyle(theme.foreground)
                         .lineLimit(1)
                     Text(item.tab.activity.statusLabel ?? "")
                         .font(.subheadline)
-                        .foregroundStyle(item.tab.activity.state == .waiting ? Color.orange : theme.green)
+                        .foregroundStyle(item.tab.activity.state.tint(in: theme))
                         .lineLimit(1)
                     Text(context)
                         .font(.caption)
@@ -70,16 +65,13 @@ private struct TabsHomeNotificationRow: View {
                         .lineLimit(1)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(.tertiary)
-                    .accessibilityHidden(true)
+                CardRowChevron()
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, CardMetrics.rowPadding)
             .padding(.vertical, 10)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.cardRow)
         .accessibilityElement(children: .combine)
         .accessibilityHint("Opens this tab")
     }

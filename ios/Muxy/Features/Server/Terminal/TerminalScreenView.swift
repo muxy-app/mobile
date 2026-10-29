@@ -24,7 +24,8 @@ struct TerminalScreenView: View {
             overlay
 
             if controller.mode == .history || !controller.isFollowing {
-                jumpToLiveButton
+                JumpToLiveButton(action: controller.returnToLive)
+                    .padding(PageMargin.horizontal)
                     .padding(.bottom, keyboardOffset)
             }
         }
@@ -81,32 +82,8 @@ struct TerminalScreenView: View {
             .background(theme.groupedBackground)
     }
 
-    private var jumpToLiveButton: some View {
-        Button(action: controller.returnToLive) {
-            Image(systemName: "chevron.down")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(theme.foreground)
-                .frame(width: 40, height: 40)
-                .background(.regularMaterial, in: Circle())
-                .overlay {
-                    Circle()
-                        .stroke(theme.foreground.opacity(0.18), lineWidth: 1)
-                }
-                .contentShape(Circle())
-        }
-        .buttonStyle(.plain)
-        .shadow(color: .black.opacity(0.18), radius: 8, y: 3)
-        .padding(16)
-        .accessibilityLabel("Back to Live Output")
-    }
-
-    private func noticeView(_ notice: String) -> some View {
-        Text(notice)
-            .font(.footnote.weight(.medium))
-            .foregroundStyle(theme.foreground)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
-            .background(.regularMaterial, in: Capsule())
+    private func noticeView(_ text: String) -> some View {
+        TerminalNotice(text: text)
             .padding(.top, 12)
             .transition(.move(edge: .top).combined(with: .opacity))
     }

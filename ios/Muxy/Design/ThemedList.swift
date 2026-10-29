@@ -47,5 +47,6 @@ private struct ThemedGroupedContainerModifier: ViewModifier {
         content
             .scrollContentBackground(.hidden)
             .background(theme.groupedBackground)
+            .toggleStyle(ThemedToggleStyle())
     }
 }

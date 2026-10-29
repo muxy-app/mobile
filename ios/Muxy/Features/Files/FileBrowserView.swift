@@ -41,9 +41,10 @@ struct FileBrowserView: View {
                 .padding(.vertical, -8)
                 directoryContent
                 FileGuidance(message: guidance)
-                    .padding(.horizontal, 2)
+                    .padding(.horizontal, CardMetrics.rowPadding)
             }
-            .padding(18)
+            .padding(.horizontal, PageMargin.horizontal)
+            .padding(.vertical, CardMetrics.rowPadding)
         }
         .background(theme.groupedBackground)
         .refreshable { await viewModel.refreshDirectory() }
@@ -73,14 +74,13 @@ struct FileBrowserView: View {
                 .accessibilityLabel("Clear filter")
             }
         }
-        .font(.subheadline)
-        .padding(.leading, 12)
-        .padding(.trailing, filter.isEmpty ? 12 : 0)
+        .padding(.leading, CardMetrics.rowPadding)
+        .padding(.trailing, filter.isEmpty ? CardMetrics.rowPadding : 0)
         .frame(minHeight: 44)
-        .filePanel()
+        .background(theme.secondaryGroupedBackground, in: Capsule())
         .overlay {
             if isFilterFocused {
-                RoundedRectangle(cornerRadius: 13).strokeBorder(theme.accent, lineWidth: 1)
+                Capsule().strokeBorder(theme.accent, lineWidth: 1)
             }
         }
     }
@@ -92,16 +92,14 @@ struct FileBrowserView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 40)
         } else if filteredEntries.isEmpty {
-            ContentUnavailableView {
-                Label(query.isEmpty ? "This folder is empty" : "No matching files", systemImage: "folder")
-                    .foregroundStyle(theme.foreground)
-            } description: {
-                Text(query.isEmpty ? "Use New to create a file or folder here." : "Try a different name or clear the filter.")
-                    .foregroundStyle(theme.secondaryForeground)
-            } actions: {
+            ThemedEmptyState(
+                title: query.isEmpty ? "This folder is empty" : "No matching files",
+                systemImage: "folder",
+                message: query.isEmpty ? "Use New to create a file or folder here." : "Try a different name or clear the filter."
+            ) {
                 if !query.isEmpty {
                     Button("Clear filter") { filter = "" }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(ThemedBorderedButtonStyle())
                 }
             }
         } else {
@@ -113,8 +111,8 @@ struct FileBrowserView: View {
     @ViewBuilder
     private func entrySection(_ title: String, entries: [RemoteFileEntry]) -> some View {
         if !entries.isEmpty {
-            VStack(spacing: 8) {
-                FileSectionHeading(title: title, count: entries.count)
+            VStack(alignment: .leading, spacing: CardMetrics.headerSpacing) {
+                CardSectionHeader(title, detail: entries.count.formatted())
                 FileEntryGroup(
                     entries: entries,
                     selectionMode: viewModel.selectionMode,
@@ -177,7 +175,7 @@ struct FileBrowserView: View {
                     } label: {
                         Label("New", systemImage: "plus")
                     }
-                    .buttonStyle(FilePrimaryButtonStyle())
+                    .buttonStyle(ThemedProminentButtonStyle())
                     .disabled(!viewModel.canMutate || viewModel.isLoadingDirectory)
                     .accessibilityLabel("Create file or folder")
                 }
@@ -202,10 +200,9 @@ struct FileBrowserView: View {
             }
             .foregroundStyle(destructive ? FileTint.destructive.color(in: theme) : theme.foreground)
             .frame(maxWidth: .infinity, minHeight: 58)
-            .filePanel()
+            .cardSurface()
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.cardRow)
         .disabled(disabled || !viewModel.canMutate)
-        .opacity(disabled || !viewModel.canMutate ? 0.4 : 1)
     }
 }

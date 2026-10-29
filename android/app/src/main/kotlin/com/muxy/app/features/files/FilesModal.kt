@@ -7,14 +7,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -29,6 +27,11 @@ import androidx.navigation3.ui.NavDisplay
 import com.muxy.app.R
 import com.muxy.app.design.LocalAppTheme
 import com.muxy.app.design.components.MuxyTopAppBar
+import com.muxy.app.design.components.PageMargin
+import com.muxy.app.design.components.ThemedAlertDialog
+import com.muxy.app.design.components.ThemedDialogAction
+import com.muxy.app.design.components.ThemedDropdownMenu
+import com.muxy.app.design.components.ThemedNotice
 import com.muxy.app.design.components.TopBarAction
 import com.muxy.app.design.components.TopBarTextAction
 import com.muxy.app.features.navigation.NavigationTransitions
@@ -132,18 +135,19 @@ fun FilesModal(
                 .imePadding()
                 .fillMaxSize(),
         ) {
+            val theme = LocalAppTheme.current
+            val noticeModifier = Modifier.padding(horizontal = PageMargin.horizontal, vertical = 4.dp)
             if (!state.isConnected) {
-                Text("Connection lost", Modifier.padding(horizontal = 16.dp), color = LocalAppTheme.current.yellow)
-                Text(state.location.host.reconnectMessage, Modifier.padding(horizontal = 16.dp))
+                ThemedNotice(state.location.host.reconnectMessage, noticeModifier, title = "Connection lost", tint = theme.yellow)
             }
             if (state.hasContextChanged) {
-                Text(
+                ThemedNotice(
                     "The active worktree changed. Discard this draft and return to Files before continuing.",
-                    Modifier.padding(16.dp),
-                    color = LocalAppTheme.current.yellow,
+                    noticeModifier,
+                    tint = theme.yellow,
                 )
             }
-            state.errorMessage?.let { Text(it, Modifier.padding(horizontal = 16.dp), color = LocalAppTheme.current.red) }
+            state.errorMessage?.let { ThemedNotice(it, noticeModifier, tint = theme.red) }
             if (state.isBusy || state.isLoadingMove) LinearProgressIndicator(Modifier.fillMaxWidth())
             NavDisplay(
                 backStack = state.routes,
@@ -203,29 +207,22 @@ fun FilesModal(
         }
     }
     deletion?.let { paths ->
-        AlertDialog(
+        val items = if (paths.size == 1) "“${RemoteFilePath.name(paths.first())}”" else "${paths.size} items"
+        ThemedAlertDialog(
+            title = state.location.host.deletionTitle,
+            message = state.location.host.deletionMessage(items),
             onDismissRequest = { if (!state.isBusy) deletion = null },
-            title = { Text(state.location.host.deletionTitle) },
-            text = {
-                Text(
-                    state.location.host.deletionMessage(
-                        if (paths.size ==
-                            1
-                        ) {
-                            "“${RemoteFilePath.name(paths.first())}”"
-                        } else {
-                            "${paths.size} items"
-                        },
-                    ),
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    deletion = null
-                    scope.launch { viewModel.delete(paths) }
-                }, enabled = state.canMutate) { Text(state.location.host.deletionAction) }
-            },
-            dismissButton = { TextButton(onClick = { deletion = null }, enabled = !state.isBusy) { Text("Cancel") } },
+            confirm =
+                ThemedDialogAction(
+                    label = state.location.host.deletionAction,
+                    onClick = {
+                        deletion = null
+                        scope.launch { viewModel.delete(paths) }
+                    },
+                    enabled = state.canMutate,
+                    isDestructive = true,
+                ),
+            dismiss = listOf(ThemedDialogAction("Cancel", { deletion = null }, enabled = !state.isBusy)),
         )
     }
     pendingExit?.let { action ->
@@ -255,7 +252,7 @@ private fun FilePreviewMenu(
     var expanded by remember { mutableStateOf(false) }
     Column {
         TopBarTextAction("More", { expanded = true }, !state.isBusy)
-        DropdownMenu(expanded, { expanded = false }) {
+        ThemedDropdownMenu(expanded, { expanded = false }) {
             val enabled = state.canMutate && state.preview?.isEditing != true
             DropdownMenuItem(text = { Text("Rename") }, onClick = {
                 expanded = false
@@ -265,10 +262,15 @@ private fun FilePreviewMenu(
                 expanded = false
                 onMove()
             }, enabled = enabled)
-            DropdownMenuItem(text = { Text(state.location.host.deletionMenuTitle) }, onClick = {
-                expanded = false
-                onDelete()
-            }, enabled = enabled)
+            DropdownMenuItem(
+                text = { Text(state.location.host.deletionMenuTitle) },
+                onClick = {
+                    expanded = false
+                    onDelete()
+                },
+                enabled = enabled,
+                colors = MenuDefaults.itemColors(textColor = LocalAppTheme.current.red),
+            )
             DropdownMenuItem(text = { Text("Close") }, onClick = {
                 expanded = false
                 onClose()

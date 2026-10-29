@@ -9,13 +9,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -27,6 +23,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.muxy.app.design.LocalAppTheme
+import com.muxy.app.design.components.ThemedAlertDialog
+import com.muxy.app.design.components.ThemedDialogAction
+import com.muxy.app.design.components.ThemedProminentButton
 import com.muxy.app.models.Connection
 import com.muxy.app.models.ConnectionKind
 import kotlinx.coroutines.launch
@@ -194,25 +193,28 @@ fun TabsHomeScreen(
         )
     }
     devices.orEmpty().firstOrNull { it.connection.id.toString() == deletingId }?.connection?.let { connection ->
-        AlertDialog(
+        ThemedAlertDialog(
+            title = "Delete device?",
+            message = "Remove ${connection.name} and its saved credentials from this phone?",
             onDismissRequest = { deletingId = null },
-            title = { Text("Delete device?") },
-            text = { Text("Remove ${connection.name} and its saved credentials from this phone?") },
-            confirmButton = {
-                TextButton(onClick = {
-                    deletingId = null
-                    onDelete(connection)
-                }) { Text("Delete", color = theme.red) }
-            },
-            dismissButton = { TextButton(onClick = { deletingId = null }) { Text("Cancel") } },
+            confirm =
+                ThemedDialogAction(
+                    label = "Delete",
+                    onClick = {
+                        deletingId = null
+                        onDelete(connection)
+                    },
+                    isDestructive = true,
+                ),
+            dismiss = listOf(ThemedDialogAction("Cancel", { deletingId = null })),
         )
     }
     error?.let { message ->
-        AlertDialog(
+        ThemedAlertDialog(
+            title = "New tab unavailable",
+            message = message,
             onDismissRequest = viewModel::dismissError,
-            title = { Text("New tab unavailable") },
-            text = { Text(message) },
-            confirmButton = { TextButton(onClick = viewModel::dismissError) { Text("OK") } },
+            confirm = ThemedDialogAction("OK", viewModel::dismissError),
         )
     }
 }
@@ -243,6 +245,6 @@ private fun NoDevices(
             color = theme.secondaryForeground,
             style = MaterialTheme.typography.bodyMedium,
         )
-        Button(onClick = onAddDevice, enabled = enabled) { Text("Add device") }
+        ThemedProminentButton(text = "Add device", onClick = onAddDevice, enabled = enabled)
     }
 }

@@ -16,7 +16,7 @@ struct OnboardingView: View {
             TabView(selection: $selection) {
                 ForEach(Array(slides.enumerated()), id: \.offset) { index, slide in
                     OnboardingSlideView(slide: slide)
-                        .padding(.horizontal, 32)
+                        .padding(.horizontal, PageMargin.horizontal)
                         .tag(index)
                 }
             }
@@ -24,7 +24,7 @@ struct OnboardingView: View {
 
             footer
         }
-        .background(theme.background)
+        .background(theme.groupedBackground.ignoresSafeArea())
     }
 
     private var topBar: some View {
@@ -33,9 +33,9 @@ struct OnboardingView: View {
             Button("Skip", action: onSkip)
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(theme.secondaryForeground)
-                .padding(.horizontal, 20)
-                .padding(.vertical, 12)
+                .frame(minHeight: 44)
         }
+        .padding(.horizontal, PageMargin.horizontal)
         .padding(.top, 8)
     }
 
@@ -53,31 +53,13 @@ struct OnboardingView: View {
 
             Button(action: advance) {
                 Text(isLastSlide ? "Pair your desktop" : "Continue")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(theme.onAccent)
                     .lineLimit(1)
-                    .padding(.horizontal, 24)
-                    .frame(height: 40)
-                    .frame(minWidth: isLastSlide ? 190 : 144)
-                    .background(theme.accent, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 11, style: .continuous)
-                            .stroke(
-                                LinearGradient(
-                                    colors: [.white.opacity(0.18), .white.opacity(0)],
-                                    startPoint: .top,
-                                    endPoint: .bottom
-                                ),
-                                lineWidth: 1
-                            )
-                            .padding(1)
-                    }
-                    .shadow(color: .black.opacity(0.18), radius: 1, x: 0, y: 1)
+                    .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(ThemedProminentButtonStyle())
             .accessibilityHint(isLastSlide ? "Opens device pairing." : "Shows the next onboarding step.")
         }
-        .padding(.horizontal, 24)
+        .padding(.horizontal, PageMargin.horizontal)
         .padding(.bottom, 16)
     }
 
@@ -108,16 +90,17 @@ private struct OnboardingSlideView: View {
                 VStack(spacing: 18) {
                     if let symbolName {
                         Image(systemName: symbolName)
-                            .font(.system(size: 46, weight: .semibold))
+                            .font(.largeTitle.weight(.semibold))
+                            .imageScale(.large)
                             .foregroundStyle(theme.onAccent)
                             .frame(width: 96, height: 96)
-                            .background(theme.accent, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+                            .background(theme.accent, in: .rect(cornerRadius: SurfaceCorner.card, style: .continuous))
                     } else {
                         Image("LaunchLogo")
                             .resizable()
                             .scaledToFit()
                             .frame(width: 164, height: 164)
-                            .clipShape(RoundedRectangle(cornerRadius: 36, style: .continuous))
+                            .clipShape(.rect(cornerRadius: SurfaceCorner.appIcon, style: .continuous))
                     }
 
                     title
@@ -148,7 +131,7 @@ private struct OnboardingSlideView: View {
 
     private var title: some View {
         Text(slide.title)
-            .font(.system(size: 28, weight: .bold))
+            .font(.title.bold())
             .multilineTextAlignment(.center)
             .foregroundStyle(theme.foreground)
             .fixedSize(horizontal: false, vertical: true)
@@ -161,16 +144,12 @@ private struct OnboardingRowView: View {
     @Environment(\.appTheme) private var theme
 
     var body: some View {
-        HStack(alignment: .top, spacing: 14) {
+        HStack(alignment: .firstTextBaseline, spacing: CardMetrics.iconSpacing) {
             Image(systemName: row.symbolName)
-                .font(.system(size: 21, weight: .medium))
-                .foregroundStyle(theme.accent)
-                .frame(width: 44, height: 44)
-                .background(theme.secondaryBackground, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(theme.separator, lineWidth: 0.5)
-                }
+                .font(.title3.weight(.medium))
+                .foregroundStyle(theme.secondaryForeground)
+                .frame(width: CardMetrics.iconWidth)
+                .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(row.title)

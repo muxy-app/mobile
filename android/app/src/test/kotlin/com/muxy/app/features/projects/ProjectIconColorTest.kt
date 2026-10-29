@@ -1,6 +1,7 @@
 package com.muxy.app.features.projects
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
@@ -33,5 +34,17 @@ class ProjectIconColorTest {
     @Test
     fun fallsBackForUnknownTokens() {
         listOf("chartreuse", "#ZZZ", "#12", "#-12345", "#1234567").forEach { assertNull(it, ProjectIconColor.rgb(it, isDark = false)) }
+    }
+
+    @Test
+    fun stableColorPrefersTheProjectToken() {
+        assertEquals(0x007AFF, ProjectIconColor.stableRgb("blue", isDark = false, id = "project"))
+    }
+
+    @Test
+    fun stableColorIsDeterministicPerProjectWhenTheTokenIsMissing() {
+        val first = ProjectIconColor.stableRgb(null, isDark = false, id = "alpha")
+        assertEquals(first, ProjectIconColor.stableRgb("chartreuse", isDark = true, id = "alpha"))
+        assertNotEquals(first, ProjectIconColor.stableRgb(null, isDark = false, id = "beta"))
     }
 }

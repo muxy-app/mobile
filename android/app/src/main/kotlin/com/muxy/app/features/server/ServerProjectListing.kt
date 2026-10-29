@@ -18,7 +18,6 @@ object ServerProjectListing {
             id = project.id,
             name = project.name,
             path = project.directory,
-            icon = icon(project),
             iconColor = project.color,
             logo = project.logo?.let(::ProjectLogo),
             isNested = row.isNested,

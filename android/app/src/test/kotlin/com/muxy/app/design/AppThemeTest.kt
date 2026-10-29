@@ -46,6 +46,21 @@ class AppThemeTest {
         }
     }
 
+    @Test
+    fun interfaceThemeUsesTheForegroundAsANeutralAccent() {
+        listOf(true, false).forEach { isDark ->
+            val theme = AppTheme.interfaceTheme(isDark, ThemeCatalog.muxy)
+            assertEquals(theme.foreground, theme.accent)
+            assertEquals(theme.background, theme.onAccent)
+        }
+    }
+
+    @Test
+    fun interfaceThemeKeepsTheTerminalPaletteColors() {
+        val terminalPalette = AppTheme.interfaceTheme(isDark = true, terminalPalette = ThemeCatalog.muxy).terminalPalette
+        assertEquals(ThemeCatalog.muxy.ansi, terminalPalette.ansi)
+    }
+
     private fun palette(
         foreground: Int,
         background: Int,

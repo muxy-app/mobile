@@ -1,30 +1,38 @@
 package com.muxy.app.features.files
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.DropdownMenu
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.muxy.app.design.LocalAppTheme
+import com.muxy.app.design.components.ListRow
+import com.muxy.app.design.components.PageMargin
 import com.muxy.app.design.components.RowPosition
+import com.muxy.app.design.components.ThemedBorderedButton
 import com.muxy.app.design.components.ThemedCell
+import com.muxy.app.design.components.ThemedDropdownMenu
 import com.muxy.app.design.components.ThemedList
 import com.muxy.app.design.components.ThemedListItem
+import com.muxy.app.design.components.ThemedProminentButton
 import com.muxy.app.design.components.ThemedSectionFooter
 import com.muxy.app.design.components.ThemedTextField
 import com.muxy.app.design.components.themedSection
@@ -50,8 +58,11 @@ internal fun FileBrowserScreen(
         PullToRefreshBox(state.isLoadingDirectory, onRefresh, Modifier.weight(1f)) {
             ThemedList(PaddingValues(0.dp)) {
                 item("location") { FileLocationHeader(state.location) }
-                item("filter") { ThemedTextField(filter, { filter = it }, "Filter this folder") }
-                item("breadcrumbs") { FileBreadcrumbs(state.currentPath, state.location.name, state.canMutate, onDirectory) }
+                item("location-gap") { Spacer(Modifier.height(12.dp)) }
+                item("filter") { ThemedCell(RowPosition.FIRST) { ThemedTextField(filter, { filter = it }, "Filter this folder") } }
+                item("breadcrumbs") {
+                    ThemedCell(RowPosition.LAST) { FileBreadcrumbs(state.currentPath, state.location.name, state.canMutate, onDirectory) }
+                }
                 listOf(true, false).forEach { directories ->
                     val entries = filtered.filter { it.isDirectory == directories }
                     if (entries.isNotEmpty()) {
@@ -100,7 +111,7 @@ private fun FileLocationHeader(location: FileLocation) {
                         Icon(
                             painterResource(ProjectSymbols.drawable(icon.name)),
                             null,
-                            tint = LocalAppTheme.current.accent,
+                            modifier = Modifier.size(ListRow.iconSize),
                         )
                     }
 
@@ -122,27 +133,41 @@ private fun FileBrowserFooter(
     onDelete: (List<String>) -> Unit,
 ) {
     var newMenu by rememberSaveable { mutableStateOf(false) }
-    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = PageMargin.horizontal, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         if (state.selectionMode) {
             val selected = state.entries.filter { it.path in state.selectedPaths }
-            TextButton(onClick = { onMove(selected.map { it.path }) }, enabled = state.canMutate && selected.isNotEmpty()) { Text("Move") }
-            TextButton(
-                onClick = { selected.singleOrNull()?.let(onRename) },
+            ThemedBorderedButton(
+                "Move",
+                { onMove(selected.map { it.path }) },
+                Modifier.weight(1f),
+                enabled = state.canMutate && selected.isNotEmpty(),
+            )
+            ThemedBorderedButton(
+                "Rename",
+                { selected.singleOrNull()?.let(onRename) },
+                Modifier.weight(1f),
                 enabled = state.canMutate && selected.size == 1,
-            ) { Text("Rename") }
-            TextButton(onClick = {
-                onDelete(selected.map { it.path })
-            }, enabled = state.canMutate && selected.isNotEmpty()) { Text(state.location.host.deletionShortTitle) }
+            )
+            ThemedBorderedButton(
+                state.location.host.deletionShortTitle,
+                { onDelete(selected.map { it.path }) },
+                Modifier.weight(1f),
+                enabled = state.canMutate && selected.isNotEmpty(),
+            )
             return@Row
         }
         Text(
             "${state.entries.size} items",
-            Modifier.weight(1f).padding(vertical = 16.dp),
+            Modifier.weight(1f),
             color = LocalAppTheme.current.secondaryForeground,
         )
         Column {
-            TextButton(onClick = { newMenu = true }, enabled = state.canMutate) { Text("New") }
-            DropdownMenu(newMenu, { newMenu = false }) {
+            ThemedBorderedButton("New", { newMenu = true }, enabled = state.canMutate)
+            ThemedDropdownMenu(newMenu, { newMenu = false }) {
                 DropdownMenuItem(text = { Text("New file") }, onClick = {
                     newMenu = false
                     onCreate(false)
@@ -164,7 +189,9 @@ internal fun FileMoveScreen(
 ) {
     Column(Modifier.fillMaxSize()) {
         ThemedList(PaddingValues(0.dp), Modifier.weight(1f)) {
-            item("breadcrumbs") { FileBreadcrumbs(state.movePath, state.location.name, state.canMutate, onDirectory) }
+            item("breadcrumbs") {
+                ThemedCell(RowPosition.SINGLE) { FileBreadcrumbs(state.movePath, state.location.name, state.canMutate, onDirectory) }
+            }
             themedSection(state.moveEntries, key = { "entry:${it.path}" }, header = "Move to folder") { entry ->
                 FileEntryRow(
                     entry,
@@ -176,6 +203,11 @@ internal fun FileMoveScreen(
                 )
             }
         }
-        TextButton(onClick = onMove, enabled = state.canMoveHere, modifier = Modifier.fillMaxWidth()) { Text("Move here") }
+        ThemedProminentButton(
+            "Move here",
+            onMove,
+            Modifier.fillMaxWidth().padding(horizontal = PageMargin.horizontal, vertical = 8.dp),
+            enabled = state.canMoveHere,
+        )
     }
 }

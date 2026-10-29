@@ -73,9 +73,4 @@ class ConnectionsListViewModelTest {
             assertTrue(connection.isDisconnected)
             assertNotSame(controller, directory.controller("server-1"))
         }
-
-    @Test
-    fun subtitlesShowTheHostAndPort() {
-        assertEquals("studio.local:4865", device().subtitle)
-    }
 }

@@ -3,7 +3,6 @@ package com.muxy.app.design.components
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -31,13 +30,19 @@ fun ThemedProminentButton(
         modifier = modifier,
         enabled = enabled && !loading,
         shape = CircleShape,
-        colors = ButtonDefaults.buttonColors(containerColor = theme.accent, contentColor = theme.onAccent),
+        colors =
+            ButtonDefaults.buttonColors(
+                containerColor = theme.accent,
+                contentColor = theme.onAccent,
+                disabledContainerColor = theme.tertiaryGroupedBackground,
+                disabledContentColor = theme.secondaryForeground,
+            ),
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
     ) {
         if (loading) {
             CircularProgressIndicator(
                 modifier = Modifier.size(24.dp).semantics { contentDescription = "Loading" },
-                color = theme.accent,
+                color = theme.secondaryForeground,
                 strokeWidth = 2.dp,
             )
         } else {

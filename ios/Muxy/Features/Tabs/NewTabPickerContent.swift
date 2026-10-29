@@ -16,8 +16,8 @@ struct NewTabPickerContent: View {
                 ForEach(devices) { device in
                     deviceSection(device)
                 }
-                TabsHomeCard {
-                    TabsHomeActionRow(title: "Add device", systemImage: "plus", action: onAddDevice)
+                CardSection {
+                    actionRow("Add device", systemImage: "plus", action: onAddDevice)
                 }
                 .padding(.top, 28)
             }
@@ -29,7 +29,7 @@ struct NewTabPickerContent: View {
             if isCreating {
                 ProgressView("Creating tab…")
                     .padding(24)
-                    .glassEffect(.regular, in: .rect(cornerRadius: 20))
+                    .glassEffect(.regular, in: .rect(cornerRadius: SurfaceCorner.card, style: .continuous))
             }
         }
     }
@@ -45,77 +45,57 @@ struct NewTabPickerContent: View {
     @ViewBuilder
     private func deviceCard(_ device: TabsHomeDevice) -> some View {
         if device.status == .ssh {
-            TabsHomeCard {
-                TabsHomeActionRow(title: "Open SSH terminal", systemImage: "terminal") { onOpenSSH(device.id) }
+            CardSection {
+                actionRow("Open SSH terminal", systemImage: "terminal") { onOpenSSH(device.id) }
             }
         } else if device.status == .needsPairing {
-            TabsHomeCard {
-                TabsHomeActionRow(title: "Pair again", systemImage: "qrcode.viewfinder", action: onAddDevice)
+            CardSection {
+                actionRow("Pair again", systemImage: "qrcode.viewfinder", action: onAddDevice)
             }
         } else if device.status == .offline {
-            TabsHomeCard {
-                TabsHomeActionRow(title: "Reconnect", systemImage: "arrow.clockwise") { onRetry(device.id) }
+            CardSection {
+                actionRow("Reconnect", systemImage: "arrow.clockwise") { onRetry(device.id) }
             }
         } else if device.projects.isEmpty {
             Text(device.status == .loading ? "Loading projects…" : "Create a project on this device first.")
                 .font(.subheadline)
                 .foregroundStyle(theme.secondaryForeground)
-                .padding(.horizontal, 20)
+                .padding(.horizontal, PageMargin.horizontal + CardMetrics.rowPadding)
         } else {
-            TabsHomeCard {
-                ForEach(Array(device.projects.enumerated()), id: \.element.id) { index, project in
-                    if index > 0 {
-                        Rectangle()
-                            .fill(theme.separator)
-                            .frame(height: 0.5)
-                            .padding(.leading, 66)
-                    }
-                    NewTabProjectRow(project: project) { onCreate(device.id, project.id) }
-                        .accessibilityLabel("New tab in \(project.name) on \(device.name)")
+            CardSection {
+                ForEach(device.projects) { project in
+                    projectRow(project, on: device)
                 }
             }
         }
     }
-}
 
-private struct NewTabProjectRow: View {
-    let project: TabsHomeProject
-    let onCreate: () -> Void
+    private func actionRow(_ title: String, systemImage: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            CardRow(title, systemImage: systemImage)
+        }
+        .buttonStyle(.cardRow)
+    }
 
-    @Environment(\.appTheme) private var theme
-
-    var body: some View {
-        Button(action: onCreate) {
-            HStack(spacing: 14) {
-                Image(systemName: "folder")
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(theme.secondaryForeground)
-                    .frame(width: 36, height: 36)
-                    .accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(project.name)
-                        .foregroundStyle(theme.foreground)
-                        .lineLimit(1)
-                    if !project.path.isEmpty {
-                        Text(DisplayPath.abbreviated(project.path))
-                            .font(.subheadline)
-                            .foregroundStyle(theme.secondaryForeground)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
+    private func projectRow(_ project: TabsHomeProject, on device: TabsHomeDevice) -> some View {
+        Button {
+            onCreate(device.id, project.id)
+        } label: {
+            CardRow(
+                project.name,
+                systemImage: "folder",
+                subtitle: project.path.isEmpty ? nil : DisplayPath.abbreviated(project.path)
+            ) {
                 Image(systemName: "plus.circle")
                     .font(.title3)
                     .foregroundStyle(theme.secondaryForeground)
                     .accessibilityHidden(true)
             }
-            .padding(.horizontal, 16)
-            .frame(minHeight: 62)
-            .contentShape(Rectangle())
+            .lineLimit(1)
+            .truncationMode(.middle)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.cardRow)
         .disabled(!project.canCreate)
-        .opacity(project.canCreate ? 1 : 0.45)
+        .accessibilityLabel("New tab in \(project.name) on \(device.name)")
     }
 }

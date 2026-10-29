@@ -1,16 +1,22 @@
 package com.muxy.app.features.files
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.material3.AlertDialog
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.unit.dp
 import com.muxy.app.design.LocalAppTheme
+import com.muxy.app.design.components.SurfaceCorners
+import com.muxy.app.design.components.ThemedAlertDialog
+import com.muxy.app.design.components.ThemedDialogAction
 import com.muxy.app.design.components.ThemedTextField
 import com.muxy.app.models.RemoteFileEntry
 
@@ -41,41 +47,38 @@ internal fun FileNameDialog(
         } catch (error: FileException) {
             error.message
         }
-    AlertDialog(
+    ThemedAlertDialog(
+        title =
+            when {
+                prompt.entry != null -> "Rename"
+                prompt.isDirectory -> "New folder"
+                else -> "New file"
+            },
         onDismissRequest = { if (!state.isBusy) onDismiss() },
-        title = {
-            Text(
-                if (prompt.entry != null) {
-                    "Rename"
-                } else if (prompt.isDirectory) {
-                    "New folder"
-                } else {
-                    "New file"
-                },
+        confirm =
+            ThemedDialogAction(
+                label = if (prompt.entry != null) "Rename" else "Create",
+                onClick = { onConfirm(name) },
+                enabled = state.canMutate && validation == null,
+            ),
+        dismiss = listOf(ThemedDialogAction("Cancel", onDismiss, enabled = !state.isBusy)),
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            ThemedTextField(
+                name,
+                { name = it },
+                "Name",
+                modifier =
+                    Modifier
+                        .clip(
+                            RoundedCornerShape(SurfaceCorners.row),
+                        ).background(LocalAppTheme.current.tertiaryGroupedBackground),
+                enabled = !state.isBusy,
             )
-        },
-        text = {
-            Column {
-                ThemedTextField(name, { name = it }, "Name", enabled = !state.isBusy)
-                if (name.isNotEmpty() && validation != null) Text(validation, color = LocalAppTheme.current.red)
-                state.errorMessage?.let { Text(it, color = LocalAppTheme.current.red) }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = { onConfirm(name) }, enabled = state.canMutate && validation == null) {
-                Text(
-                    if (prompt.entry !=
-                        null
-                    ) {
-                        "Rename"
-                    } else {
-                        "Create"
-                    },
-                )
-            }
-        },
-        dismissButton = { TextButton(onClick = onDismiss, enabled = !state.isBusy) { Text("Cancel") } },
-    )
+            if (name.isNotEmpty() && validation != null) Text(validation, color = LocalAppTheme.current.red)
+            state.errorMessage?.let { Text(it, color = LocalAppTheme.current.red) }
+        }
+    }
 }
 
 @Composable
@@ -85,16 +88,15 @@ internal fun FileUnsavedDialog(
     onDiscard: () -> Unit,
     onKeep: () -> Unit,
 ) {
-    AlertDialog(
+    ThemedAlertDialog(
+        title = "Unsaved changes",
+        message = "Save your changes before leaving this file?",
         onDismissRequest = onKeep,
-        title = { Text("Unsaved changes") },
-        text = { Text("Save your changes before leaving this file?") },
-        confirmButton = { TextButton(onClick = onSave, enabled = canSave) { Text("Save") } },
-        dismissButton = {
-            Row {
-                TextButton(onClick = onDiscard) { Text("Discard") }
-                TextButton(onClick = onKeep) { Text("Keep editing") }
-            }
-        },
+        confirm = ThemedDialogAction("Save", onSave, enabled = canSave),
+        dismiss =
+            listOf(
+                ThemedDialogAction("Discard", onDiscard, isDestructive = true),
+                ThemedDialogAction("Keep editing", onKeep),
+            ),
     )
 }

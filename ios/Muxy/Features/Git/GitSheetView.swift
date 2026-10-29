@@ -4,11 +4,17 @@ struct GitSheetView<Worktrees: View>: View {
     @State var viewModel: GitViewModel
     @ViewBuilder let worktrees: () -> Worktrees
 
+    @Environment(\.dismiss) private var dismiss
+
     var body: some View {
         NavigationStack {
             GitOverviewView(viewModel: viewModel, worktrees: worktrees)
                 .screenTitle("Git")
+                .toolbar {
+                    DoneToolbarItem { dismiss() }
+                }
         }
+        .presentationDetents([.large])
         .task {
             if viewModel.status == nil {
                 await viewModel.refreshStatus()
@@ -21,10 +27,8 @@ struct GitOverviewView<Worktrees: View>: View {
     let viewModel: GitViewModel
     @ViewBuilder let worktrees: () -> Worktrees
 
-    @Environment(\.appTheme) private var theme
-
     var body: some View {
-        ThemedList {
+        CardList {
             if let status = viewModel.status {
                 branchSection(status)
                 actionSection(status)
@@ -32,20 +36,19 @@ struct GitOverviewView<Worktrees: View>: View {
                 changesSection(status)
             } else if viewModel.isLoadingStatus {
                 ProgressView()
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 40)
             } else {
-                ContentUnavailableView {
-                    Label("No Git Information", systemImage: "arrow.triangle.branch")
-                        .foregroundStyle(theme.foreground)
-                } description: {
-                    Text("Git status is not available for this project.")
-                        .foregroundStyle(theme.secondaryForeground)
-                }
+                ThemedEmptyState(
+                    title: "No Git Information",
+                    systemImage: "arrow.triangle.branch",
+                    message: "Git status is not available for this project."
+                )
             }
 
             if let errorMessage = viewModel.errorMessage {
-                Section {
-                    Text(errorMessage)
-                        .foregroundStyle(theme.red)
+                CardSection {
+                    CardMessageRow(errorMessage)
                 }
             }
         }
@@ -53,117 +56,128 @@ struct GitOverviewView<Worktrees: View>: View {
     }
 
     private func branchSection(_ status: VCSStatus) -> some View {
-        Section {
-            VStack(alignment: .leading, spacing: 8) {
-                Label(status.branch, systemImage: "arrow.triangle.branch")
-                    .font(.headline)
-                    .foregroundStyle(theme.foreground)
-                if status.hasUpstream {
-                    HStack(spacing: 16) {
-                        Label("\(status.behindCount)", systemImage: "arrow.down")
-                        Label("\(status.aheadCount)", systemImage: "arrow.up")
-                    }
-                    .font(.subheadline)
-                    .foregroundStyle(theme.secondaryForeground)
-                } else {
-                    Text("No upstream")
-                        .font(.subheadline)
-                        .foregroundStyle(theme.secondaryForeground)
-                }
+        CardSection {
+            CardRow(status.branch, systemImage: "arrow.triangle.branch", subtitle: upstreamSummary(status)) {
+                EmptyView()
             }
-            .padding(.vertical, 4)
+            .font(.headline)
+            .accessibilityElement(children: .combine)
         }
     }
 
+    private func upstreamSummary(_ status: VCSStatus) -> String {
+        guard status.hasUpstream else { return "No upstream" }
+        return "\(status.behindCount) behind · \(status.aheadCount) ahead"
+    }
+
     private func actionSection(_ status: VCSStatus) -> some View {
-        Section {
+        CardSection {
             Button {
                 Task { await viewModel.pull() }
             } label: {
-                Label("Pull", systemImage: "arrow.down")
+                CardRow("Pull", systemImage: "arrow.down") { EmptyView() }
             }
+            .buttonStyle(.cardRow)
             .disabled(!status.hasUpstream)
 
             Button {
                 Task { await viewModel.push() }
             } label: {
-                Label(viewModel.pushTitle(for: status), systemImage: "arrow.up")
+                CardRow(viewModel.pushTitle(for: status), systemImage: "arrow.up") { EmptyView() }
             }
+            .buttonStyle(.cardRow)
             .disabled(!viewModel.canPush(status))
 
             NavigationLink {
                 GitCommitView(viewModel: viewModel)
             } label: {
-                Label(viewModel.totalChanges > 0 ? "Commit \(viewModel.totalChanges)" : "Commit", systemImage: "checkmark.circle")
-                    .foregroundStyle(viewModel.totalChanges > 0 ? theme.foreground : theme.secondaryForeground)
+                CardRow(
+                    "Commit",
+                    systemImage: "checkmark.circle",
+                    value: viewModel.totalChanges > 0 ? viewModel.totalChanges.formatted() : nil
+                )
             }
+            .buttonStyle(.cardRow)
             .disabled(viewModel.totalChanges == 0)
         }
     }
 
     private func manageSection(_ status: VCSStatus) -> some View {
-        Section {
+        CardSection("Manage") {
             NavigationLink {
                 GitBranchesView(viewModel: viewModel)
             } label: {
-                Label("Branches", systemImage: "arrow.triangle.branch")
-                    .foregroundStyle(theme.foreground)
+                CardRow("Branches", systemImage: "arrow.triangle.branch")
             }
+            .buttonStyle(.cardRow)
 
             NavigationLink {
                 worktrees()
             } label: {
-                Label("Worktrees", systemImage: "folder")
-                    .foregroundStyle(theme.foreground)
+                CardRow("Worktrees", systemImage: "square.3.layers.3d")
             }
+            .buttonStyle(.cardRow)
 
             if let pullRequest = status.pullRequest, let url = URL(string: pullRequest.url) {
                 NavigationLink {
                     GitPullRequestView(viewModel: viewModel, pullRequest: pullRequest)
                 } label: {
-                    Label("Pull Request #\(pullRequest.number)", systemImage: "arrow.triangle.pull")
-                        .foregroundStyle(theme.foreground)
+                    CardRow("Pull Request #\(pullRequest.number)", systemImage: "arrow.triangle.pull")
                 }
+                .buttonStyle(.cardRow)
+
                 Link(destination: url) {
-                    Label("Open Pull Request", systemImage: "safari")
+                    CardRow("Open Pull Request", systemImage: "safari") {
+                        Image(systemName: "arrow.up.right")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(.tertiary)
+                            .accessibilityHidden(true)
+                    }
                 }
+                .buttonStyle(.cardRow)
             } else {
                 NavigationLink {
                     GitCreatePullRequestView(viewModel: viewModel)
                 } label: {
-                    Label("New Pull Request", systemImage: "arrow.triangle.pull")
-                        .foregroundStyle(theme.foreground)
+                    CardRow("New Pull Request", systemImage: "arrow.triangle.pull")
                 }
+                .buttonStyle(.cardRow)
             }
-        } header: {
-            ThemedSectionHeader("Manage")
         }
     }
 
+    @ViewBuilder
     private func changesSection(_ status: VCSStatus) -> some View {
-        Section {
-            if viewModel.totalChanges == 0 {
-                Label("Working tree clean", systemImage: "checkmark.circle")
-                    .foregroundStyle(theme.secondaryForeground)
-            } else {
+        if viewModel.totalChanges == 0 {
+            CardSection("Status") {
+                CardRow("Working tree clean", systemImage: "checkmark.circle") { EmptyView() }
+            }
+        } else {
+            CardSection("Changes", detail: viewModel.totalChanges.formatted(), separatorInset: CardMetrics.textInset) {
                 ForEach(status.stagedFiles) { file in
-                    NavigationLink {
-                        GitDiffView(viewModel: viewModel, key: GitDiffKey(path: file.path, isStaged: true))
-                    } label: {
-                        GitFileRow(file: file, isStaged: true)
-                    }
+                    changeRow(file, isStaged: true)
                 }
                 ForEach(status.changedFiles) { file in
-                    NavigationLink {
-                        GitDiffView(viewModel: viewModel, key: GitDiffKey(path: file.path, isStaged: false))
-                    } label: {
-                        GitFileRow(file: file, isStaged: false)
-                    }
+                    changeRow(file, isStaged: false)
                 }
             }
-        } header: {
-            ThemedSectionHeader(viewModel.totalChanges > 0 ? "Changes" : "Status")
         }
+    }
+
+    private func changeRow(_ file: VCSFile, isStaged: Bool) -> some View {
+        NavigationLink {
+            GitDiffView(viewModel: viewModel, key: GitDiffKey(path: file.path, isStaged: isStaged))
+        } label: {
+            CardRow(fileName(file.path), subtitle: file.path) {
+                EmptyView()
+            } trailing: {
+                GitFileStatusBadge(file: file, isStaged: isStaged)
+                CardRowChevron()
+            }
+            .lineLimit(1)
+            .truncationMode(.middle)
+        }
+        .buttonStyle(.cardRow)
     }
 }
 
@@ -176,7 +190,7 @@ struct GitCommitView: View {
     @Environment(\.appTheme) private var theme
 
     var body: some View {
-        ThemedList {
+        ThemedForm {
             Section {
                 TextField("Describe your change", text: $message, axis: .vertical)
                     .lineLimit(3...8)
@@ -188,17 +202,9 @@ struct GitCommitView: View {
             Section {
                 Toggle("Stage all changes", isOn: $stageAll)
                     .foregroundStyle(theme.foreground)
-                Button {
-                    submit()
-                } label: {
-                    if isSubmitting {
-                        ProgressView()
-                    } else {
-                        Text("Commit")
-                    }
-                }
-                .disabled(!canCommit || isSubmitting)
             }
+
+            FormSubmitSection("Commit", isSubmitting: isSubmitting, isDisabled: !canCommit, action: submit)
 
             if let status = viewModel.status {
                 Section {
@@ -248,50 +254,33 @@ struct GitCommitView: View {
 struct GitBranchesView: View {
     let viewModel: GitViewModel
     @State private var switchingBranch: String?
-    @Environment(\.appTheme) private var theme
 
     var body: some View {
-        ThemedList {
-            Section {
+        CardList {
+            CardSection {
                 NavigationLink {
                     GitNewBranchView(viewModel: viewModel)
                 } label: {
-                    Label("New Branch", systemImage: "plus")
-                        .foregroundStyle(theme.foreground)
+                    CardRow("New Branch", systemImage: "plus")
                 }
+                .buttonStyle(.cardRow)
             }
 
             if let branches = viewModel.branches {
-                Section {
+                CardSection("Local", detail: branches.locals.count.formatted()) {
                     ForEach(branches.locals, id: \.self) { branch in
-                        Button {
-                            switchBranch(branch)
-                        } label: {
-                            HStack {
-                                Label(branch, systemImage: branch == branches.current ? "checkmark" : "arrow.triangle.branch")
-                                Spacer()
-                                if switchingBranch == branch {
-                                    ProgressView()
-                                } else if branch == branches.defaultBranch {
-                                    Text("default")
-                                        .font(.caption)
-                                        .foregroundStyle(theme.secondaryForeground)
-                                }
-                            }
-                        }
-                        .disabled(branch == branches.current || switchingBranch != nil)
+                        branchRow(branch, in: branches)
                     }
-                } header: {
-                    ThemedSectionHeader("Local")
                 }
             } else if viewModel.isLoadingBranches {
                 ProgressView()
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 40)
             }
 
             if let errorMessage = viewModel.errorMessage {
-                Section {
-                    Text(errorMessage)
-                        .foregroundStyle(theme.red)
+                CardSection {
+                    CardMessageRow(errorMessage)
                 }
             }
         }
@@ -304,7 +293,31 @@ struct GitBranchesView: View {
         .refreshable { await viewModel.refreshBranches() }
     }
 
+    private func branchRow(_ branch: String, in branches: VCSBranches) -> some View {
+        let isCurrent = branch == branches.current
+        return Button {
+            switchBranch(branch)
+        } label: {
+            CardRow(
+                branch,
+                systemImage: "arrow.triangle.branch",
+                value: branch == branches.defaultBranch ? "default" : nil
+            ) {
+                if switchingBranch == branch {
+                    ProgressView()
+                } else if isCurrent {
+                    CardRowCheckmark()
+                }
+            }
+            .lineLimit(1)
+        }
+        .buttonStyle(.cardRow)
+        .disabled(switchingBranch != nil && !isCurrent)
+        .accessibilityAddTraits(isCurrent ? .isSelected : [])
+    }
+
     private func switchBranch(_ branch: String) {
+        guard branch != viewModel.branches?.current else { return }
         switchingBranch = branch
         Task {
             await viewModel.switchBranch(branch)
@@ -331,18 +344,12 @@ struct GitNewBranchView: View {
                 ThemedSectionHeader("Branch Name")
             }
 
-            Section {
-                Button {
-                    submit()
-                } label: {
-                    if isSubmitting {
-                        ProgressView()
-                    } else {
-                        Text("Create Branch")
-                    }
-                }
-                .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSubmitting)
-            }
+            FormSubmitSection(
+                "Create Branch",
+                isSubmitting: isSubmitting,
+                isDisabled: name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                action: submit
+            )
         }
         .screenTitle("New Branch")
     }
@@ -389,19 +396,11 @@ struct GitPullRequestView: View {
                 .foregroundStyle(theme.foreground)
                 Toggle("Delete branch", isOn: $deleteBranch)
                     .foregroundStyle(theme.foreground)
-                Button {
-                    merge()
-                } label: {
-                    if isMerging {
-                        ProgressView()
-                    } else {
-                        Text("Merge Pull Request")
-                    }
-                }
-                .disabled(isMerging)
             } header: {
                 ThemedSectionHeader("Merge")
             }
+
+            FormSubmitSection("Merge Pull Request", isSubmitting: isMerging, action: merge)
 
             if let errorMessage = viewModel.errorMessage {
                 Section {
@@ -450,18 +449,12 @@ struct GitCreatePullRequestView: View {
             }
             .foregroundStyle(theme.foreground)
 
-            Section {
-                Button {
-                    submit()
-                } label: {
-                    if isSubmitting {
-                        ProgressView()
-                    } else {
-                        Text("Create Pull Request")
-                    }
-                }
-                .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSubmitting)
-            }
+            FormSubmitSection(
+                "Create Pull Request",
+                isSubmitting: isSubmitting,
+                isDisabled: title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                action: submit
+            )
 
             if let created, let url = URL(string: created.url) {
                 Section {
@@ -510,10 +503,11 @@ struct GitDiffView: View {
             } else if viewModel.loadingDiffs.contains(key) {
                 ProgressView()
             } else {
-                ContentUnavailableView {
-                    Label("No Diff", systemImage: "doc.text")
-                        .foregroundStyle(theme.foreground)
-                }
+                ThemedEmptyState(
+                    title: "No Diff",
+                    systemImage: "doc.text",
+                    message: "There is nothing to show for this file."
+                )
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -527,7 +521,6 @@ struct GitDiffView: View {
                     } label: {
                         Image(systemName: wrapsLines ? "arrow.left.and.right.text.vertical" : "arrow.left.and.right")
                     }
-                    .tint(theme.foreground)
                     .accessibilityLabel(wrapsLines ? "Disable line wrap" : "Enable line wrap")
                 }
             }
@@ -542,13 +535,11 @@ struct GitDiffView: View {
     @ViewBuilder
     private func diffContent(_ diff: VCSDiff) -> some View {
         if diff.isBinary {
-            ContentUnavailableView {
-                Label("Binary File", systemImage: "doc")
-                    .foregroundStyle(theme.foreground)
-            } description: {
-                Text("No preview is available.")
-                    .foregroundStyle(theme.secondaryForeground)
-            }
+            ThemedEmptyState(
+                title: "Binary File",
+                systemImage: "doc",
+                message: "No preview is available."
+            )
         } else {
             GitCodeDiffViewer(
                 diff: diff,
@@ -573,12 +564,13 @@ struct GitCodeDiffViewer: View {
     var body: some View {
         VStack(spacing: 0) {
             header
-            theme.separator.frame(height: 1)
+            theme.separator.frame(height: CardMetrics.separatorHeight)
             if diff.rows.isEmpty {
-                ContentUnavailableView {
-                    Label("No Changes", systemImage: "doc.text")
-                        .foregroundStyle(theme.foreground)
-                }
+                ThemedEmptyState(
+                    title: "No Changes",
+                    systemImage: "doc.text",
+                    message: "This diff has no line changes."
+                )
             } else {
                 GeometryReader { proxy in
                     ScrollView(.vertical) {
@@ -631,12 +623,12 @@ struct GitCodeDiffViewer: View {
                         Text("Full")
                     }
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.glass)
                 .controlSize(.small)
                 .disabled(isLoading)
             }
         }
-        .padding(.horizontal, 14)
+        .padding(.horizontal, PageMargin.horizontal)
         .padding(.vertical, 10)
         .background(theme.secondaryGroupedBackground)
     }
@@ -659,21 +651,32 @@ struct GitFileRow: View {
                     .lineLimit(1)
             }
             Spacer()
-            VStack(alignment: .trailing, spacing: 4) {
-                Text(statusLabel(file.status))
-                    .font(.caption)
-                    .foregroundStyle(theme.foreground)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(statusColor(file.status, in: theme).opacity(0.18))
-                    .clipShape(Capsule())
-                if !isStaged {
-                    Text("unstaged")
-                        .font(.caption2)
-                        .foregroundStyle(theme.secondaryForeground)
-                }
+            GitFileStatusBadge(file: file, isStaged: isStaged)
+        }
+    }
+}
+
+struct GitFileStatusBadge: View {
+    let file: VCSFile
+    let isStaged: Bool
+
+    @Environment(\.appTheme) private var theme
+
+    var body: some View {
+        VStack(alignment: .trailing, spacing: 4) {
+            Text(statusLabel(file.status))
+                .font(.caption)
+                .foregroundStyle(theme.foreground)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(statusColor(file.status, in: theme).opacity(0.18), in: Capsule())
+            if !isStaged {
+                Text("unstaged")
+                    .font(.caption2)
+                    .foregroundStyle(theme.secondaryForeground)
             }
         }
+        .fixedSize()
     }
 }
 

@@ -64,12 +64,15 @@ struct TabsHomeDeviceSection: View {
     @ViewBuilder
     private var notice: some View {
         if device.status == .ssh {
-            TabsHomeCard {
-                TabsHomeActionRow(title: "Open SSH terminal", systemImage: "terminal", action: onOpenDevice)
+            CardSection {
+                Button(action: onOpenDevice) {
+                    CardRow("Open SSH terminal", systemImage: "terminal")
+                }
+                .buttonStyle(.cardRow)
             }
             .padding(.top, 8)
         } else if device.status == .connected, device.tabCount == 0, !isSearching {
-            TabsHomeCard {
+            CardSection {
                 HStack {
                     Text(device.projects.isEmpty ? "No projects on this device" : "No open tabs")
                         .foregroundStyle(theme.secondaryForeground)
@@ -79,7 +82,7 @@ struct TabsHomeDeviceSection: View {
                             .buttonStyle(.glass)
                     }
                 }
-                .padding(16)
+                .padding(CardMetrics.rowPadding)
             }
             .padding(.top, 8)
         }
@@ -120,52 +123,6 @@ struct TabsHomeDeviceSection: View {
                 }
             }
         )
-    }
-}
-
-struct TabsHomeCard<Content: View>: View {
-    @ViewBuilder let content: Content
-
-    @Environment(\.appTheme) private var theme
-
-    var body: some View {
-        VStack(spacing: 0) {
-            content
-        }
-        .background(theme.secondaryGroupedBackground, in: .rect(cornerRadius: SurfaceCorner.card, style: .continuous))
-        .clipShape(.rect(cornerRadius: SurfaceCorner.card, style: .continuous))
-        .padding(.horizontal, 16)
-    }
-}
-
-struct TabsHomeActionRow: View {
-    let title: String
-    let systemImage: String
-    let action: () -> Void
-
-    @Environment(\.appTheme) private var theme
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 14) {
-                Image(systemName: systemImage)
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(theme.foreground)
-                    .frame(width: 36, height: 36)
-                    .accessibilityHidden(true)
-                Text(title)
-                    .foregroundStyle(theme.foreground)
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(.tertiary)
-                    .accessibilityHidden(true)
-            }
-            .padding(.horizontal, 16)
-            .frame(minHeight: 60)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
     }
 }
 

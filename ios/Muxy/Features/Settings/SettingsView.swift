@@ -4,76 +4,56 @@ struct SettingsView: View {
     @Bindable var settings: AppSettings
     let onDone: () -> Void
 
-    @Environment(\.appTheme) private var theme
-
     var body: some View {
         NavigationStack {
-            ThemedForm {
-                Section {
+            CardList {
+                CardSection(
+                    "Appearance",
+                    footer: "The app follows your device’s light or dark appearance. Terminal colors are independent."
+                ) {
                     NavigationLink {
                         ThemePickerView(settings: settings)
                     } label: {
-                        HStack {
-                            Text("Terminal theme")
-                                .foregroundStyle(theme.foreground)
-                            Spacer()
-                            Text(settings.themePalette.name)
-                                .foregroundStyle(theme.secondaryForeground)
-                        }
+                        CardRow("Terminal theme", systemImage: "paintpalette", value: settings.themePalette.name)
                     }
-                } header: {
-                    ThemedSectionHeader("Appearance")
-                } footer: {
-                    Text("The app follows your device’s light or dark appearance. Terminal colors are independent.")
-                        .foregroundStyle(theme.secondaryForeground)
+                    .buttonStyle(.cardRow)
                 }
 
-                Section {
-                    toggle(
+                CardSection("Terminal") {
+                    toggleRow(
                         isOn: $settings.useNerdFont,
                         title: "Use Nerd Font",
+                        systemImage: "textformat",
                         caption: "Caskaydia Mono with powerline and icon glyphs."
                     )
-
-                    toggle(
+                    toggleRow(
                         isOn: $settings.autoFocusTerminal,
                         title: "Auto-focus terminal",
+                        systemImage: "keyboard",
                         caption: "Focus the terminal automatically when switching or creating tabs. May open the on-screen keyboard."
                     )
-                } header: {
-                    ThemedSectionHeader("Terminal")
                 }
 
-                Section {
-                    toggle(
+                CardSection("Demo") {
+                    toggleRow(
                         isOn: $settings.demoMode,
                         title: "Demo Mode",
+                        systemImage: "sparkles.rectangle.stack",
                         caption: "Loads sample data so you can try the app without a desktop. Switching it off restores your real devices."
                     )
-                } header: {
-                    ThemedSectionHeader("Demo")
                 }
             }
             .screenTitle("Settings")
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done", action: onDone)
-                        .foregroundStyle(theme.foreground)
-                }
+                DoneToolbarItem(action: onDone)
             }
         }
     }
 
-    private func toggle(isOn: Binding<Bool>, title: String, caption: String) -> some View {
-        Toggle(isOn: isOn) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .foregroundStyle(theme.foreground)
-                Text(caption)
-                    .font(.footnote)
-                    .foregroundStyle(theme.secondaryForeground)
-            }
+    private func toggleRow(isOn: Binding<Bool>, title: String, systemImage: String, caption: String) -> some View {
+        CardRow(title, systemImage: systemImage, subtitle: caption) {
+            Toggle(title, isOn: isOn)
+                .labelsHidden()
         }
-        .tint(theme.green)
     }
 }

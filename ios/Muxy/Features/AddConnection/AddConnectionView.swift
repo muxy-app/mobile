@@ -35,12 +35,10 @@ struct AddConnectionView: View {
                         submissionTask?.cancel()
                         dismiss()
                     }
-                    .tint(theme.foreground)
                     .disabled(viewModel.isWorking && !viewModel.isRemoteSSH)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     submitButton
-                        .tint(theme.foreground)
                 }
             }
             .sheet(isPresented: $viewModel.isShowingScanner) {

@@ -35,7 +35,8 @@ struct TerminalTabView: View {
             overlay
 
             if !session.isFollowingBottom {
-                jumpToBottomButton
+                JumpToLiveButton(action: session.requestJumpToBottom)
+                    .padding(PageMargin.horizontal)
                     .padding(.bottom, keyboardOffset)
             }
         }
@@ -60,57 +61,15 @@ struct TerminalTabView: View {
     }
 
     private func controlledElsewhere(deviceName: String) -> some View {
-        VStack(spacing: 16) {
-            Image(systemName: "desktopcomputer")
-                .font(.system(size: 44))
-                .foregroundStyle(appTheme.secondaryForeground)
-
-            VStack(spacing: 6) {
-                Text("Controlled on \(deviceName)")
-                    .font(.headline)
-                    .foregroundStyle(appTheme.foreground)
-                Text("This terminal is active on your Mac.")
-                    .font(.subheadline)
-                    .foregroundStyle(appTheme.secondaryForeground)
-                    .multilineTextAlignment(.center)
-            }
-
-            Button {
-                session.takeControl()
-            } label: {
-                Text("Take Control")
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(appTheme.onAccent)
-                    .padding(.horizontal, 24)
-                    .padding(.vertical, 12)
-                    .background(Capsule().fill(appTheme.accent))
-            }
-            .buttonStyle(.plain)
-            .padding(.top, 4)
+        ThemedEmptyState(
+            title: "Controlled on \(deviceName)",
+            systemImage: "desktopcomputer",
+            message: "This terminal is active on your Mac."
+        ) {
+            Button("Take Control", action: session.takeControl)
+                .buttonStyle(ThemedProminentButtonStyle())
         }
-        .padding(32)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(appTheme.groupedBackground)
-    }
-
-    private var jumpToBottomButton: some View {
-        Button {
-            session.requestJumpToBottom()
-        } label: {
-            Image(systemName: "chevron.down")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(appTheme.foreground)
-                .frame(width: 40, height: 40)
-                .background(.regularMaterial, in: Circle())
-                .overlay {
-                    Circle()
-                        .stroke(appTheme.foreground.opacity(0.18), lineWidth: 1)
-                }
-                .contentShape(Circle())
-        }
-        .buttonStyle(.plain)
-        .shadow(color: .black.opacity(0.18), radius: 8, y: 3)
-        .padding(16)
     }
 }
 

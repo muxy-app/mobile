@@ -16,20 +16,30 @@ struct TabActivityBadge: View {
         switch activity.state {
         case .waiting:
             Circle()
-                .fill(.orange)
+                .fill(activity.state.tint(in: theme))
                 .frame(width: 9, height: 9)
-                .background(Circle().fill(.orange.opacity(0.28)).frame(width: 16, height: 16))
+                .background(Circle().fill(activity.state.tint(in: theme).opacity(0.28)).frame(width: 16, height: 16))
         case .working:
             Image(systemName: "ellipsis")
                 .font(.body.weight(.bold))
-                .foregroundStyle(theme.secondaryForeground)
+                .foregroundStyle(activity.state.tint(in: theme))
                 .symbolEffect(.variableColor.iterative, options: .repeating)
         case .finished:
             Circle()
-                .fill(theme.green)
+                .fill(activity.state.tint(in: theme))
                 .frame(width: 8, height: 8)
         case .idle:
             EmptyView()
+        }
+    }
+}
+
+extension TabActivity.State {
+    func tint(in theme: AppTheme) -> Color {
+        switch self {
+        case .waiting: .orange
+        case .finished: theme.green
+        case .working, .idle: theme.secondaryForeground
         }
     }
 }

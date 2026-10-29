@@ -19,7 +19,7 @@ struct WorkspaceFilterBar: View {
                     }
                 }
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, PageMargin.horizontal)
             .padding(.vertical, 10)
         }
     }

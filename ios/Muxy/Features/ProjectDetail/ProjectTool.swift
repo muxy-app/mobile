@@ -27,8 +27,6 @@ nonisolated enum ProjectTool: String, Identifiable, CaseIterable, Sendable {
 struct ProjectToolbar: ToolbarContent {
     let onSelect: (ProjectTool) -> Void
 
-    @Environment(\.appTheme) private var theme
-
     var body: some ToolbarContent {
         ToolbarItemGroup(placement: .primaryAction) {
             ForEach(ProjectTool.allCases) { tool in
@@ -37,7 +35,6 @@ struct ProjectToolbar: ToolbarContent {
                 } label: {
                     Image(systemName: tool.systemImage)
                 }
-                .tint(theme.foreground)
                 .accessibilityLabel(tool.title)
             }
         }

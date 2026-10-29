@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -19,7 +18,6 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -37,7 +35,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
@@ -51,28 +48,18 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.muxy.app.R
 import com.muxy.app.design.LocalAppTheme
+import com.muxy.app.design.components.PageMargin
 import com.muxy.app.design.components.SurfaceCorners
 import com.muxy.app.design.components.TabActivityBadge
 import com.muxy.app.design.components.TabKindIcon
 import com.muxy.app.design.components.TabTileColors
+import com.muxy.app.design.components.ThemedCard
+import com.muxy.app.design.components.ThemedChevron
+import com.muxy.app.design.components.ThemedDropdownMenu
 import com.muxy.app.features.demo.DemoConnection
+import com.muxy.app.features.projects.rememberProjectColor
 import com.muxy.app.models.ConnectionKind
 import com.muxy.app.models.TabActivity
-
-private val cardShape = RoundedCornerShape(SurfaceCorners.card)
-private val outerCorner = 24.dp
-private val innerCorner = 4.dp
-
-internal fun segmentShape(
-    index: Int,
-    count: Int,
-): Shape =
-    RoundedCornerShape(
-        topStart = if (index == 0) outerCorner else innerCorner,
-        topEnd = if (index == 0) outerCorner else innerCorner,
-        bottomStart = if (index == count - 1) outerCorner else innerCorner,
-        bottomEnd = if (index == count - 1) outerCorner else innerCorner,
-    )
 
 @Composable
 internal fun TabsDeviceHeader(
@@ -160,7 +147,7 @@ internal fun TabsDeviceMenu(
                 tint = theme.secondaryForeground,
             )
         }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+        ThemedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             if (device.status == TabsDeviceStatus.LOCKED) {
                 DropdownMenuItem(text = { Text("Unlock") }, onClick = {
                     expanded = false
@@ -192,16 +179,7 @@ internal fun TabsDeviceMenu(
 
 @Composable
 private fun TabsCard(content: @Composable () -> Unit) {
-    Box(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 4.dp)
-                .clip(cardShape)
-                .background(LocalAppTheme.current.secondaryGroupedBackground),
-    ) {
-        content()
-    }
+    ThemedCard(modifier = Modifier.padding(horizontal = PageMargin.horizontal, vertical = 4.dp)) { content() }
 }
 
 @Composable
@@ -254,12 +232,7 @@ internal fun OpenSshTerminalCard(
                 tint = theme.foreground,
             )
             Text("Open SSH terminal", modifier = Modifier.weight(1f), color = theme.foreground, style = MaterialTheme.typography.bodyLarge)
-            Icon(
-                painterResource(R.drawable.ic_chevron_right),
-                contentDescription = null,
-                modifier = Modifier.size(20.dp),
-                tint = theme.secondaryForeground,
-            )
+            ThemedChevron()
         }
     }
 }
@@ -281,7 +254,7 @@ internal fun TabsProjectCard(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 5.dp)
+                .padding(horizontal = PageMargin.horizontal, vertical = 5.dp)
                 .background(theme.secondaryGroupedBackground, RoundedCornerShape(SurfaceCorners.card))
                 .padding(
                     start = SurfaceCorners.cardPadding,
@@ -333,7 +306,7 @@ private fun TabsProjectHeader(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Box(modifier = Modifier.size(8.dp).background(tabsProjectColor(project), CircleShape))
+            Box(modifier = Modifier.size(8.dp).background(rememberProjectColor(project.id, project.color), CircleShape))
             Text(
                 project.name,
                 modifier = Modifier.weight(1f, fill = false),
@@ -439,7 +412,7 @@ internal fun RevealProjectsButton(
     hiddenCount: Int,
     onToggle: () -> Unit,
 ) {
-    TextButton(onClick = onToggle, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp)) {
+    TextButton(onClick = onToggle, modifier = Modifier.fillMaxWidth().padding(horizontal = PageMargin.horizontal, vertical = 4.dp)) {
         Text(
             if (revealed) "Hide projects without tabs" else "$hiddenCount more ${if (hiddenCount == 1) "project" else "projects"}",
             color = LocalAppTheme.current.secondaryForeground,

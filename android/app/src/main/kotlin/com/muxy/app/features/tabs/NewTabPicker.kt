@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -14,21 +13,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.ModalBottomSheetProperties
-import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
@@ -37,13 +29,21 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.muxy.app.R
 import com.muxy.app.design.LocalAppTheme
+import com.muxy.app.design.components.ListRow
+import com.muxy.app.design.components.PageMargin
+import com.muxy.app.design.components.RowPosition
+import com.muxy.app.design.components.ThemedBorderedButton
+import com.muxy.app.design.components.ThemedBottomSheet
+import com.muxy.app.design.components.ThemedCell
 import com.muxy.app.design.components.ThemedListItem
-import com.muxy.app.design.components.TopBarAction
+import com.muxy.app.features.projects.rememberProjectColor
 import com.muxy.app.models.Connection
 import com.muxy.app.models.ConnectionKind
+import com.muxy.app.models.DisplayPath
 import java.util.UUID
 
-@OptIn(ExperimentalMaterial3Api::class)
+private const val DISABLED_ALPHA = 0.38f
+
 @Composable
 internal fun NewTabPicker(
     devices: List<TabsDevice>,
@@ -56,45 +56,24 @@ internal fun NewTabPicker(
     onClose: () -> Unit,
 ) {
     val theme = LocalAppTheme.current
-    val busy by rememberUpdatedState(creating != null)
-    val sheetState =
-        rememberModalBottomSheetState(
-            skipPartiallyExpanded = true,
-            confirmValueChange = { it != SheetValue.Hidden || !busy },
-        )
-    ModalBottomSheet(
-        onDismissRequest = { if (!busy) onClose() },
-        sheetState = sheetState,
-        sheetGesturesEnabled = !busy,
-        properties = ModalBottomSheetProperties(shouldDismissOnBackPress = !busy),
-        containerColor = theme.groupedBackground,
-        contentColor = theme.foreground,
-    ) {
+    val busy = creating != null
+    ThemedBottomSheet(title = "New tab", onClose = onClose, dismissible = !busy) {
         Column(modifier = Modifier.fillMaxWidth().fillMaxHeight(0.85f)) {
-            Row(modifier = Modifier.padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    "New tab",
-                    modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.headlineSmall,
-                )
-                TopBarAction(R.drawable.ic_close, "Close", onClose, enabled = !busy)
-            }
             Text(
                 "Choose a project",
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                modifier = Modifier.padding(horizontal = PageMargin.horizontal, vertical = 8.dp),
                 style = MaterialTheme.typography.bodyMedium,
                 color = theme.secondaryForeground,
             )
             LazyColumn(modifier = Modifier.weight(1f), contentPadding = PaddingValues(bottom = 24.dp)) {
                 if (devices.isEmpty()) {
                     item(key = "empty") {
-                        Text(
-                            "Add a device to create a tab.",
-                            modifier = Modifier.padding(16.dp),
-                            color = theme.secondaryForeground,
-                        )
-                        TextButton(onClick = onAddDevice, enabled = !busy, modifier = Modifier.padding(horizontal = 8.dp)) {
-                            Text("Add device")
+                        Column(
+                            modifier = Modifier.padding(horizontal = PageMargin.horizontal, vertical = 16.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                        ) {
+                            Text("Add a device to create a tab.", color = theme.secondaryForeground)
+                            ThemedBorderedButton("Add device", onAddDevice, enabled = !busy)
                         }
                     }
                 }
@@ -104,10 +83,7 @@ internal fun NewTabPicker(
                         TabsDeviceHeader(device) {
                             when (device.status) {
                                 TabsDeviceStatus.OFFLINE -> {
-                                    TextButton(
-                                        onClick = { onRetry(connection.id) },
-                                        enabled = !busy,
-                                    ) { Text("Reconnect") }
+                                    TextButton(onClick = { onRetry(connection.id) }, enabled = !busy) { Text("Reconnect") }
                                 }
 
                                 TabsDeviceStatus.LOCKED -> {
@@ -124,20 +100,25 @@ internal fun NewTabPicker(
                         item(key = "empty:${connection.id}") {
                             Text(
                                 "No projects. Add a project in Muxy on this device.",
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                                modifier = Modifier.padding(horizontal = PageMargin.horizontal, vertical = 8.dp),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = theme.secondaryForeground,
                             )
                         }
                     }
-                    items(device.projects, key = { "project:${connection.id}:${it.id}" }) { project ->
+                    itemsIndexed(device.projects, key = { _, project -> "project:${connection.id}:${project.id}" }) { index, project ->
                         val key = TabsProjectKey(connection.id, project.id)
-                        NewTabProjectRow(
-                            project = project,
-                            enabled = !busy && (device.canCreate(project) || device.status == TabsDeviceStatus.LOCKED),
-                            creating = creating == key,
-                            onCreate = { onCreate(key) },
-                        )
+                        ThemedCell(
+                            RowPosition.of(index, device.projects.size),
+                            Modifier.padding(horizontal = PageMargin.horizontal),
+                        ) {
+                            NewTabProjectRow(
+                                project = project,
+                                enabled = !busy && (device.canCreate(project) || device.status == TabsDeviceStatus.LOCKED),
+                                creating = creating == key,
+                                onCreate = { onCreate(key) },
+                            )
+                        }
                     }
                     item(key = "gap:${connection.id}") { Spacer(modifier = Modifier.height(16.dp)) }
                 }
@@ -164,36 +145,34 @@ private fun NewTabProjectRow(
             )
         },
         supporting = {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                val path = project.path
-                if (!path.isNullOrBlank()) {
-                    Text(path, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            val detail =
+                when {
+                    project.loadFailed -> "Couldn't load tabs"
+                    !project.hasLoadedTabs -> "Tabs not loaded"
+                    project.tabs.isEmpty() -> "No open tabs"
+                    project.tabs.size == 1 -> "1 open tab"
+                    else -> "${project.tabs.size} open tabs"
                 }
-                val detail =
-                    when {
-                        project.loadFailed -> "Couldn't load tabs"
-                        !project.hasLoadedTabs -> "Tabs not loaded"
-                        project.tabs.isEmpty() -> "No open tabs"
-                        project.tabs.size == 1 -> "1 open tab"
-                        else -> "${project.tabs.size} open tabs"
-                    }
-                Text(detail)
-            }
+            Text(
+                listOfNotNull(project.path?.takeIf { it.isNotBlank() }?.let(DisplayPath::abbreviated), detail).joinToString(" · "),
+                maxLines = 1,
+                overflow = TextOverflow.StartEllipsis,
+            )
         },
         leading = {
-            Box(modifier = Modifier.size(24.dp), contentAlignment = Alignment.Center) {
-                Box(modifier = Modifier.size(8.dp).background(tabsProjectColor(project), CircleShape))
+            Box(modifier = Modifier.size(ListRow.iconSize), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.size(8.dp).background(rememberProjectColor(project.id, project.color), CircleShape))
             }
         },
         trailing = {
             if (creating) {
-                CircularProgressIndicator(modifier = Modifier.size(24.dp), color = theme.accent, strokeWidth = 2.dp)
+                CircularProgressIndicator(modifier = Modifier.size(ListRow.iconSize), color = theme.secondaryForeground, strokeWidth = 2.dp)
             } else {
                 Icon(
                     painterResource(R.drawable.ic_add),
                     contentDescription = null,
-                    modifier = Modifier.size(24.dp),
-                    tint = if (enabled) theme.secondaryForeground else theme.secondaryForeground.copy(alpha = 0.38f),
+                    modifier = Modifier.size(ListRow.iconSize),
+                    tint = if (enabled) theme.secondaryForeground else theme.secondaryForeground.copy(alpha = DISABLED_ALPHA),
                 )
             }
         },

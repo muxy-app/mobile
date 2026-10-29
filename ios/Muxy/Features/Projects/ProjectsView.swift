@@ -42,7 +42,6 @@ struct ProjectsView: View {
             id: project.id.uuidString,
             name: project.name,
             path: project.path,
-            icon: .symbol(project.icon ?? "folder"),
             iconColor: project.iconColor,
             logo: viewModel.logoData(for: project),
             isNested: false

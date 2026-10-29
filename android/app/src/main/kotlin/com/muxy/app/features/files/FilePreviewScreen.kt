@@ -19,7 +19,6 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
@@ -34,6 +33,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.muxy.app.design.LocalAppTheme
+import com.muxy.app.design.components.PageMargin
+import com.muxy.app.design.components.ThemedBorderedButton
+import com.muxy.app.design.components.ThemedNotice
+import com.muxy.app.design.components.ThemedProminentButton
 import com.muxy.app.models.FileLimits
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -48,33 +51,53 @@ internal fun FilePreviewScreen(
 ) {
     val preview = state.preview ?: return
     Column(Modifier.fillMaxSize()) {
+        val noticeModifier = Modifier.padding(horizontal = PageMargin.horizontal, vertical = 4.dp)
         if (preview.hasExternalChanges) {
-            Text("Changed on ${state.location.host.shortName}", Modifier.padding(horizontal = 16.dp), color = LocalAppTheme.current.yellow)
-            Text(state.location.host.draftReplacementMessage, Modifier.padding(horizontal = 16.dp))
-            TextButton(onClick = onReload, enabled = state.canMutate) { Text("Reload") }
+            ThemedNotice(
+                state.location.host.draftReplacementMessage,
+                noticeModifier,
+                title = "Changed on ${state.location.host.shortName}",
+                tint = LocalAppTheme.current.yellow,
+            ) {
+                ThemedBorderedButton("Reload", onReload, enabled = state.canMutate)
+            }
         }
         if (preview.isPreviewShortened && !preview.isEditing) {
-            Text(
-                "Preview shortened. Tap Edit file to load the complete text.",
-                Modifier.padding(16.dp),
-                color = LocalAppTheme.current.secondaryForeground,
-            )
+            ThemedNotice("Preview shortened. Tap Edit file to load the complete text.", noticeModifier)
         }
         Box(Modifier.weight(1f).fillMaxWidth()) {
             when {
-                state.isLoadingPreview -> CircularProgressIndicator(Modifier.align(Alignment.Center))
-                preview.isEditing -> FileTextEditor(preview.draft, onDraft, preview.wrapsLines, !state.isBusy)
-                preview.text != null -> FileTextPreview(preview.displayText, preview.wrapsLines)
-                preview.image != null -> FileImagePreview(preview.image, preview.entry.name)
-                else -> Text("Preview unavailable", Modifier.align(Alignment.Center), color = LocalAppTheme.current.secondaryForeground)
+                state.isLoadingPreview -> {
+                    CircularProgressIndicator(
+                        Modifier.align(Alignment.Center),
+                        LocalAppTheme.current.secondaryForeground,
+                    )
+                }
+
+                preview.isEditing -> {
+                    FileTextEditor(preview.draft, onDraft, preview.wrapsLines, !state.isBusy)
+                }
+
+                preview.text != null -> {
+                    FileTextPreview(preview.displayText, preview.wrapsLines)
+                }
+
+                preview.image != null -> {
+                    FileImagePreview(preview.image, preview.entry.name)
+                }
+
+                else -> {
+                    Text("Preview unavailable", Modifier.align(Alignment.Center), color = LocalAppTheme.current.secondaryForeground)
+                }
             }
         }
         if (preview.text != null) {
-            TextButton(
+            ThemedProminentButton(
+                text = if (preview.isEditing) "Save changes" else "Edit file",
                 onClick = if (preview.isEditing) onSave else onEdit,
                 enabled = state.canMutate && !state.isLoadingPreview,
-                modifier = Modifier.fillMaxWidth(),
-            ) { Text(if (preview.isEditing) "Save changes" else "Edit file") }
+                modifier = Modifier.fillMaxWidth().padding(horizontal = PageMargin.horizontal, vertical = 8.dp),
+            )
         }
     }
 }

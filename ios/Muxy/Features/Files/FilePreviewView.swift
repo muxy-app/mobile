@@ -50,15 +50,14 @@ struct FilePreviewView: View {
             content
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .padding(.horizontal, 18)
-        .padding(.top, 16)
-        .padding(.bottom, 16)
+        .padding(.horizontal, PageMargin.horizontal)
+        .padding(.vertical, CardMetrics.rowPadding)
         .background(theme.groupedBackground)
         .safeAreaInset(edge: .bottom, spacing: 0) { footer }
     }
 
     private var fileHeader: some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .firstTextBaseline, spacing: CardMetrics.iconSpacing) {
             FileIcon(entry: preview.entry, prominent: true)
             VStack(alignment: .leading, spacing: 5) {
                 Text(preview.entry.name)
@@ -76,6 +75,7 @@ struct FilePreviewView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .padding(.horizontal, CardMetrics.rowPadding)
     }
 
     @ViewBuilder
@@ -86,26 +86,22 @@ struct FilePreviewView: View {
             Image(uiImage: image)
                 .resizable()
                 .scaledToFit()
-                .padding(16)
+                .padding(CardMetrics.rowPadding)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .filePanel()
+                .cardSurface()
                 .accessibilityLabel(preview.entry.name)
         } else if preview.kind == .unsupported {
-            ContentUnavailableView {
-                Label("Preview unavailable", systemImage: "doc")
-                    .foregroundStyle(theme.foreground)
-            } description: {
-                Text("This file isn’t UTF-8 text or a supported image. Use File actions to rename, move, or delete it.")
-                    .foregroundStyle(theme.secondaryForeground)
-            }
+            ThemedEmptyState(
+                title: "Preview unavailable",
+                systemImage: "doc",
+                message: "This file isn’t UTF-8 text or a supported image. Use File actions to rename, move, or delete it."
+            )
         } else if !preview.hasContent {
-            ContentUnavailableView {
-                Label("Couldn’t open this file", systemImage: "doc.badge.ellipsis")
-                    .foregroundStyle(theme.foreground)
-            } description: {
-                Text("Use Reload file above, or return to Files to choose another item.")
-                    .foregroundStyle(theme.secondaryForeground)
-            }
+            ThemedEmptyState(
+                title: "Couldn’t open this file",
+                systemImage: "doc.badge.ellipsis",
+                message: "Use Reload file above, or return to Files to choose another item."
+            )
         } else {
             textContent
         }
@@ -125,9 +121,8 @@ struct FilePreviewView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(.horizontal, 12)
-            .background(theme.secondaryBackground)
-            theme.separator.frame(height: 1)
+            .padding(.horizontal, CardMetrics.rowPadding)
+            theme.separator.frame(height: CardMetrics.separatorHeight)
             FileTextEditor(
                 text: preview.isEditing ? $preview.draft : .constant(preview.displayText),
                 isEditable: preview.isEditing && !viewModel.isBusy,
@@ -135,17 +130,12 @@ struct FilePreviewView: View {
                 accessibilityLabel: "\(preview.isEditing ? "Edit" : "Contents of") \(preview.entry.name)"
             )
             if preview.isPreviewShortened && !preview.isEditing {
+                theme.separator.frame(height: CardMetrics.separatorHeight)
                 FileGuidance(message: "Preview shortened. Tap Edit file to load the complete text.")
-                    .padding(12)
-                    .background(theme.secondaryBackground)
+                    .padding(CardMetrics.rowPadding)
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .overlay {
-            RoundedRectangle(cornerRadius: 12)
-                .strokeBorder(theme.separator, lineWidth: 1)
-                .allowsHitTesting(false)
-        }
+        .cardSurface()
     }
 
     private var formatLabel: some View {
@@ -181,7 +171,7 @@ struct FilePreviewView: View {
                     Text(saveStatus)
                 } icon: {
                     Image(systemName: preview.isDirty ? "pencil" : preview.hasExternalChanges ? "exclamationmark.circle" : "checkmark")
-                        .foregroundStyle((preview.isDirty || preview.hasExternalChanges ? FileTint.warning : .image).color(in: theme))
+                        .foregroundStyle((preview.isDirty || preview.hasExternalChanges ? FileTint.warning : .success).color(in: theme))
                 }
                     .font(.caption)
                     .foregroundStyle(theme.secondaryForeground)
@@ -198,7 +188,7 @@ struct FilePreviewView: View {
                     Label(preview.isEditing ? "Save changes" : "Edit file", systemImage: preview.isEditing ? "checkmark" : "pencil")
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                .buttonStyle(FilePrimaryButtonStyle())
+                .buttonStyle(ThemedProminentButtonStyle())
                 .disabled(!viewModel.canMutate || viewModel.isLoadingPreview || (preview.isEditing && !preview.isDirty))
             }
             .fileFooter()

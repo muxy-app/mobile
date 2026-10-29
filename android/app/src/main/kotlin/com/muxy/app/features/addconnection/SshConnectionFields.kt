@@ -1,13 +1,8 @@
 package com.muxy.app.features.addconnection
 
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
-import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -17,6 +12,7 @@ import androidx.compose.ui.unit.dp
 import com.muxy.app.design.components.RowPosition
 import com.muxy.app.design.components.ThemedCell
 import com.muxy.app.design.components.ThemedSectionHeader
+import com.muxy.app.design.components.ThemedSegmentedPicker
 import com.muxy.app.design.components.ThemedTextField
 import com.muxy.app.models.SshAuthMethod
 
@@ -97,19 +93,14 @@ fun LazyListScope.sshAuthenticationFields(
     item(key = "ssh-authentication-header") { ThemedSectionHeader("Authentication") }
     item(key = "ssh-authentication") {
         ThemedCell(if (showCredentials) RowPosition.FIRST else RowPosition.SINGLE) {
-            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-                SshAuthMethod.entries.forEachIndexed { index, method ->
-                    SegmentedButton(
-                        selected = authMethod == method,
-                        onClick = { onAuthMethodChange(method) },
-                        shape = SegmentedButtonDefaults.itemShape(index, SshAuthMethod.entries.size),
-                        enabled = enabled && showCredentials,
-                        icon = {},
-                    ) {
-                        Text(if (method == SshAuthMethod.PASSWORD) "Password" else "Private Key")
-                    }
-                }
-            }
+            ThemedSegmentedPicker(
+                options = SshAuthMethod.entries,
+                selected = authMethod,
+                label = { if (it == SshAuthMethod.PASSWORD) "Password" else "Private Key" },
+                onSelect = onAuthMethodChange,
+                enabled = enabled && showCredentials,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+            )
         }
     }
     if (!showCredentials) return

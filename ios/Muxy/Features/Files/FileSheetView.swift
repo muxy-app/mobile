@@ -111,7 +111,7 @@ struct FileSheetView: View {
     private var status: some View {
         if !viewModel.isConnected {
             FileNotice(title: "Connection lost", message: host.reconnectMessage, systemImage: "wifi.slash") {}
-                .padding(.horizontal, 18)
+                .padding(.horizontal, PageMargin.horizontal)
                 .padding(.top, 12)
         }
         if viewModel.hasContextChanged {
@@ -125,7 +125,7 @@ struct FileSheetView: View {
                         .frame(minHeight: 44)
                 }
             }
-            .padding(.horizontal, 18)
+            .padding(.horizontal, PageMargin.horizontal)
             .padding(.top, 12)
         } else if let error = viewModel.errorMessage {
             FileNotice(title: "Couldn’t complete the action", message: error) {
@@ -133,7 +133,7 @@ struct FileSheetView: View {
                     .frame(minHeight: 44)
                     .disabled(!viewModel.canMutate)
             }
-            .padding(.horizontal, 18)
+            .padding(.horizontal, PageMargin.horizontal)
             .padding(.top, 12)
         }
         if viewModel.isBusy {
@@ -147,7 +147,7 @@ struct FileSheetView: View {
     private var toolbar: some ToolbarContent {
         ToolbarItem(placement: .topBarLeading) {
             if viewModel.route == .browser {
-                Button(viewModel.selectionMode ? "Done" : "Select") {
+                Button(viewModel.selectionMode ? "Cancel" : "Select") {
                     if viewModel.selectionMode {
                         viewModel.clearSelection()
                     } else {
@@ -162,8 +162,8 @@ struct FileSheetView: View {
                 .disabled(viewModel.isBusy)
             }
         }
-        ToolbarItemGroup(placement: .topBarTrailing) {
-            if viewModel.route == .preview, let preview = viewModel.preview {
+        if viewModel.route == .preview, let preview = viewModel.preview {
+            ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     Group {
                         Button { presentNamePrompt(.rename(preview.entry)) } label: { Label("Rename", systemImage: "pencil") }
@@ -180,13 +180,9 @@ struct FileSheetView: View {
                     Image(systemName: "ellipsis")
                 }
                 .accessibilityLabel("File actions")
-            } else {
-                Button { requestNavigation(.close) } label: {
-                    Image(systemName: "xmark")
-                }
-                .accessibilityLabel("Close Files")
-                .disabled(viewModel.isBusy)
             }
+        } else {
+            DoneToolbarItem(isDisabled: viewModel.isBusy) { requestNavigation(.close) }
         }
     }
 

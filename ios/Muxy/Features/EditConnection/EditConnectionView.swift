@@ -26,7 +26,6 @@ struct EditConnectionView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
-                        .tint(theme.foreground)
                         .disabled(viewModel.isSaving || viewModel.hasSaved)
                 }
                 ToolbarItem(placement: .confirmationAction) {
@@ -34,7 +33,6 @@ struct EditConnectionView: View {
                         guard viewModel.save() else { return }
                         onSaved()
                     }
-                    .tint(theme.foreground)
                     .disabled(!viewModel.canSave)
                 }
             }

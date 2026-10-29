@@ -4,70 +4,77 @@ struct ThemePickerView: View {
     @Bindable var settings: AppSettings
 
     var body: some View {
-        ThemedList {
-            ForEach(ThemeCatalog.all, id: \.name) { palette in
-                Button {
-                    settings.themeName = palette.name
-                } label: {
-                    ThemeRowView(palette: palette, isSelected: palette.name == settings.themePalette.name)
+        CardList {
+            CardSection(separatorInset: ThemeRowLayout.separatorInset) {
+                ForEach(ThemeCatalog.all, id: \.name) { palette in
+                    ThemeRow(palette: palette, isSelected: palette.name == settings.themePalette.name) {
+                        settings.themeName = palette.name
+                    }
                 }
-                .buttonStyle(.plain)
             }
         }
         .screenTitle("Terminal theme")
     }
 }
 
-private struct ThemeRowView: View {
+private nonisolated enum ThemeRowLayout {
+    static let swatchWidth: CGFloat = 40
+    static let swatchHeight: CGFloat = 32
+    static let stripHeight: CGFloat = 6
+    static let separatorInset = CardMetrics.rowPadding + swatchWidth + CardMetrics.iconSpacing
+}
+
+private struct ThemeRow: View {
     let palette: ThemePalette
     let isSelected: Bool
+    let onSelect: () -> Void
 
     @Environment(\.appTheme) private var theme
 
     var body: some View {
-        HStack(spacing: 12) {
-            swatch
-
-            VStack(alignment: .leading, spacing: 6) {
-                Text(palette.name)
-                    .foregroundStyle(theme.foreground)
-                ansiStrip
+        Button(action: onSelect) {
+            HStack(spacing: CardMetrics.iconSpacing) {
+                swatch
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(palette.name)
+                        .foregroundStyle(theme.foreground)
+                    ansiStrip
+                }
+                CardRowCheckmark()
+                    .opacity(isSelected ? 1 : 0)
             }
-
-            Spacer()
-
-            if isSelected {
-                Image(systemName: "checkmark")
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(theme.accent)
-            }
+            .padding(.horizontal, CardMetrics.rowPadding)
+            .padding(.vertical, CardMetrics.rowVerticalPadding)
+            .frame(maxWidth: .infinity, minHeight: CardMetrics.rowHeight, alignment: .leading)
+            .contentShape(Rectangle())
         }
-        .padding(.vertical, 4)
-        .contentShape(Rectangle())
+        .buttonStyle(.cardRow)
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
     private var swatch: some View {
         Text("Ab")
-            .font(.system(.subheadline, design: .monospaced).weight(.semibold))
+            .font(.subheadline.monospaced().weight(.semibold))
             .foregroundStyle(color(palette.foreground))
-            .frame(width: 40, height: 32)
-            .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(color(palette.background)))
+            .frame(width: ThemeRowLayout.swatchWidth, height: ThemeRowLayout.swatchHeight)
+            .background(color(palette.background), in: .rect(cornerRadius: SurfaceCorner.thumbnail, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .stroke(theme.separator, lineWidth: 1)
+                RoundedRectangle(cornerRadius: SurfaceCorner.thumbnail, style: .continuous)
+                    .strokeBorder(theme.separator, lineWidth: CardMetrics.separatorHeight)
             }
+            .accessibilityHidden(true)
     }
 
     private var ansiStrip: some View {
-        HStack(spacing: 2) {
+        HStack(spacing: 0) {
             ForEach(palette.ansi.indices, id: \.self) { index in
-                RoundedRectangle(cornerRadius: 1.5, style: .continuous)
-                    .fill(color(palette.ansi[index]))
-                    .frame(height: 8)
+                color(palette.ansi[index])
             }
         }
+        .frame(height: ThemeRowLayout.stripHeight)
+        .clipShape(Capsule())
+        .accessibilityHidden(true)
     }
 
     private func color(_ rgb: UInt32) -> Color {

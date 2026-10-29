@@ -7,6 +7,8 @@ nonisolated enum SurfaceCorner {
     static let popover: CGFloat = 18
     static let popoverPadding: CGFloat = 8
     static let popoverRow: CGFloat = popover - popoverPadding
+    static let thumbnail: CGFloat = 8
+    static let appIcon: CGFloat = 36
 }
 
 nonisolated enum PageMargin {

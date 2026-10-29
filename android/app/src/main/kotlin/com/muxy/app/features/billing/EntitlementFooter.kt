@@ -7,7 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -22,6 +22,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.muxy.app.design.LocalAppTheme
+import com.muxy.app.design.components.PageMargin
 
 @Composable
 fun EntitlementFooter(billing: BillingRepository) {
@@ -33,13 +34,13 @@ fun EntitlementFooter(billing: BillingRepository) {
     if (text != null) {
         Surface(
             onClick = { showDetails = true },
-            modifier = Modifier.navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp),
+            modifier = Modifier.navigationBarsPadding().padding(horizontal = PageMargin.horizontal, vertical = 12.dp),
             color = theme.secondaryGroupedBackground,
-            shape = RoundedCornerShape(12.dp),
+            shape = CircleShape,
             border = BorderStroke(1.dp, theme.separator),
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = 16.dp, vertical = 10.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = 20.dp, vertical = 10.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {

@@ -22,7 +22,6 @@ data class ProjectListItem(
     val id: String,
     val name: String,
     val path: String,
-    val icon: ProjectIcon,
     val iconColor: String?,
     val logo: ProjectLogo?,
     val isNested: Boolean = false,

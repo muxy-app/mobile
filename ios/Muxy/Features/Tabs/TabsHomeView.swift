@@ -48,10 +48,7 @@ struct TabsHomeView: View {
                 )
                 .screenTitle("New tab")
                 .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Cancel") { isChoosingProject = false }
-                            .disabled(viewModel.isCreating)
-                    }
+                    DoneToolbarItem(isDisabled: viewModel.isCreating) { isChoosingProject = false }
                 }
             }
             .interactiveDismissDisabled(viewModel.isCreating)

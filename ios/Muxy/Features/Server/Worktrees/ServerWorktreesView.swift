@@ -4,10 +4,16 @@ struct ServerWorktreesSheetView: View {
     @State var model: ServerWorktreesModel
     let onOpen: (String) -> Void
 
+    @Environment(\.dismiss) private var dismiss
+
     var body: some View {
         NavigationStack {
             ServerWorktreesView(model: model, onOpen: onOpen)
+                .toolbar {
+                    DoneToolbarItem { dismiss() }
+                }
         }
+        .presentationDetents([.large])
     }
 }
 
@@ -15,35 +21,32 @@ struct ServerWorktreesView: View {
     let model: ServerWorktreesModel
     let onOpen: (String) -> Void
 
-    @Environment(\.appTheme) private var theme
-
     var body: some View {
-        ThemedList {
-            Section {
+        CardList {
+            CardSection {
                 NavigationLink {
                     ServerNewWorktreeView(model: model)
                 } label: {
-                    Label("New Worktree", systemImage: "plus")
-                        .foregroundStyle(theme.foreground)
+                    CardRow("New Worktree", systemImage: "plus")
                 }
+                .buttonStyle(.cardRow)
             }
 
             if let rows = model.rows {
-                Section {
+                CardSection("Worktrees", footer: removalHint(rows), separatorInset: CardMetrics.textInset) {
                     ForEach(rows) { row in
                         worktreeRow(row)
                     }
-                } header: {
-                    ThemedSectionHeader("Worktrees")
                 }
             } else if model.isLoading {
                 ProgressView()
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 40)
             }
 
             if let errorMessage = model.errorMessage {
-                Section {
-                    Text(errorMessage)
-                        .foregroundStyle(theme.red)
+                CardSection {
+                    CardMessageRow(errorMessage)
                 }
             }
         }
@@ -60,7 +63,6 @@ struct ServerWorktreesView: View {
                     }
                 }
                 .disabled(model.isLoading)
-                .tint(theme.foreground)
                 .accessibilityLabel("Refresh Worktrees")
             }
         }
@@ -89,38 +91,35 @@ struct ServerWorktreesView: View {
         Button {
             open(row)
         } label: {
-            HStack {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(row.name)
-                        .font(.headline)
-                        .foregroundStyle(theme.foreground)
-                    Text(subtitle(for: row))
-                        .font(.caption)
-                        .foregroundStyle(theme.secondaryForeground)
-                }
-                Spacer()
+            CardRow(row.name, subtitle: subtitle(for: row)) {
                 if model.busyRowID == row.id {
                     ProgressView()
                 } else if row.isCurrent {
-                    Image(systemName: "checkmark")
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(theme.accent)
+                    CardRowCheckmark()
                 }
             }
-            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-            .contentShape(Rectangle())
         }
+        .buttonStyle(.cardRow)
         .disabled(model.isBusy || !row.isOpenable)
-        .buttonStyle(.plain)
-        .swipeActions {
+        .accessibilityAddTraits(row.isCurrent ? .isSelected : [])
+        .contextMenu {
             if row.isRemovable {
-                Button(role: .destructive) {
-                    Task { await model.prepareRemoval(of: row) }
-                } label: {
-                    Label("Remove", systemImage: "trash")
-                }
+                Button("Remove", systemImage: "trash", role: .destructive) { prepareRemoval(of: row) }
             }
         }
+        .accessibilityActions {
+            if row.isRemovable {
+                Button("Remove") { prepareRemoval(of: row) }
+            }
+        }
+    }
+
+    private func prepareRemoval(of row: ServerWorktreesModel.Row) {
+        Task { await model.prepareRemoval(of: row) }
+    }
+
+    private func removalHint(_ rows: [ServerWorktreesModel.Row]) -> String? {
+        rows.contains(where: \.isRemovable) ? "Touch and hold a worktree to remove it." : nil
     }
 
     private var removalBinding: Binding<Bool> {
@@ -175,18 +174,12 @@ struct ServerNewWorktreeView: View {
             }
             .foregroundStyle(theme.foreground)
 
-            Section {
-                Button {
-                    submit()
-                } label: {
-                    if isSubmitting {
-                        ProgressView()
-                    } else {
-                        Text("Create Worktree")
-                    }
-                }
-                .disabled(branch.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSubmitting)
-            }
+            FormSubmitSection(
+                "Create Worktree",
+                isSubmitting: isSubmitting,
+                isDisabled: branch.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                action: submit
+            )
 
             if let errorMessage = model.errorMessage {
                 Section {

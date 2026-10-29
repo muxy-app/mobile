@@ -78,7 +78,7 @@ struct TabsHomeContent: View {
             } label: {
                 Image(systemName: attention.isEmpty ? "bell" : "bell.badge")
                     .symbolRenderingMode(.palette)
-                    .foregroundStyle(attention.isEmpty ? Color.primary : Color.orange, Color.primary)
+                    .foregroundStyle(attention.isEmpty ? Color.primary : TabActivity.State.waiting.tint(in: theme), Color.primary)
             }
             .accessibilityLabel("Notifications")
             .accessibilityValue(attention.isEmpty ? "None" : "\(attention.count)")
@@ -102,7 +102,7 @@ struct TabsHomeContent: View {
         if isCreating {
             ProgressView("Creating tab…")
                 .padding(24)
-                .glassEffect(.regular, in: .rect(cornerRadius: 20))
+                .glassEffect(.regular, in: .rect(cornerRadius: SurfaceCorner.card, style: .continuous))
         }
     }
 

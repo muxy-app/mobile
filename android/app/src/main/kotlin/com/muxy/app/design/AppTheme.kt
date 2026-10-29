@@ -58,7 +58,12 @@ data class AppTheme(
                     background = if (isDark) 0x171A21 else 0xF4F5F8,
                 )
             val terminalBackground = ThemeTokens.from(terminalPalette).groupedBackground.rgb
-            return from(palette).copy(terminalPalette = terminalPalette.replacingBackground(terminalBackground))
+            val theme = from(palette)
+            return theme.copy(
+                accent = theme.foreground,
+                onAccent = theme.background,
+                terminalPalette = terminalPalette.replacingBackground(terminalBackground),
+            )
         }
     }
 }

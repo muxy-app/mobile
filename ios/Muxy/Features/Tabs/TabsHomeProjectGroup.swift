@@ -23,7 +23,7 @@ struct TabsHomeProjectGroup: View {
         .padding(.horizontal, SurfaceCorner.cardPadding)
         .padding(.bottom, showsTabs ? SurfaceCorner.cardPadding : 4)
         .glassEffect(.regular, in: .rect(cornerRadius: SurfaceCorner.card, style: .continuous))
-        .padding(.horizontal, 16)
+        .padding(.horizontal, PageMargin.horizontal)
     }
 
     private var showsTabs: Bool {
