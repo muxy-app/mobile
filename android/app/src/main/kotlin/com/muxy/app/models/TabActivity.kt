@@ -20,8 +20,11 @@ data class TabActivity(
     val needsAttention: Boolean
         get() = state == State.WAITING || state == State.FINISHED
 
+    val agentProvider: AgentProvider?
+        get() = provider?.let(AgentProvider::fromName)
+
     val providerName: String?
-        get() = provider?.let { knownProviders[it.lowercase()] ?: it.replaceFirstChar(Char::titlecase) }
+        get() = agentProvider?.displayName ?: provider
 
     val statusLabel: String?
         get() =
@@ -34,20 +37,5 @@ data class TabActivity(
 
     companion object {
         val None = TabActivity(State.IDLE, provider = null, since = null)
-
-        private val knownProviders =
-            mapOf(
-                "claude" to "Claude Code",
-                "claude-code" to "Claude Code",
-                "claudecode" to "Claude Code",
-                "codex" to "Codex",
-                "copilot" to "Copilot",
-                "cursor" to "Cursor",
-                "droid" to "Droid",
-                "grok" to "Grok",
-                "kiro" to "Kiro",
-                "opencode" to "OpenCode",
-                "antigravity" to "Antigravity",
-            )
     }
 }

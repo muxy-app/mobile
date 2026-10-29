@@ -181,9 +181,10 @@ final class TabsHomeViewModel {
     }
 
     private static func listing(of tab: Tab, in area: TabArea) -> TabsHomeTab {
-        TabsHomeTab(
+        let title = TerminalTitle.sanitized(tab.title)
+        return TabsHomeTab(
             id: tab.id,
-            title: tab.title.isEmpty ? "Terminal" : tab.title,
+            title: title.isEmpty ? "Terminal" : title,
             detail: tab.kind == .vcs ? "Source control" : DisplayPath.abbreviated(area.projectPath),
             kind: tab.tileKind,
             activity: .none

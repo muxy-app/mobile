@@ -371,7 +371,7 @@ final class TerminalController: Identifiable, TabStripItem {
         if !screen.directory.isEmpty {
             directory = screen.directory
         }
-        let programTitle = screen.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let programTitle = TerminalTitle.sanitized(screen.title)
         if !programTitle.isEmpty {
             title = programTitle
             return

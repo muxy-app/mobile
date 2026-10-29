@@ -11,6 +11,7 @@ import com.muxy.app.models.Project
 import com.muxy.app.models.Tab
 import com.muxy.app.models.TabArea
 import com.muxy.app.models.TabKind
+import com.muxy.app.models.TerminalTitle
 import com.muxy.app.models.Workspace
 import com.muxy.app.models.WorkspaceFlattening
 import com.muxy.app.networking.muxy1.ConnectionError
@@ -331,7 +332,7 @@ private fun deviceTab(
 ): TabsTab =
     TabsTab(
         id = tab.id,
-        title = tab.title.ifBlank { "Terminal" },
+        title = TerminalTitle.sanitized(tab.title).ifBlank { "Terminal" },
         kind = tab.kind,
         detail = if (tab.kind == TabKind.Vcs) "Source control" else DisplayPath.abbreviated(area.projectPath),
     )

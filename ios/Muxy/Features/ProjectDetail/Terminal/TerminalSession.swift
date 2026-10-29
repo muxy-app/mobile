@@ -296,7 +296,7 @@ final class TerminalSession: TerminalIO, TerminalScrollForwarding {
     }
 
     func setTitle(_ title: String) {
-        self.title = title
+        self.title = TerminalTitle.sanitized(title)
     }
 
     func userScrolled(toPosition position: Double) {

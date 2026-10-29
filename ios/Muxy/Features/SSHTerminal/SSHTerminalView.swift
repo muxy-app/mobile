@@ -39,7 +39,7 @@ struct SSHTerminalView: View {
         TabView(selection: selectionBinding) {
             ForEach(viewModel.tabs) { tab in
                 SSHTerminalTabView(session: viewModel.terminalSession(for: tab))
-                    .tabPageIsland()
+                    .tabPage(isActive: tab.id == viewModel.selectedTabID)
                     .tag(Optional(tab.id))
             }
         }

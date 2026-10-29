@@ -4,6 +4,7 @@ import com.muxy.app.features.server.terminal.SdkTerminalSource
 import com.muxy.app.features.terminal.TerminalController
 import com.muxy.app.features.terminal.TerminalGridSize
 import com.muxy.app.models.DisplayPath
+import com.muxy.app.models.TerminalTitle
 import com.muxy.app.networking.server.ServerFailure
 import com.muxy.app.networking.server.ServerTerminalChannel
 import kotlinx.coroutines.CoroutineScope
@@ -142,7 +143,7 @@ class ServerTerminal(
     private fun updateTitle() {
         val screen = source.screen ?: return
         if (screen.directory.isNotEmpty()) mutableDirectory.value = screen.directory
-        val programTitle = screen.title.trim()
+        val programTitle = TerminalTitle.sanitized(screen.title)
         if (programTitle.isNotEmpty()) {
             mutableTitle.value = programTitle
             return

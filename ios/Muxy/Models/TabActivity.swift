@@ -22,9 +22,12 @@ nonisolated struct TabActivity: Equatable, Sendable {
         state == .waiting || state == .finished
     }
 
+    var agentProvider: AgentProvider? {
+        provider.flatMap(AgentProvider.init(name:))
+    }
+
     var providerName: String? {
-        guard let provider else { return nil }
-        return Self.knownProviders[provider.lowercased()] ?? provider.capitalized
+        agentProvider?.displayName ?? provider
     }
 
     var statusLabel: String? {
@@ -35,18 +38,4 @@ nonisolated struct TabActivity: Equatable, Sendable {
         case .finished: "Finished"
         }
     }
-
-    private static let knownProviders = [
-        "claude": "Claude Code",
-        "claude-code": "Claude Code",
-        "claudecode": "Claude Code",
-        "codex": "Codex",
-        "copilot": "Copilot",
-        "cursor": "Cursor",
-        "droid": "Droid",
-        "grok": "Grok",
-        "kiro": "Kiro",
-        "opencode": "OpenCode",
-        "antigravity": "Antigravity",
-    ]
 }

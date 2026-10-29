@@ -8,6 +8,7 @@ struct TerminalViewContainer: UIViewRepresentable {
     let fontSize: CGFloat
     let useNerdFont: Bool
     let autoFocusTerminal: Bool
+    let isActive: Bool
     let onKeyboardOffsetChange: (CGFloat) -> Void
 
     func makeCoordinator() -> Coordinator {
@@ -19,6 +20,7 @@ struct TerminalViewContainer: UIViewRepresentable {
         let host = TerminalViewportHostView(terminalView: view)
         host.onKeyboardOffsetChange = onKeyboardOffsetChange
         view.autoFocusTerminal = autoFocusTerminal
+        view.isActiveTab = isActive
         view.onUserScroll = { [weak coordinator = context.coordinator] position in
             coordinator?.userScrolled(toPosition: position)
         }
@@ -38,6 +40,7 @@ struct TerminalViewContainer: UIViewRepresentable {
         host.onKeyboardOffsetChange = onKeyboardOffsetChange
         session.terminalDidLayout()
         view.autoFocusTerminal = autoFocusTerminal
+        view.isActiveTab = isActive
         if context.coordinator.appliedTheme != theme {
             apply(theme: theme, to: view)
             host.applyBackgroundColor(theme.background)
@@ -106,6 +109,12 @@ struct TerminalViewContainer: UIViewRepresentable {
 final class FollowAwareTerminalView: TerminalView {
     var onUserScroll: ((Double) -> Void)?
     var autoFocusTerminal = true
+    var isActiveTab = false {
+        didSet {
+            guard isActiveTab != oldValue else { return }
+            syncFocus()
+        }
+    }
 
     weak var session: (any TerminalIO)?
     weak var viewportHost: TerminalViewportHostView?
@@ -205,6 +214,15 @@ final class FollowAwareTerminalView: TerminalView {
         keyboardHidden = !autoFocusTerminal
         accessoryBar.setKeyboardVisible(!keyboardHidden)
         inputView = keyboardHidden ? hiddenKeyboardPlaceholder : nil
+        syncFocus()
+    }
+
+    private func syncFocus() {
+        guard window != nil, isActiveTab else {
+            if isFirstResponder { _ = resignFirstResponder() }
+            return
+        }
+        guard !isFirstResponder else { return }
         _ = becomeFirstResponder()
     }
 

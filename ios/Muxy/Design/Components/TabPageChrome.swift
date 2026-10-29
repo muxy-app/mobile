@@ -2,10 +2,15 @@ import SwiftUI
 
 private let islandCornerRadius: CGFloat = 24
 
+extension EnvironmentValues {
+    @Entry var isActiveTabPage = true
+}
+
 extension View {
-    func tabPageIsland() -> some View {
+    func tabPage(isActive: Bool) -> some View {
         clipShape(.rect(cornerRadius: islandCornerRadius, style: .continuous))
             .padding(.horizontal, 8)
+            .environment(\.isActiveTabPage, isActive)
     }
 
     func keyboardIsland(bottomInset: CGFloat) -> some View {

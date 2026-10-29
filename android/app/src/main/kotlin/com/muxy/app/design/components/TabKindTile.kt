@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.muxy.app.R
 import com.muxy.app.design.LocalAppTheme
+import com.muxy.app.models.AgentProvider
 import com.muxy.app.models.TabActivity
 import com.muxy.app.models.TabTileKind
 
@@ -37,16 +38,18 @@ fun TabKindTile(
     size: Dp = 40.dp,
 ) {
     val theme = LocalAppTheme.current
+    val provider = activity.agentProvider.takeIf { kind == TabTileKind.AGENT }
+    val neutralFill = if (theme.isDark) Color(0xFF2B2A2F) else Color(0xFF1C1B1F)
     val fill =
         when (kind) {
-            TabTileKind.AGENT -> TabTileColors.agent
-            TabTileKind.SHELL -> if (theme.isDark) Color(0xFF2B2A2F) else Color(0xFF1C1B1F)
+            TabTileKind.AGENT -> if (provider == null) TabTileColors.agent else neutralFill
+            TabTileKind.SHELL -> neutralFill
             TabTileKind.GIT -> TabTileColors.git
             TabTileKind.OTHER -> TabTileColors.other
         }
     val icon =
         when (kind) {
-            TabTileKind.AGENT -> R.drawable.ic_auto_awesome
+            TabTileKind.AGENT -> provider?.icon ?: R.drawable.ic_auto_awesome
             TabTileKind.SHELL -> R.drawable.ic_terminal
             TabTileKind.GIT -> R.drawable.ic_fork_right
             TabTileKind.OTHER -> R.drawable.ic_square
@@ -65,8 +68,13 @@ fun TabKindTile(
             Icon(
                 painter = painterResource(icon),
                 contentDescription = null,
-                modifier = Modifier.size(size * 0.5f),
-                tint = if (kind == TabTileKind.SHELL) TabTileColors.shellGlyph else Color.White,
+                modifier = Modifier.size(if (provider == null) size * 0.5f else size * 0.54f),
+                tint =
+                    when {
+                        provider == AgentProvider.CLAUDE -> Color.Unspecified
+                        kind == TabTileKind.SHELL -> TabTileColors.shellGlyph
+                        else -> Color.White
+                    },
             )
         }
         if (dot != null) {
@@ -82,3 +90,20 @@ fun TabKindTile(
         }
     }
 }
+
+private val AgentProvider.icon: Int
+    get() =
+        when (this) {
+            AgentProvider.CLAUDE -> R.drawable.ic_provider_claude
+            AgentProvider.CODEX -> R.drawable.ic_provider_codex
+            AgentProvider.OPEN_CODE -> R.drawable.ic_provider_opencode
+            AgentProvider.CURSOR -> R.drawable.ic_provider_cursor
+            AgentProvider.COPILOT -> R.drawable.ic_provider_copilot
+            AgentProvider.DROID -> R.drawable.ic_provider_factory
+            AgentProvider.PI -> R.drawable.ic_provider_pi
+            AgentProvider.GROK -> R.drawable.ic_provider_grok
+            AgentProvider.KIRO -> R.drawable.ic_provider_kiro
+            AgentProvider.XAL -> R.drawable.ic_provider_xal
+            AgentProvider.ANTIGRAVITY -> R.drawable.ic_provider_antigravity
+            AgentProvider.OH_MY_PI -> R.drawable.ic_provider_omp
+        }

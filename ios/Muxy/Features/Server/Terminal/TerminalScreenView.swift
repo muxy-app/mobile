@@ -6,6 +6,7 @@ struct TerminalScreenView: View {
     let isDisconnected: Bool
 
     @Environment(\.appTheme) private var theme
+    @Environment(\.isActiveTabPage) private var isActive
     @State private var keyboardOffset: CGFloat = 0
 
     var body: some View {
@@ -15,6 +16,7 @@ struct TerminalScreenView: View {
                 palette: theme.terminalPalette,
                 useNerdFont: settings.useNerdFont,
                 autoFocus: settings.autoFocusTerminal,
+                isActive: isActive,
                 onKeyboardOffsetChange: { keyboardOffset = $0 }
             )
             .padding(TerminalViewportState.contentInset)
@@ -116,18 +118,19 @@ private struct TerminalSurfaceRepresentable: UIViewRepresentable {
     let palette: ThemePalette
     let useNerdFont: Bool
     let autoFocus: Bool
+    let isActive: Bool
     let onKeyboardOffsetChange: (CGFloat) -> Void
 
     func makeUIView(context: Context) -> TerminalSurfaceView {
         let view = TerminalSurfaceView(controller: controller, theme: palette, useNerdFont: useNerdFont)
         view.onKeyboardOffsetChange = onKeyboardOffsetChange
-        view.update(theme: palette, useNerdFont: useNerdFont, autoFocus: autoFocus)
+        view.update(theme: palette, useNerdFont: useNerdFont, autoFocus: autoFocus, isActive: isActive)
         return view
     }
 
     func updateUIView(_ view: TerminalSurfaceView, context: Context) {
         view.onKeyboardOffsetChange = onKeyboardOffsetChange
-        view.update(theme: palette, useNerdFont: useNerdFont, autoFocus: autoFocus)
+        view.update(theme: palette, useNerdFont: useNerdFont, autoFocus: autoFocus, isActive: isActive)
     }
 
     static func dismantleUIView(_ view: TerminalSurfaceView, coordinator: ()) {

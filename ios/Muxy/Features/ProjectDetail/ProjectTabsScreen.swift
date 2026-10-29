@@ -52,7 +52,7 @@ struct ProjectTabsScreen<Item: TabStripItem, Page: View>: View {
         TabView(selection: selectionBinding) {
             ForEach(tabs) { tab in
                 page(tab)
-                    .tabPageIsland()
+                    .tabPage(isActive: tab.id == selectedTabID)
                     .tag(Optional(tab.id))
             }
         }

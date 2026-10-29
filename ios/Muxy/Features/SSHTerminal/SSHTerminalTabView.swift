@@ -4,6 +4,7 @@ struct SSHTerminalTabView: View {
     @Bindable var session: SSHTerminalSession
 
     @Environment(\.appTheme) private var appTheme
+    @Environment(\.isActiveTabPage) private var isActive
     @AppStorage(AppSettingKey.autoFocusTerminal) private var autoFocusTerminal = false
     @State private var useNerdFont = AppSettings.storedUseNerdFont()
     @State private var fontSize = TerminalFont.defaultSize
@@ -26,6 +27,7 @@ struct SSHTerminalTabView: View {
                 fontSize: fontSize,
                 useNerdFont: useNerdFont,
                 autoFocusTerminal: autoFocusTerminal,
+                isActive: isActive,
                 onKeyboardOffsetChange: { keyboardOffset = $0 }
             )
             .padding(TerminalViewportState.contentInset)

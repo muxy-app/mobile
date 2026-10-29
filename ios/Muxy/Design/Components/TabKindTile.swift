@@ -12,11 +12,7 @@ struct TabKindTile: View {
         RoundedRectangle(cornerRadius: size * 0.25, style: .continuous)
             .fill(fill)
             .frame(width: size, height: size)
-            .overlay {
-                Image(systemName: symbol)
-                    .font(.system(size: size * 0.46, weight: .semibold))
-                    .foregroundStyle(glyph)
-            }
+            .overlay { icon }
             .overlay(alignment: .topTrailing) {
                 if let dot = dotColor {
                     Circle()
@@ -27,6 +23,29 @@ struct TabKindTile: View {
                 }
             }
             .accessibilityHidden(true)
+    }
+
+    @ViewBuilder
+    private var icon: some View {
+        if let provider {
+            Image(provider.iconName)
+                .resizable()
+                .scaledToFit()
+                .frame(width: size * 0.54, height: size * 0.54)
+                .foregroundStyle(.white)
+        } else {
+            Image(systemName: symbol)
+                .font(.system(size: size * 0.46, weight: .semibold))
+                .foregroundStyle(glyph)
+        }
+    }
+
+    private var provider: AgentProvider? {
+        kind == .agent ? activity.agentProvider : nil
+    }
+
+    private var neutralFill: Color {
+        colorScheme == .dark ? Color(white: 0.2) : Color(white: 0.12)
     }
 
     private var symbol: String {
@@ -40,8 +59,8 @@ struct TabKindTile: View {
 
     private var fill: Color {
         switch kind {
-        case .agent: Color(red: 0.886, green: 0.408, blue: 0.235)
-        case .shell: colorScheme == .dark ? Color(white: 0.2) : Color(white: 0.12)
+        case .agent: provider == nil ? Color(red: 0.886, green: 0.408, blue: 0.235) : neutralFill
+        case .shell: neutralFill
         case .git: .indigo
         case .other: .gray
         }

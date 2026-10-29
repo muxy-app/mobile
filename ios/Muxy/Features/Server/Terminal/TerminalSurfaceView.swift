@@ -50,6 +50,7 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate, UIGestureRecogniz
     }
 
     private var autoFocus = false
+    private var isActive = false
 
     init(controller: TerminalController, theme: ThemePalette, useNerdFont: Bool) {
         self.controller = controller
@@ -70,8 +71,10 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate, UIGestureRecogniz
         nil
     }
 
-    func update(theme: ThemePalette, useNerdFont: Bool, autoFocus: Bool) {
+    func update(theme: ThemePalette, useNerdFont: Bool, autoFocus: Bool, isActive: Bool) {
         self.autoFocus = autoFocus
+        self.isActive = isActive
+        syncFocus()
         guard theme != self.theme || useNerdFont != self.useNerdFont else { return }
         self.theme = theme
         self.useNerdFont = useNerdFont
@@ -101,6 +104,15 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate, UIGestureRecogniz
         screenNeedsRefresh()
         input.setSoftKeyboardHidden(!autoFocus)
         accessoryBar.setKeyboardVisible(autoFocus)
+        syncFocus()
+    }
+
+    private func syncFocus() {
+        guard window != nil, isActive else {
+            if input.isFirstResponder { input.resignFirstResponder() }
+            return
+        }
+        guard !input.isFirstResponder else { return }
         input.becomeFirstResponder()
     }
 
