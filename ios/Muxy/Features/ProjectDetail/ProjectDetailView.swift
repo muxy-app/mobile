@@ -3,6 +3,7 @@ import SwiftUI
 struct ProjectDetailView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State var viewModel: ProjectDetailViewModel
+    let requestedTabID: UUID?
     @State private var tool: ProjectTool?
 
     var body: some View {
@@ -31,6 +32,9 @@ struct ProjectDetailView: View {
                     GitWorktreesView(viewModel: viewModel.makeWorktreesViewModel())
                 }
             }
+        }
+        .onChange(of: requestedTabID) { _, tabID in
+            tabID.map(viewModel.select(tabID:))
         }
         .task { await viewModel.connect() }
         .onChange(of: scenePhase) { _, phase in

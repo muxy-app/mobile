@@ -2,6 +2,7 @@
 
 package com.muxy.app.features.navigation
 
+import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import com.muxy.app.core.serialization.UuidSerializer
 import com.muxy.app.features.projectdetail.ProjectTool
@@ -77,6 +78,22 @@ sealed interface AppRoute : NavKey {
 
     val isModal: Boolean
         get() = this == AddConnection || this is EditConnection || this == Settings || this == Paywall || this is ProjectTools
+
+    val destination: AppRoute
+        get() =
+            when (this) {
+                is ProjectDetail -> copy(initialTabId = null)
+                is ServerProject -> copy(initialTabId = null)
+                else -> this
+            }
+}
+
+fun NavBackStack<AppRoute>.open(route: AppRoute) {
+    open(route, AppRoute::destination)
+}
+
+fun NavBackStack<AppRoute>.showInPane(route: AppRoute) {
+    replaceWith(listOf(AppRoute.Connections, route))
 }
 
 fun List<AppRoute>.connectionFocus(): ConnectionFocus =

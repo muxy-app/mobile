@@ -125,22 +125,36 @@ open_home_tab() { launch; tap "$1" center 3; }
 open_muxy() { open_home_tab agent; }
 open_tab() { tap "$1" left 3; }
 
+is_split() { locate "Hide sidebar" >/dev/null || locate "Show sidebar" >/dev/null; }
+
+sidebar() {
+  local toggle="Show sidebar"
+  [ "$1" = hidden ] && toggle="Hide sidebar"
+  if locate "$toggle" >/dev/null; then tap "$toggle"; fi
+}
+
+open_full() { open_home_tab "$1"; sidebar hidden; }
+
 prepare
 
-if want projects; then launch; shot projects; fi
-if want agent; then open_muxy; shot agent; fi
-if want editor; then open_muxy; open_tab nvim; shot editor; fi
-if want git; then open_muxy; tap "Git" center 2.5; shot git; fi
-if want diff; then open_muxy; tap "Git" center 2.5; tap "Sources/Muxy/Tabs/TabStore.swift" center 2.5; shot diff; fi
-if want files; then open_muxy; tap "Files" center 2.5; shot files; fi
-if want preview; then
-  open_muxy; tap "Files" center 2.5; tap "Sources"; OCCURRENCE=last tap "Muxy"; tap "Tabs"; tap "TabStore.swift" center 2.5; shot preview
+if want projects; then
+  launch
+  if is_split; then tap agent center 3; sidebar shown; fi
+  shot projects
 fi
-if want dev; then open_home_tab dev; shot dev; fi
+if want agent; then open_full agent; shot agent; fi
+if want editor; then open_full agent; open_tab nvim; shot editor; fi
+if want git; then open_muxy; sidebar shown; tap "Git" center 2.5; shot git; fi
+if want diff; then open_muxy; sidebar shown; tap "Git" center 2.5; tap "Sources/Muxy/Tabs/TabStore.swift" center 2.5; shot diff; fi
+if want files; then open_muxy; sidebar shown; tap "Files" center 2.5; shot files; fi
+if want preview; then
+  open_muxy; sidebar shown; tap "Files" center 2.5; tap "Sources"; OCCURRENCE=last tap "Muxy"; tap "Tabs"; tap "TabStore.swift" center 2.5; shot preview
+fi
+if want dev; then open_full dev; shot dev; fi
 
 for theme in "TokyoNight" "Gruvbox Dark" "Catppuccin Latte"; do
   slug=$(echo "$theme" | tr '[:upper:] ' '[:lower:]-')
-  if want "theme-editor-$slug"; then select_theme "$theme"; open_muxy; open_tab nvim; shot "theme-editor-$slug"; fi
+  if want "theme-editor-$slug"; then select_theme "$theme"; open_full agent; open_tab nvim; shot "theme-editor-$slug"; fi
 done
 
 select_theme "Muxy"

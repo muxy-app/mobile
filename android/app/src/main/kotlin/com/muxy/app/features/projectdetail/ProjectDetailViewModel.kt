@@ -149,6 +149,12 @@ class ProjectDetailViewModel(
         terminals.teardown()
     }
 
+    fun select(tabId: UUID) {
+        uiState.value.tabs
+            .firstOrNull { it.id == tabId }
+            ?.let(::select)
+    }
+
     fun select(tab: Tab) {
         if (content.value.selectedTabId == tab.id) return
         content.update { it.copy(selectedTabId = tab.id) }

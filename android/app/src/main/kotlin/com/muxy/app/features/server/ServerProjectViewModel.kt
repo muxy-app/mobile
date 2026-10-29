@@ -81,6 +81,12 @@ class ServerProjectViewModel(
         terminal(item)?.let(model::select)
     }
 
+    fun select(tabId: UUID) {
+        model.tabs.value
+            .firstOrNull { it.id == tabId }
+            ?.let(model::select)
+    }
+
     fun close(item: TabStripItem) {
         terminal(item)?.let(model::close)
     }

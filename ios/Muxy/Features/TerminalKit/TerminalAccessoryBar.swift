@@ -101,8 +101,28 @@ final class TerminalAccessoryBar: UIInputView {
         model.syncActiveModifier(modifier)
     }
 
+    func alignContent(toPageOf view: UIView) {
+        guard let space = view.window?.windowScene?.screen.coordinateSpace else { return }
+        let page = view.convert(view.bounds, to: space).insetBy(dx: -TerminalViewportState.pageOutset, dy: 0)
+        guard page != alignedPage else { return }
+        alignedPage = page
+        setNeedsLayout()
+    }
+
+    override func layoutSubviews() {
+        applyContentInsets()
+        super.layoutSubviews()
+    }
+
+    override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+        hostingController.view.frame.contains(point)
+    }
+
     private let model = TerminalAccessoryModel()
     private let hostingController: UIHostingController<TerminalAccessoryView>
+    private var alignedPage: CGRect?
+    private lazy var contentLeading = hostingController.view.leadingAnchor.constraint(equalTo: leadingAnchor)
+    private lazy var contentTrailing = hostingController.view.trailingAnchor.constraint(equalTo: trailingAnchor)
 
     init() {
         hostingController = UIHostingController(rootView: TerminalAccessoryView(model: model))
@@ -128,12 +148,19 @@ final class TerminalAccessoryBar: UIInputView {
         hostingController.sizingOptions = .preferredContentSize
         addSubview(hostingController.view)
         NSLayoutConstraint.activate([
-            hostingController.view.leadingAnchor.constraint(equalTo: leadingAnchor),
-            hostingController.view.trailingAnchor.constraint(equalTo: trailingAnchor),
+            contentLeading,
+            contentTrailing,
             hostingController.view.topAnchor.constraint(equalTo: topAnchor),
             hostingController.view.bottomAnchor.constraint(equalTo: bottomAnchor),
             heightAnchor.constraint(equalToConstant: 72),
         ])
+    }
+
+    private func applyContentInsets() {
+        guard let page = alignedPage, let space = window?.windowScene?.screen.coordinateSpace else { return }
+        let frame = convert(bounds, to: space)
+        contentLeading.constant = max(0, page.minX - frame.minX)
+        contentTrailing.constant = -max(0, frame.maxX - page.maxX)
     }
 }
 

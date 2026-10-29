@@ -15,6 +15,7 @@ struct TabsHomeContent: View {
     let onRetryDevice: (UUID) -> Void
 
     @Environment(\.appTheme) private var theme
+    @Environment(\.isSplitSidebar) private var isSplitSidebar
     @State private var query = ""
     @State private var collapsedProjects: Set<String> = []
     @State private var revealedDevices: Set<UUID> = []
@@ -47,7 +48,7 @@ struct TabsHomeContent: View {
         .background(theme.groupedBackground.ignoresSafeArea())
         .navigationTitle("Tabs")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarVisibility(.hidden, for: .navigationBar)
+        .toolbarVisibility(isSplitSidebar ? .visible : .hidden, for: .navigationBar)
         .searchable(text: $query, prompt: "Search tabs and projects")
         .searchToolbarBehavior(.minimize)
         .toolbar { bottomBar }

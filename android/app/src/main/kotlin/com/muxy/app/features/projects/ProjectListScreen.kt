@@ -16,11 +16,11 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import com.muxy.app.R
 import com.muxy.app.design.LocalAppTheme
 import com.muxy.app.design.components.MuxyTopAppBar
+import com.muxy.app.design.components.PaneNavigationIcon
 import com.muxy.app.design.components.ThemedBorderedButton
 import com.muxy.app.design.components.ThemedEmptyState
 import com.muxy.app.design.components.ThemedList
 import com.muxy.app.design.components.ThemedProminentButton
-import com.muxy.app.design.components.TopBarAction
 import com.muxy.app.design.components.themedSection
 import com.muxy.app.models.ProjectWorkspace
 import java.util.UUID
@@ -44,7 +44,7 @@ fun ProjectListScreen(
         topBar = {
             MuxyTopAppBar(
                 title = title,
-                navigationIcon = { TopBarAction(R.drawable.ic_arrow_back, "Back", onBack) },
+                navigationIcon = { PaneNavigationIcon(onBack) },
             )
         },
     ) { padding ->

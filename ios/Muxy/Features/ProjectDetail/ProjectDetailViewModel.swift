@@ -113,6 +113,11 @@ final class ProjectDetailViewModel {
         sessionStore.teardown()
     }
 
+    func select(tabID: UUID) {
+        guard let tab = tabs.first(where: { $0.id == tabID }) else { return }
+        select(tab)
+    }
+
     func select(_ tab: Tab) {
         guard selectedTabID != tab.id else { return }
         selectedTabID = tab.id
