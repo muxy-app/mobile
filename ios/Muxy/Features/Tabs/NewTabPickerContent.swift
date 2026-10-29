@@ -81,21 +81,31 @@ struct NewTabPickerContent: View {
         Button {
             onCreate(device.id, project.id)
         } label: {
-            CardRow(
-                project.name,
-                systemImage: "folder",
-                subtitle: project.path.isEmpty ? nil : DisplayPath.abbreviated(project.path)
-            ) {
-                Image(systemName: "plus.circle")
-                    .font(.title3)
-                    .foregroundStyle(theme.secondaryForeground)
-                    .accessibilityHidden(true)
+            HStack(spacing: CardMetrics.iconSpacing) {
+                Circle()
+                    .fill(ProjectIconColor.color(for: project.color, stableFor: project.id))
+                    .frame(width: 8, height: 8)
+                    .frame(width: CardMetrics.iconWidth)
+                Text(project.name)
+                    .foregroundStyle(theme.foreground)
+                    .lineLimit(1)
+                    .layoutPriority(1)
+                Spacer(minLength: 8)
+                if !project.path.isEmpty {
+                    Text(DisplayPath.abbreviated(project.path))
+                        .font(.footnote.monospaced())
+                        .foregroundStyle(theme.secondaryForeground)
+                        .lineLimit(1)
+                        .truncationMode(.head)
+                }
             }
-            .lineLimit(1)
-            .truncationMode(.middle)
+            .padding(.horizontal, CardMetrics.rowPadding)
+            .frame(maxWidth: .infinity, minHeight: CardMetrics.rowHeight, alignment: .leading)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.cardRow)
         .disabled(!project.canCreate)
         .accessibilityLabel("New tab in \(project.name) on \(device.name)")
+        .accessibilityValue(DisplayPath.abbreviated(project.path))
     }
 }

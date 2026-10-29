@@ -20,7 +20,7 @@ struct DemoBackendTests {
         let projects = try result.decode(ProjectsResult.self).projects
 
         #expect(result.type == ResultType.projects)
-        #expect(projects.map(\.name) == ["Muxy", "Web App"])
+        #expect(projects.map(\.name) == ["Muxy", "Web App", "API Server", "Mobile App", "Design System", "Docs", "Dotfiles", "Blog", "Homelab"])
     }
 
     @Test func workspaceLoadsForSampleProject() async throws {
@@ -45,7 +45,7 @@ struct DemoBackendTests {
             .first!
         let workspace = try await backend.request(.getWorkspace, params: GetWorkspaceParams(projectID: project.id.uuidString))
             .decode(Workspace.self)
-        let paneID = WorkspaceFlattening.focusedTabArea(in: workspace)!.tabs.first!.paneID!
+        let paneID = try #require(WorkspaceFlattening.focusedTabArea(in: workspace)?.tabs.first { $0.title == "zsh" }?.paneID)
 
         let events = try await backend.events(for: .takeOverPane, params: TakeOverPaneParams(paneID: paneID.uuidString, cols: 80, rows: 24))
 

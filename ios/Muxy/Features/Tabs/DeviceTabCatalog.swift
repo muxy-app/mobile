@@ -135,6 +135,23 @@ final class DeviceTabCatalog {
         return tab
     }
 
+    func closeTab(_ tabID: UUID, in projectID: UUID) {
+        guard let manager, state == .connected,
+              let workspace = workspaces[projectID],
+              let area = WorkspaceFlattening.area(containing: tabID, in: workspace),
+              let updated = WorkspaceFlattening.removingTab(tabID, from: workspace) else { return }
+        workspaces[projectID] = updated
+        let params = CloseTabParams(projectID: projectID.uuidString, areaID: area.id.uuidString, tabID: tabID.uuidString)
+        Task { [weak self] in
+            do {
+                _ = try await manager.request(.closeTab, params: params)
+            } catch {
+                Log.client.error("Failed to close tab: \(error.localizedDescription, privacy: .public)")
+                self?.reload()
+            }
+        }
+    }
+
     private func load(using manager: ConnectionManager, generation current: Int) async {
         do {
             let result = try await manager.request(.listProjects)

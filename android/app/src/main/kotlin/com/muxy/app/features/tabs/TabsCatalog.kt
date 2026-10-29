@@ -115,6 +115,22 @@ class TabsCatalog(
         return TabsSelection(entry.connection, project, tabId)
     }
 
+    fun closeTab(
+        key: TabsProjectKey,
+        tabId: UUID,
+    ) {
+        val entry = entries[key.connectionId]?.takeIf(::canUse) ?: return
+        val project = entry.snapshot.projects.firstOrNull { it.id == key.projectId } ?: return
+        if (!entry.snapshot.isOnline || project.tabs.none { it.id == tabId }) return
+        entry.device?.closeTab(project.id, tabId)
+        entry.server?.let { server ->
+            if (server.phase.value != ServerPhase.Connected) return
+            val model = server.projectModel(project.id)
+            val tab = model.tabs.value.firstOrNull { it.id == tabId && !it.isRetired } ?: return
+            model.close(tab)
+        }
+    }
+
     fun retry(connectionId: UUID) {
         val entry = entries[connectionId]?.takeIf(::canUse) ?: return
         entry.device?.retry()

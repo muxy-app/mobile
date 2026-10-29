@@ -98,6 +98,22 @@ final class TabsHomeViewModel {
         }
     }
 
+    func closeTab(deviceID: UUID, projectID: String, tabID: UUID) {
+        guard let connection = connection(deviceID) else { return }
+        switch connection.kind {
+        case .device:
+            guard let catalog = deviceCatalogs[deviceID], let project = UUID(uuidString: projectID) else { return }
+            catalog.closeTab(tabID, in: project)
+        case .server:
+            guard let serverID = connection.serverRouteID,
+                  let model = servers[serverID]?.listedProjectModel(for: projectID),
+                  let tab = model.tabs.first(where: { $0.id == tabID }) else { return }
+            model.close(tab)
+        case .ssh:
+            return
+        }
+    }
+
     func createTab(deviceID: UUID, projectID: String) async -> AppRoute? {
         guard isVisible, isForeground, !isCreating, let connection = connection(deviceID) else { return nil }
         isCreating = true
@@ -181,10 +197,9 @@ final class TabsHomeViewModel {
     }
 
     private static func listing(of tab: Tab, in area: TabArea) -> TabsHomeTab {
-        let title = TerminalTitle.sanitized(tab.title)
-        return TabsHomeTab(
+        TabsHomeTab(
             id: tab.id,
-            title: title.isEmpty ? "Terminal" : title,
+            title: tab.displayTitle,
             detail: tab.kind == .vcs ? "Source control" : DisplayPath.abbreviated(area.projectPath),
             kind: tab.tileKind,
             activity: .none

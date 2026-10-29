@@ -5,7 +5,7 @@ import Testing
 @MainActor
 struct GitViewModelTests {
     private let projectID = UUID(uuidString: "00000000-0000-4000-8000-000000000201")!
-    private let changedFile = GitDiffKey(path: "ios/Muxy/Networking/Protocol/Methods.swift", isStaged: false)
+    private let changedFile = GitDiffKey(path: DemoSources.changelogPath, isStaged: false)
 
     @Test func demoRefreshLoadsStatusBranchesWorktreesAndDiff() async throws {
         let manager = await demoConnectionManager()
@@ -17,11 +17,11 @@ struct GitViewModelTests {
         await worktrees.refreshWorktrees()
         await viewModel.loadDiff(changedFile)
 
-        #expect(viewModel.status?.branch == "main")
-        #expect(viewModel.totalChanges == 2)
+        #expect(viewModel.status?.branch == "feature/reopen-tab")
+        #expect(viewModel.totalChanges == 4)
         #expect(viewModel.branches?.locals.contains("main") == true)
         #expect(worktrees.worktrees?.first?.name == "Muxy")
-        #expect(viewModel.diffs[changedFile]?.additions == 2)
+        #expect(viewModel.diffs[changedFile]?.additions == 4)
     }
 
     @Test func commitClearsDemoChangesAndDiffCache() async throws {

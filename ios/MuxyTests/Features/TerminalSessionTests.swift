@@ -58,7 +58,7 @@ struct TerminalSessionTests {
 
         session.handleConnectionState(.disconnected)
         session.handleConnectionState(.connected)
-        try await Task.sleep(for: .milliseconds(50))
+        try await channel.waitForRequest(.setClientTheme, count: 2)
 
         let themeRequests = await channel.requests.filter { $0.method == .setClientTheme }
         #expect(themeRequests.count == 2)

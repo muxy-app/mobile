@@ -6,28 +6,31 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.muxy.app.R
 import com.muxy.app.design.LocalAppTheme
 import com.muxy.app.design.components.ListRow
 import com.muxy.app.design.components.PageMargin
@@ -35,14 +38,11 @@ import com.muxy.app.design.components.RowPosition
 import com.muxy.app.design.components.ThemedBorderedButton
 import com.muxy.app.design.components.ThemedBottomSheet
 import com.muxy.app.design.components.ThemedCell
-import com.muxy.app.design.components.ThemedListItem
 import com.muxy.app.features.projects.rememberProjectColor
 import com.muxy.app.models.Connection
 import com.muxy.app.models.ConnectionKind
 import com.muxy.app.models.DisplayPath
 import java.util.UUID
-
-private const val DISABLED_ALPHA = 0.38f
 
 @Composable
 internal fun NewTabPicker(
@@ -135,53 +135,42 @@ private fun NewTabProjectRow(
     onCreate: () -> Unit,
 ) {
     val theme = LocalAppTheme.current
-    ThemedListItem(
-        headline = {
+    val path = project.path?.takeIf { it.isNotBlank() }?.let(DisplayPath::abbreviated)
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = ListRow.minHeight)
+                .clickable(
+                    enabled = enabled,
+                    role = Role.Button,
+                    onClickLabel = "New tab in ${project.name}",
+                    onClick = onCreate,
+                ).semantics { if (creating) stateDescription = "Creating tab" }
+                .padding(horizontal = ListRow.horizontalPadding, vertical = ListRow.verticalPadding),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(modifier = Modifier.size(8.dp).background(rememberProjectColor(project.id, project.color), CircleShape))
+        Text(
+            project.name,
+            modifier = Modifier.weight(1f),
+            color = if (enabled) theme.foreground else theme.secondaryForeground,
+            style = MaterialTheme.typography.bodyLarge,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        if (creating) {
+            CircularProgressIndicator(modifier = Modifier.size(18.dp), color = theme.secondaryForeground, strokeWidth = 2.dp)
+        } else if (path != null) {
             Text(
-                project.name,
-                color = if (enabled) theme.foreground else theme.secondaryForeground,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        },
-        supporting = {
-            val detail =
-                when {
-                    project.loadFailed -> "Couldn't load tabs"
-                    !project.hasLoadedTabs -> "Tabs not loaded"
-                    project.tabs.isEmpty() -> "No open tabs"
-                    project.tabs.size == 1 -> "1 open tab"
-                    else -> "${project.tabs.size} open tabs"
-                }
-            Text(
-                listOfNotNull(project.path?.takeIf { it.isNotBlank() }?.let(DisplayPath::abbreviated), detail).joinToString(" · "),
+                path,
+                modifier = Modifier.widthIn(max = 160.dp),
+                color = theme.secondaryForeground,
+                style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
                 maxLines = 1,
                 overflow = TextOverflow.StartEllipsis,
             )
-        },
-        leading = {
-            Box(modifier = Modifier.size(ListRow.iconSize), contentAlignment = Alignment.Center) {
-                Box(modifier = Modifier.size(8.dp).background(rememberProjectColor(project.id, project.color), CircleShape))
-            }
-        },
-        trailing = {
-            if (creating) {
-                CircularProgressIndicator(modifier = Modifier.size(ListRow.iconSize), color = theme.secondaryForeground, strokeWidth = 2.dp)
-            } else {
-                Icon(
-                    painterResource(R.drawable.ic_add),
-                    contentDescription = null,
-                    modifier = Modifier.size(ListRow.iconSize),
-                    tint = if (enabled) theme.secondaryForeground else theme.secondaryForeground.copy(alpha = DISABLED_ALPHA),
-                )
-            }
-        },
-        modifier =
-            Modifier.clickable(
-                enabled = enabled,
-                role = Role.Button,
-                onClickLabel = "New tab in ${project.name}",
-                onClick = onCreate,
-            ),
-    )
+        }
+    }
 }

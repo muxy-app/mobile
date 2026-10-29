@@ -38,6 +38,10 @@ final class TerminalController: Identifiable, TabStripItem {
     let projectID: String
     private(set) var sessionID: UInt64?
     private(set) var title: String
+
+    var displayTitle: String {
+        title
+    }
     private(set) var directory: String
     private(set) var phase: Phase = .waiting
     private(set) var mode: Mode = .live

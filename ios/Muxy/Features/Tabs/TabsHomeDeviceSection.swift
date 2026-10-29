@@ -6,6 +6,7 @@ struct TabsHomeDeviceSection: View {
     @Binding var collapsedProjects: Set<String>
     @Binding var isRevealed: Bool
     let onOpenTab: (String, UUID) -> Void
+    let onCloseTab: (String, UUID) -> Void
     let onCreateTab: (String) -> Void
     let onNewTab: () -> Void
     let onAddDevice: () -> Void
@@ -26,6 +27,7 @@ struct TabsHomeDeviceSection: View {
                     deviceName: device.name,
                     isExpanded: expandedBinding(for: project),
                     onOpenTab: { onOpenTab(project.id, $0) },
+                    onCloseTab: { onCloseTab(project.id, $0) },
                     onCreateTab: { onCreateTab(project.id) }
                 )
                 .padding(.top, 10)

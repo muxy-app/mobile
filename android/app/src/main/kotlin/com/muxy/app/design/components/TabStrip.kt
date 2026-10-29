@@ -116,6 +116,7 @@ fun TabPill(
             TabKindIcon(kind = tab.tile, activity = tab.activity)
             Text(
                 text = tab.title,
+                modifier = Modifier.weight(1f, fill = false),
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
                 color = if (isSelected) theme.foreground else theme.secondaryForeground,

@@ -5,8 +5,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.MaterialTheme
@@ -130,11 +132,13 @@ fun TabsHomeScreen(
                                 creating = creating == key,
                                 expanded = expanded,
                                 tabsEnabled = idle,
+                                tabsClosable = idle && device.isOnline,
                                 onCreate = { create(key) },
                                 onToggle = {
                                     collapsedProjects = if (expanded) collapsedProjects + sectionId else collapsedProjects - sectionId
                                 },
                                 onSelectTab = { tab -> handle(viewModel.select(key, tab.id)) },
+                                onCloseTab = { tab -> handle(viewModel.closeTab(key, tab.id)) },
                             )
                         }
                     }
@@ -160,7 +164,12 @@ fun TabsHomeScreen(
                 notificationCount = attention.size,
                 onNotifications = { showNotifications = true },
                 onNewTab = { showNewTab = true },
-                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = padding.calculateBottomPadding()),
+                modifier =
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = padding.calculateBottomPadding())
+                        .consumeWindowInsets(padding)
+                        .imePadding(),
             )
         }
     }

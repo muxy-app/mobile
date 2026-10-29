@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -24,10 +25,15 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -35,11 +41,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -244,9 +254,11 @@ internal fun TabsProjectCard(
     creating: Boolean,
     expanded: Boolean,
     tabsEnabled: Boolean,
+    tabsClosable: Boolean,
     onCreate: () -> Unit,
     onToggle: () -> Unit,
     onSelectTab: (TabsTab) -> Unit,
+    onCloseTab: (TabsTab) -> Unit,
 ) {
     val theme = LocalAppTheme.current
     val showsTabs = expanded && project.tabs.isNotEmpty()
@@ -267,7 +279,15 @@ internal fun TabsProjectCard(
         TabsProjectHeader(project, canCreate, creating, expanded, onCreate, onToggle)
         if (showsTabs) {
             project.tabs.forEach { tab ->
-                TabsTabRow(tab = tab, enabled = tabsEnabled, onSelect = { onSelectTab(tab) })
+                key(tab.id) {
+                    TabsTabRow(
+                        tab = tab,
+                        enabled = tabsEnabled,
+                        closable = tabsClosable,
+                        onSelect = { onSelectTab(tab) },
+                        onClose = { onCloseTab(tab) },
+                    )
+                }
             }
         }
     }
@@ -356,10 +376,52 @@ private fun TabsProjectHeader(
 private fun TabsTabRow(
     tab: TabsTab,
     enabled: Boolean,
+    closable: Boolean,
     onSelect: () -> Unit,
+    onClose: () -> Unit,
 ) {
     val theme = LocalAppTheme.current
     val shape = RoundedCornerShape(SurfaceCorners.row)
+    val swipe = rememberSwipeToDismissBoxState()
+    LaunchedEffect(swipe.settledValue) {
+        if (swipe.settledValue != SwipeToDismissBoxValue.EndToStart) return@LaunchedEffect
+        if (closable) onClose()
+        swipe.reset()
+    }
+    SwipeToDismissBox(
+        state = swipe,
+        modifier = Modifier.clip(shape),
+        enableDismissFromStartToEnd = false,
+        enableDismissFromEndToStart = closable,
+        backgroundContent = {
+            if (swipe.dismissDirection == SwipeToDismissBoxValue.EndToStart) {
+                Box(
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .background(theme.red)
+                            .padding(horizontal = 16.dp),
+                    contentAlignment = Alignment.CenterEnd,
+                ) {
+                    Icon(painterResource(R.drawable.ic_close), contentDescription = null, tint = Color.White)
+                }
+            }
+        },
+    ) {
+        TabsTabRowContent(tab, enabled, closable, shape, onSelect, onClose)
+    }
+}
+
+@Composable
+private fun TabsTabRowContent(
+    tab: TabsTab,
+    enabled: Boolean,
+    closable: Boolean,
+    shape: Shape,
+    onSelect: () -> Unit,
+    onClose: () -> Unit,
+) {
+    val theme = LocalAppTheme.current
     val status = tab.activity.statusLabel.takeIf { tab.activity.state != TabActivity.State.IDLE }
     Row(
         modifier =
@@ -369,8 +431,18 @@ private fun TabsTabRow(
                 .clip(shape)
                 .background(theme.tertiaryGroupedBackground)
                 .clickable(enabled = enabled, role = Role.Button, onClick = onSelect)
-                .semantics { if (status != null) stateDescription = status }
-                .padding(start = 12.dp, end = 14.dp),
+                .semantics {
+                    if (status != null) stateDescription = status
+                    if (closable) {
+                        customActions =
+                            listOf(
+                                CustomAccessibilityAction("Close tab") {
+                                    onClose()
+                                    true
+                                },
+                            )
+                    }
+                }.padding(start = 12.dp, end = 14.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

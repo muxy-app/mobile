@@ -1,7 +1,7 @@
 import Foundation
 @testable import Muxy
 
-actor MockTransport: Transport {
+actor MockTransport {
     private(set) var sentFrames: [String] = []
     private(set) var didConnect = false
     private(set) var didClose = false
@@ -66,3 +66,5 @@ actor MockTransport: Transport {
         }
     }
 }
+
+extension MockTransport: Transport {}

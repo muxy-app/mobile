@@ -20,6 +20,7 @@ struct TabsHomeView: View {
             devices: viewModel.devices,
             isCreating: viewModel.isCreating,
             onOpenTab: openTab,
+            onCloseTab: viewModel.closeTab,
             onCreateTab: createTab,
             onNewTab: { isChoosingProject = true },
             onAddDevice: onAddDevice,

@@ -64,10 +64,11 @@ actor MockTerminalChannel: TerminalChannel {
         emit(eventName: EventName.terminalOutput, type: EventType.terminalOutput, value: value)
     }
 
-    func waitForRequest(_ method: Muxy.Method) async throws {
-        if requests.contains(where: { $0.method == method }) { return }
-        await withCheckedContinuation { continuation in
-            requestWaiters[method, default: []].append(continuation)
+    func waitForRequest(_ method: Muxy.Method, count: Int = 1) async throws {
+        while requests.filter({ $0.method == method }).count < count {
+            await withCheckedContinuation { continuation in
+                requestWaiters[method, default: []].append(continuation)
+            }
         }
     }
 

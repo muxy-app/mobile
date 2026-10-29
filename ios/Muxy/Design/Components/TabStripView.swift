@@ -1,7 +1,7 @@
 import SwiftUI
 
 protocol TabStripItem: Identifiable {
-    var title: String { get }
+    var displayTitle: String { get }
     var systemImage: String { get }
     var tileKind: TabTileKind { get }
     var activity: TabActivity { get }

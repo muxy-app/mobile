@@ -233,12 +233,9 @@ class ProjectDetailViewModel(
         content.update { current ->
             val workspace = current.workspace ?: return@update current
             val owning = WorkspaceFlattening.areaContaining(tabId, workspace) ?: return@update current
-            val remaining = owning.tabs.filterNot { it.id == tabId }
-            val nextActive = if (owning.activeTabId == tabId) remaining.firstOrNull()?.id else owning.activeTabId
-            val trimmed = owning.copy(tabs = remaining, activeTabId = nextActive)
-            val updated = workspace.copy(root = WorkspaceFlattening.mapAreas(workspace.root) { if (it.id == owning.id) trimmed else it })
+            val updated = WorkspaceFlattening.removingTab(tabId, workspace) ?: return@update current
             val wasSelected = current.selectedTabId == tabId
-            val fallback = remaining.firstOrNull()?.id ?: tabs(updated).firstOrNull()?.id
+            val fallback = owning.tabs.firstOrNull { it.id != tabId }?.id ?: tabs(updated).firstOrNull()?.id
             current.copy(workspace = updated, selectedTabId = if (wasSelected) fallback else current.selectedTabId)
         }
     }

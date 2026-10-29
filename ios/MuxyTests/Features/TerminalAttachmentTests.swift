@@ -189,7 +189,7 @@ struct TerminalAttachmentTests {
         let (controller, _) = await connectedController(connection)
         let model = controller.projectModel(for: "muxy")
         let tab = try #require(await visibleTab(in: model, session: 1))
-        #expect(tab.title == "Terminal 1")
+        #expect(tab.title == "muxy")
         await settle { tab.isLive }
         #expect(tab.title == "shell 1")
     }

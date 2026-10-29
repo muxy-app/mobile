@@ -234,24 +234,9 @@ final class ProjectDetailViewModel {
     }
 
     private func applyOptimisticClose(of tabID: UUID) {
-        guard let workspace, let owning = area(containing: tabID) else { return }
-        let remaining = owning.tabs.filter { $0.id != tabID }
-        let nextActive = owning.activeTabID == tabID ? remaining.first?.id : owning.activeTabID
-        let root = WorkspaceFlattening.mapAreas(in: workspace.root) { area in
-            guard area.id == owning.id else { return area }
-            return TabArea(
-                id: area.id,
-                projectPath: area.projectPath,
-                tabs: remaining,
-                activeTabID: nextActive
-            )
-        }
-        self.workspace = Workspace(
-            projectID: workspace.projectID,
-            worktreeID: workspace.worktreeID,
-            focusedAreaID: workspace.focusedAreaID,
-            root: root
-        )
+        guard let workspace, let updated = WorkspaceFlattening.removingTab(tabID, from: workspace) else { return }
+        let remaining = WorkspaceFlattening.area(containing: tabID, in: workspace)?.tabs.filter { $0.id != tabID } ?? []
+        self.workspace = updated
         if selectedTabID == tabID {
             selectedTabID = remaining.first?.id ?? tabs.first?.id
         }

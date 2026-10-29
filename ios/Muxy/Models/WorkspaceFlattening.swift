@@ -20,6 +20,22 @@ nonisolated enum WorkspaceFlattening {
         tabAreas(in: workspace.root).first { $0.tabs.contains { $0.id == tabID } }
     }
 
+    static func removingTab(_ tabID: UUID, from workspace: Workspace) -> Workspace? {
+        guard let owning = area(containing: tabID, in: workspace) else { return nil }
+        let remaining = owning.tabs.filter { $0.id != tabID }
+        let nextActive = owning.activeTabID == tabID ? remaining.first?.id : owning.activeTabID
+        let root = mapAreas(in: workspace.root) { area in
+            guard area.id == owning.id else { return area }
+            return TabArea(id: area.id, projectPath: area.projectPath, tabs: remaining, activeTabID: nextActive)
+        }
+        return Workspace(
+            projectID: workspace.projectID,
+            worktreeID: workspace.worktreeID,
+            focusedAreaID: workspace.focusedAreaID,
+            root: root
+        )
+    }
+
     static func mapAreas(in node: Node, _ transform: (TabArea) -> TabArea) -> Node {
         switch node {
         case let .tabArea(area):

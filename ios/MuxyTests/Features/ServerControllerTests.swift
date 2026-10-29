@@ -126,4 +126,43 @@ struct ServerControllerTests {
         #expect(first.isDisconnected)
         #expect(connector.connectCount == 2)
     }
+
+    @Test func activityLoadsPerSessionAndAcknowledgesItsEvents() async {
+        let connection = FakeServerConnection(projects: projects)
+        connection.setActivity(Activity(
+            agents: [Agent(sessionId: 1, projectId: "muxy", provider: "Claude Code", state: .blocked)],
+            events: [ActivityEvent(id: 7, sessionId: 1, projectId: "muxy", provider: "Claude Code", timestamp: 100, kind: .attention)]
+        ))
+        let controller = makeController(FakeServerConnector(outcomes: [.success(connection)]))
+        controller.setWantsConnection(true)
+        await settle { controller.activity(forSession: 1).state == .waiting }
+
+        #expect(controller.activity(forSession: 1).state == .waiting)
+        #expect(controller.activity(forSession: 1).agentProvider == .claude)
+        #expect(controller.activity(forSession: 2) == .none)
+
+        controller.acknowledgeActivity(forSession: 1)
+        await settle { connection.acknowledged == [7] }
+
+        #expect(connection.acknowledged == [7])
+        #expect(controller.activity(forSession: 1).state == .idle)
+    }
+
+    @Test func activityChangesAreReloaded() async {
+        let connection = FakeServerConnection(projects: projects)
+        let connector = FakeServerConnector(outcomes: [.success(connection)])
+        let controller = makeController(connector)
+        controller.setWantsConnection(true)
+        await settle { controller.phase == .connected }
+
+        connection.setActivity(Activity(
+            agents: [Agent(sessionId: 3, projectId: "muxy", provider: "Codex", state: .working)],
+            events: []
+        ))
+        connector.emit(.activityChanged)
+        await settle { controller.activity(forSession: 3).state == .working }
+
+        #expect(controller.activity(forSession: 3).state == .working)
+        #expect(controller.activity(forSession: 3).providerName == "Codex")
+    }
 }

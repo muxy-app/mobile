@@ -20,7 +20,7 @@ fun ProjectDetailScreen(
         ProjectTabsUiState(
             projectName = state.projectName,
             connectionName = state.connectionName,
-            tabs = state.tabs.map { TabStripItem(it.id, it.title, TabTileKind.of(it.kind)) },
+            tabs = state.tabs.map { TabStripItem(it.id, it.displayTitle, TabTileKind.of(it.kind)) },
             selectedTabId = state.selectedTabId,
             status = state.status,
         )
@@ -35,7 +35,7 @@ fun ProjectDetailScreen(
         val tab = tabs[item.id] ?: return@ProjectTabsScreen
         val session = viewModel.terminalSession(tab)
         if (session == null) {
-            UnsupportedTabPage(tab.title)
+            UnsupportedTabPage(tab.displayTitle)
         } else {
             TerminalTabPage(session, terminalSettings, isActive)
         }

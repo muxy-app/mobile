@@ -5,6 +5,7 @@ struct TabsHomeProjectGroup: View {
     let deviceName: String
     @Binding var isExpanded: Bool
     let onOpenTab: (UUID) -> Void
+    let onCloseTab: (UUID) -> Void
     let onCreateTab: () -> Void
 
     @Environment(\.appTheme) private var theme
@@ -16,6 +17,7 @@ struct TabsHomeProjectGroup: View {
                 ForEach(project.tabs) { tab in
                     TabsHomeTabRow(tab: tab) { onOpenTab(tab.id) }
                         .accessibilityLabel("\(tab.title), \(project.name), \(deviceName)")
+                        .swipeToClose(isEnabled: project.canCreate, label: "Close tab") { onCloseTab(tab.id) }
                 }
             }
         }

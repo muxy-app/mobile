@@ -4,6 +4,7 @@ struct TabsHomeContent: View {
     let devices: [TabsHomeDevice]
     let isCreating: Bool
     let onOpenTab: (UUID, String, UUID) -> Void
+    let onCloseTab: (UUID, String, UUID) -> Void
     let onCreateTab: (UUID, String) -> Void
     let onNewTab: () -> Void
     let onAddDevice: () -> Void
@@ -29,6 +30,7 @@ struct TabsHomeContent: View {
                         collapsedProjects: $collapsedProjects,
                         isRevealed: revealedBinding(for: device.id),
                         onOpenTab: { onOpenTab(device.id, $0, $1) },
+                        onCloseTab: { onCloseTab(device.id, $0, $1) },
                         onCreateTab: { onCreateTab(device.id, $0) },
                         onNewTab: onNewTab,
                         onAddDevice: onAddDevice,

@@ -11,7 +11,6 @@ import com.muxy.app.models.Project
 import com.muxy.app.models.Tab
 import com.muxy.app.models.TabArea
 import com.muxy.app.models.TabKind
-import com.muxy.app.models.TerminalTitle
 import com.muxy.app.models.Workspace
 import com.muxy.app.models.WorkspaceFlattening
 import com.muxy.app.networking.muxy1.ConnectionError
@@ -19,6 +18,7 @@ import com.muxy.app.networking.muxy1.ConnectionManager
 import com.muxy.app.networking.muxy1.ConnectionState
 import com.muxy.app.networking.muxy1.ConnectionStatus
 import com.muxy.app.networking.muxy1.createTerminalTab
+import com.muxy.app.networking.muxy1.protocol.CloseTabParams
 import com.muxy.app.networking.muxy1.protocol.EventEnvelope
 import com.muxy.app.networking.muxy1.protocol.EventName
 import com.muxy.app.networking.muxy1.protocol.EventType
@@ -102,6 +102,30 @@ internal class DeviceTabsCatalog(
         val tab = manager.createTerminalTab(connection.id, project.id) { isCurrent(currentSession, token) } ?: return null
         refresh.request { load(includeProjects = false) }
         return tab.id
+    }
+
+    fun closeTab(
+        projectId: String,
+        tabId: UUID,
+    ) {
+        val project = projects.firstOrNull { it.id.uuidString == projectId } ?: return
+        val currentSession = session ?: return
+        val token = generation
+        if (!isCurrent(currentSession, token)) return
+        val workspace = workspaces[project.id] ?: return
+        val area = WorkspaceFlattening.areaContaining(tabId, workspace) ?: return
+        val remaining = WorkspaceFlattening.removingTab(tabId, workspace) ?: return
+        workspaceRevisions[project.id] = (workspaceRevisions[project.id] ?: 0) + 1
+        workspaces[project.id] = remaining
+        publish()
+        val params = CloseTabParams(project.id.uuidString, area.id.uuidString, tabId.uuidString)
+        scope.launch {
+            attempt { manager.request(connection.id, Method.CLOSE_TAB, params) }
+                .onFailure { error ->
+                    Log.client.error("Closing a tab from home failed", error)
+                    if (isCurrent(currentSession, token)) refresh.request { load(includeProjects = false) }
+                }
+        }
     }
 
     fun close() {
@@ -332,7 +356,7 @@ private fun deviceTab(
 ): TabsTab =
     TabsTab(
         id = tab.id,
-        title = TerminalTitle.sanitized(tab.title).ifBlank { "Terminal" },
+        title = tab.displayTitle,
         kind = tab.kind,
         detail = if (tab.kind == TabKind.Vcs) "Source control" else DisplayPath.abbreviated(area.projectPath),
     )

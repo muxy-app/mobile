@@ -33,6 +33,16 @@ class TabsHomeViewModel(
         return catalog.select(key, tabId)?.let(TabsHomeAction::OpenTab)
     }
 
+    fun closeTab(
+        key: TabsProjectKey,
+        tabId: UUID,
+    ): TabsHomeAction? {
+        if (mutableCreating.value != null) return null
+        if (catalog.requiresUnlock(key.connectionId)) return TabsHomeAction.Unlock
+        catalog.closeTab(key, tabId)
+        return null
+    }
+
     suspend fun createTab(key: TabsProjectKey): TabsHomeAction? {
         if (mutableCreating.value != null) return null
         if (catalog.requiresUnlock(key.connectionId)) return TabsHomeAction.Unlock

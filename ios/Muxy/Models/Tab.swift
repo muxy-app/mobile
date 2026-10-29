@@ -41,4 +41,9 @@ nonisolated struct Tab: Codable, Sendable, Identifiable, Equatable {
     let title: String
     let isPinned: Bool
     let paneID: UUID?
+
+    var displayTitle: String {
+        let sanitized = TerminalTitle.sanitized(title)
+        return sanitized.isEmpty ? "Terminal" : sanitized
+    }
 }

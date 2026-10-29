@@ -12,7 +12,7 @@ struct TabPillView<Item: TabStripItem>: View {
         HStack(spacing: 8) {
             TabKindIcon(kind: tab.tileKind, activity: tab.activity)
 
-            Text(tab.title)
+            Text(tab.displayTitle)
                 .font(.subheadline.weight(isSelected ? .semibold : .regular))
                 .foregroundStyle(isSelected ? theme.foreground : theme.secondaryForeground)
                 .lineLimit(1)
@@ -31,7 +31,7 @@ struct TabPillView<Item: TabStripItem>: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Close \(tab.title)")
+                .accessibilityLabel("Close \(tab.displayTitle)")
             }
         }
         .padding(.leading, 12)
