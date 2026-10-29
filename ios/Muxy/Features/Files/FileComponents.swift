@@ -26,7 +26,7 @@ struct FileBreadcrumbs: View {
                             Text(crumb.isEmpty ? rootName : RemoteFilePath.name(crumb))
                                 .font(.caption.weight(crumb == path ? .semibold : .regular))
                                 .lineLimit(1)
-                                .padding(.horizontal, 6)
+                                .padding(.horizontal, Self.crumbPadding)
                                 .frame(minHeight: 44)
                                 .foregroundStyle(crumb == path ? theme.foreground : theme.secondaryForeground)
                         }
@@ -36,12 +36,15 @@ struct FileBreadcrumbs: View {
                         .accessibilityValue(crumb == path ? "Current folder" : "")
                     }
                 }
+                .padding(.horizontal, CardMetrics.rowPadding - Self.crumbPadding)
             }
             .onChange(of: path, initial: true) { _, path in
                 proxy.scrollTo(path, anchor: .trailing)
             }
         }
     }
+
+    private static let crumbPadding: CGFloat = 6
 }
 
 struct FileProjectHeader: View {
@@ -50,12 +53,11 @@ struct FileProjectHeader: View {
     @Environment(\.appTheme) private var theme
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(alignment: .firstTextBaseline, spacing: CardMetrics.iconSpacing) {
             icon
                 .font(.title3)
-                .foregroundStyle(theme.accent)
-                .frame(width: 38, height: 38)
-                .filePanel()
+                .foregroundStyle(theme.secondaryForeground)
+                .frame(width: CardMetrics.iconWidth)
             VStack(alignment: .leading, spacing: 4) {
                 Text(location.name)
                     .font(.subheadline.weight(.semibold))
@@ -71,6 +73,7 @@ struct FileProjectHeader: View {
             .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .padding(.horizontal, CardMetrics.rowPadding)
         .accessibilityElement(children: .combine)
     }
 
@@ -92,17 +95,10 @@ struct FileIcon: View {
     @Environment(\.appTheme) private var theme
 
     var body: some View {
-        let presentation = FilePresentation(entry: entry)
-        Image(systemName: presentation.symbol)
-            .font(.system(size: 21, weight: .regular))
-            .foregroundStyle(presentation.color(in: theme))
-            .frame(width: prominent ? 38 : 32, height: prominent ? 40 : 32)
-            .background(prominent ? theme.accent.opacity(0.08) : .clear, in: RoundedRectangle(cornerRadius: 10))
-            .overlay {
-                if prominent {
-                    RoundedRectangle(cornerRadius: 10).strokeBorder(theme.separator, lineWidth: 1)
-                }
-            }
+        Image(systemName: FilePresentation(entry: entry).symbol)
+            .font(prominent ? .title2 : .body)
+            .foregroundStyle(theme.secondaryForeground)
+            .frame(width: prominent ? nil : CardMetrics.iconWidth)
             .accessibilityHidden(true)
     }
 }
@@ -115,46 +111,31 @@ struct FileEntryLabel: View {
     @Environment(\.appTheme) private var theme
 
     var body: some View {
-        HStack(spacing: 11) {
+        HStack(spacing: CardMetrics.iconSpacing) {
             if selectionMode {
                 Image(systemName: selected ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 21))
+                    .font(.title3)
                     .foregroundStyle(selected ? theme.accent : theme.secondaryForeground)
-                    .frame(width: 22)
+                    .frame(width: CardMetrics.iconWidth)
                     .accessibilityHidden(true)
             }
             FileIcon(entry: entry)
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(entry.name)
-                    .font(.subheadline.weight(.medium))
                     .foregroundStyle(entry.isIgnored ? theme.secondaryForeground : theme.foreground)
                     .fixedSize(horizontal: false, vertical: true)
-                if entry.isIgnored {
-                    Text("Ignored by Git")
-                        .font(.caption2)
-                        .foregroundStyle(theme.secondaryForeground)
-                        .padding(.horizontal, 5)
-                        .padding(.vertical, 2)
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 4).strokeBorder(theme.separator, lineWidth: 1)
-                        }
-                } else {
-                    Text(FilePresentation(entry: entry).typeName)
-                        .font(.caption)
-                        .foregroundStyle(theme.secondaryForeground)
-                }
+                Text(entry.isIgnored ? "Ignored by Git" : FilePresentation(entry: entry).typeName)
+                    .font(.subheadline)
+                    .foregroundStyle(theme.secondaryForeground)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             if entry.isDirectory && !selectionMode {
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(theme.secondaryForeground)
-                    .accessibilityHidden(true)
+                CardRowChevron()
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 12)
-        .frame(minHeight: 65)
+        .padding(.horizontal, CardMetrics.rowPadding)
+        .padding(.vertical, CardMetrics.rowVerticalPadding)
+        .frame(minHeight: CardMetrics.rowHeight)
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(selected ? .isSelected : [])
@@ -172,27 +153,18 @@ struct FileEntryGroup: View {
 
     @Environment(\.appTheme) private var theme
 
+    private var separatorInset: CGFloat {
+        selectionMode ? CardMetrics.iconTextInset + CardMetrics.iconWidth + CardMetrics.iconSpacing : CardMetrics.iconTextInset
+    }
+
     var body: some View {
-        LazyVStack(spacing: 0) {
+        Card(separatorInset: separatorInset) {
             ForEach(entries) { entry in
-                VStack(spacing: 0) {
-                    if entry.id != entries.first?.id {
-                        theme.separator.frame(height: 1)
-                            .padding(.leading, selectionMode ? 88 : 55)
-                    }
-                    entryButton(entry)
+                entryButton(entry)
                     .background(selectedPaths.contains(entry.path) ? theme.accent.opacity(0.1) : .clear)
-                    .overlay(alignment: .leading) {
-                        if selectedPaths.contains(entry.path) {
-                            theme.accent.frame(width: 3)
-                        }
-                    }
                     .disabled(!isEnabled || !isEntryEnabled(entry))
-                    .opacity(isEntryEnabled(entry) ? 1 : 0.45)
-                }
             }
         }
-        .filePanel()
     }
 
     @ViewBuilder
@@ -200,7 +172,7 @@ struct FileEntryGroup: View {
         let button = Button { onOpen(entry) } label: {
             FileEntryLabel(entry: entry, selectionMode: selectionMode, selected: selectedPaths.contains(entry.path))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.cardRow)
         if let onSelect {
             button
                 .onLongPressGesture {
@@ -214,27 +186,6 @@ struct FileEntryGroup: View {
         } else {
             button
         }
-    }
-}
-
-struct FileSectionHeading: View {
-    let title: String
-    let count: Int
-
-    @Environment(\.appTheme) private var theme
-
-    var body: some View {
-        HStack {
-            Text(title.uppercased())
-                .tracking(0.6)
-            Spacer()
-            Text(count.formatted())
-                .monospacedDigit()
-        }
-        .font(.caption2.weight(.semibold))
-        .foregroundStyle(theme.secondaryForeground)
-        .padding(.horizontal, 2)
-        .accessibilityAddTraits(.isHeader)
     }
 }
 
@@ -285,12 +236,11 @@ struct FileNotice<Actions: View>: View {
                 .tint(theme.accent)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
-        .background(FileTint.warning.color(in: theme).opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
-        .overlay {
-            RoundedRectangle(cornerRadius: 12)
-                .strokeBorder(FileTint.warning.color(in: theme).opacity(0.45), lineWidth: 1)
-        }
+        .padding(CardMetrics.rowPadding)
+        .background(
+            FileTint.warning.color(in: theme).opacity(0.12),
+            in: .rect(cornerRadius: SurfaceCorner.card, style: .continuous)
+        )
     }
 }
 

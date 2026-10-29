@@ -10,10 +10,13 @@ final class ProjectModel {
     private(set) var tabs: [TerminalController] = []
     private(set) var selectedTabID: UUID?
     private(set) var hasLoadedSessions = false
+    private(set) var sessionsLoadFailed = false
 
     @ObservationIgnored private(set) var isVisible = false
+    @ObservationIgnored var isListed = false
     @ObservationIgnored private weak var server: ServerController?
     @ObservationIgnored private var endedSessionIDs: Set<UInt64> = []
+    @ObservationIgnored private var sessionsRevision = 0
 
     init(projectID: String, server: ServerController) {
         self.projectID = projectID
@@ -25,7 +28,7 @@ final class ProjectModel {
     }
 
     var needsSessions: Bool {
-        isVisible
+        isVisible || isListed
     }
 
     func setVisible(_ visible: Bool) {
@@ -36,11 +39,13 @@ final class ProjectModel {
         server?.refreshSessions(of: self)
     }
 
-    func createTab() {
-        guard let server else { return }
-        let tab = TerminalController(projectID: projectID, sessionID: nil, server: server)
+    @discardableResult
+    func createTab() -> TerminalController? {
+        guard let server else { return nil }
+        let tab = TerminalController(projectID: projectID, sessionID: nil, directory: server.project(for: projectID)?.directory ?? "", server: server)
         tabs.append(tab)
         select(tab)
+        return tab
     }
 
     func select(_ tab: TerminalController) {
@@ -77,18 +82,25 @@ final class ProjectModel {
     }
 
     func refreshSessions(using connection: any ServerConnection) async {
+        sessionsRevision += 1
+        let revision = sessionsRevision
         let knownBeforeRequest = Set(tabs.compactMap(\.sessionID))
         do {
             let listed = try await connection.sessions(projectId: projectID)
+            guard revision == sessionsRevision, server?.connection === connection, !Task.isCancelled else { return }
             let live = listed.filter { $0.status == .live || $0.status == .starting }
             hasLoadedSessions = true
+            sessionsLoadFailed = false
             reconcile(with: live, knownBeforeRequest: knownBeforeRequest)
         } catch {
+            guard revision == sessionsRevision, server?.connection === connection, !Task.isCancelled else { return }
+            sessionsLoadFailed = true
             Log.connection.error("Loading sessions failed: \(String(describing: ServerFailure(error)), privacy: .public)")
         }
     }
 
     func removeAllTabs() {
+        sessionsRevision += 1
         tabs.forEach(retire)
         tabs.removeAll()
         selectedTabID = nil
@@ -119,7 +131,7 @@ final class ProjectModel {
             .filter { !open.contains($0.id) && !endedSessionIDs.contains($0.id) }
             .sorted { $0.id < $1.id }
         for session in new {
-            let tab = TerminalController(projectID: projectID, sessionID: session.id, server: server)
+            let tab = TerminalController(projectID: projectID, sessionID: session.id, directory: session.directory, server: server)
             server.register(tab, sessionID: session.id)
             tabs.append(tab)
         }

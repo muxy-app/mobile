@@ -50,6 +50,7 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate, UIGestureRecogniz
     }
 
     private var autoFocus = false
+    private var isActive = false
 
     init(controller: TerminalController, theme: ThemePalette, useNerdFont: Bool) {
         self.controller = controller
@@ -70,8 +71,10 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate, UIGestureRecogniz
         nil
     }
 
-    func update(theme: ThemePalette, useNerdFont: Bool, autoFocus: Bool) {
+    func update(theme: ThemePalette, useNerdFont: Bool, autoFocus: Bool, isActive: Bool) {
         self.autoFocus = autoFocus
+        self.isActive = isActive
+        syncFocus()
         guard theme != self.theme || useNerdFont != self.useNerdFont else { return }
         self.theme = theme
         self.useNerdFont = useNerdFont
@@ -101,6 +104,19 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate, UIGestureRecogniz
         screenNeedsRefresh()
         input.setSoftKeyboardHidden(!autoFocus)
         accessoryBar.setKeyboardVisible(autoFocus)
+        syncFocus()
+    }
+
+    private func syncFocus() {
+        guard window != nil, isActive else {
+            if input.isFirstResponder { input.resignFirstResponder() }
+            return
+        }
+        guard !input.isFirstResponder else { return }
+        if let transition = activeNavigationTransition {
+            transition.animate(alongsideTransition: nil) { [weak self] _ in self?.syncFocus() }
+            return
+        }
         input.becomeFirstResponder()
     }
 
@@ -155,10 +171,7 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate, UIGestureRecogniz
     }
 
     private func syncKeyboardOffset() {
-        let guideFrame = keyboardLayoutGuide.layoutFrame
-        let nextOffset = guideFrame == .zero
-            ? 0
-            : min(bounds.height, max(0, bounds.maxY - guideFrame.minY))
+        let nextOffset = TerminalViewportState.keyboardOverlap(in: bounds, keyboardFrame: keyboardLayoutGuide.layoutFrame)
         guard abs(nextOffset - viewportState.keyboardOffset) > 0.5 else { return }
         stopMomentum()
         historyPullDistance = 0
@@ -404,10 +417,6 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate, UIGestureRecogniz
         backgroundColor = background
         scrollView.backgroundColor = background
         keyboardOcclusionView.backgroundColor = background
-        accessoryBar.applyTheme(
-            background: background,
-            foreground: UIColor(rgb: theme.foreground)
-        )
     }
 
     private func applyFont() {

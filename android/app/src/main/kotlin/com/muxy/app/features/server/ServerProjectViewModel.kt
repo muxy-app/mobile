@@ -2,10 +2,11 @@ package com.muxy.app.features.server
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.muxy.app.R
 import com.muxy.app.design.components.TabStripItem
 import com.muxy.app.features.projectdetail.ProjectTabsUiState
 import com.muxy.app.features.terminal.TerminalSettings
+import com.muxy.app.models.TabActivity
+import com.muxy.app.models.TabTileKind
 import com.muxy.app.persistence.connections.ConnectionStore
 import com.muxy.app.persistence.settings.SettingsStore
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -26,8 +27,14 @@ class ServerProjectViewModel(
     private val server: ServerController,
     connectionStore: ConnectionStore,
     settingsStore: SettingsStore,
+    initialTabId: UUID? = null,
 ) : ViewModel() {
-    private val model = server.projectModel(projectId)
+    private val model =
+        server.projectModel(projectId).also { model ->
+            model.tabs.value
+                .firstOrNull { it.id == initialTabId }
+                ?.let(model::select)
+        }
 
     private val connectionName: Flow<String> =
         connectionStore.connections.map { connections -> connections?.firstOrNull { it.id == connectionId }?.name.orEmpty() }
@@ -36,7 +43,14 @@ class ServerProjectViewModel(
     private val tabItems: Flow<List<TabStripItem>> =
         model.tabs.flatMapLatest { tabs ->
             if (tabs.isEmpty()) return@flatMapLatest flowOf(emptyList())
-            combine(tabs.map { tab -> tab.title.map { TabStripItem(tab.id, it, R.drawable.ic_terminal) } }) { it.toList() }
+            combine(
+                tabs.map { tab ->
+                    combine(tab.title, server.activity) { title, activity ->
+                        val tabActivity = tab.sessionId?.let(activity::get) ?: TabActivity.None
+                        TabStripItem(tab.id, title, if (tabActivity.isAgent) TabTileKind.AGENT else TabTileKind.SHELL, tabActivity)
+                    }
+                },
+            ) { it.toList() }
         }
 
     private val content: Flow<Content> =
@@ -78,7 +92,7 @@ class ServerProjectViewModel(
     private fun initialState(): ProjectTabsUiState =
         buildUiState(
             connectionName = "",
-            tabs = model.tabs.value.map { TabStripItem(it.id, it.title.value, R.drawable.ic_terminal) },
+            tabs = model.tabs.value.map { TabStripItem(it.id, it.title.value) },
             content = Content(model.selectedTabId.value, model.hasLoadedSessions.value, server.catalog.value),
             phase = server.phase.value,
         )

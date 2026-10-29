@@ -22,6 +22,7 @@ class ServerDirectory(
 ) : DefaultLifecycleObserver {
     private val controllers = mutableMapOf<String, ServerController>()
     private var focus = ServerFocus()
+    private var browsingServerIds = emptySet<String>()
     private var isForeground = false
 
     fun controller(serverId: String): ServerController {
@@ -44,8 +45,20 @@ class ServerDirectory(
         controllers.forEach { (serverId, controller) -> update(serverId, controller) }
     }
 
+    fun browse(serverIds: Set<String>) {
+        if (browsingServerIds == serverIds) return
+        browsingServerIds = serverIds
+        serverIds.forEach(::controller)
+        controllers.forEach { (serverId, controller) -> update(serverId, controller) }
+    }
+
     fun forget(serverId: String) {
-        controllers.remove(serverId)?.setWantsConnection(false)
+        browsingServerIds -= serverId
+        controllers.remove(serverId)?.let { controller ->
+            controller.setBrowsing(false)
+            controller.showProject(null)
+            controller.setWantsConnection(false)
+        }
     }
 
     fun credentialDidChange(serverId: String) {
@@ -71,8 +84,10 @@ class ServerDirectory(
         controller: ServerController,
     ) {
         val isActive = serverId == focus.serverId
+        val isBrowsing = isForeground && serverId in browsingServerIds
         controller.showProject(focus.projectId.takeIf { isActive })
-        controller.setWantsConnection(isForeground && isActive)
+        controller.setBrowsing(isBrowsing)
+        controller.setWantsConnection(isForeground && (isActive || isBrowsing))
     }
 
     private suspend fun credential(serverId: String) =

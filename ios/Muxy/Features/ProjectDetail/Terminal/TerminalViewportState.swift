@@ -7,6 +7,17 @@ struct TerminalViewportState {
 
     private var followsCursor = false
 
+    static let contentInset: CGFloat = 8
+    static let keyboardGap: CGFloat = 10
+    static let keyboardSpacing = keyboardGap + contentInset
+
+    static func keyboardOverlap(in bounds: CGRect, keyboardFrame: CGRect) -> CGFloat {
+        guard keyboardFrame != .zero else { return 0 }
+        let overlap = bounds.maxY - keyboardFrame.minY
+        guard overlap > 0 else { return 0 }
+        return min(bounds.height, overlap + keyboardSpacing)
+    }
+
     mutating func updateKeyboardOffset(_ offset: CGFloat) {
         let previousKeyboardOffset = keyboardOffset
         let wasAboveKeyboard = previousKeyboardOffset > 0

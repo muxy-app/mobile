@@ -24,19 +24,31 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.muxy.app.R
 import com.muxy.app.design.LocalAppTheme
+import com.muxy.app.design.components.PageMargin
+import com.muxy.app.design.components.SurfaceCorners
 import com.muxy.app.design.rgbColor
 import com.muxy.app.features.terminalkit.TerminalAccessoryBar
 import com.muxy.app.features.terminalkit.TerminalAccessoryBarDefaults
@@ -49,9 +61,9 @@ fun TerminalScreen(
     isActive: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    val palette = LocalAppTheme.current.terminalPalette
+    val theme = LocalAppTheme.current
+    val palette = theme.terminalPalette
     val background = rgbColor(palette.background)
-    val foreground = rgbColor(palette.foreground)
     val handle = remember(controller) { TerminalSurfaceHandle(controller) }
     val imeVisible = WindowInsets.isImeVisible
     SideEffect { handle.keyboardVisible = imeVisible }
@@ -61,31 +73,63 @@ fun TerminalScreen(
     val notice by controller.notice.collectAsStateWithLifecycle()
     val historyStart by controller.showsHistoryStart.collectAsStateWithLifecycle()
 
-    Box(modifier = modifier.fillMaxSize().background(background)) {
+    val density = LocalDensity.current
+    var islandTop by remember { mutableFloatStateOf(0f) }
+    var barTop by remember { mutableFloatStateOf(Float.MAX_VALUE) }
+    val gapPx = with(density) { TerminalIsland.keyboardGap.toPx() }
+    SideEffect { handle.occlusionSpacing = with(density) { (TerminalIsland.keyboardGap + TerminalIsland.contentInset).toPx() } }
+
+    Box(modifier = modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
-            AndroidView(
-                factory = { context -> TerminalSurfaceView(context).also(handle::attach) },
-                modifier = Modifier.weight(1f).fillMaxWidth().onGloballyPositioned { handle.surfacePlaced(it.boundsInWindow().bottom) },
-                onRelease = handle::release,
-                update = { view -> view.bind(controller, palette, settings.useNerdFont) },
-            )
-            Spacer(modifier = Modifier.height(TerminalAccessoryBarDefaults.height))
+            Box(
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .padding(start = PageMargin.horizontal, end = PageMargin.horizontal, top = TerminalIsland.margin)
+                        .onGloballyPositioned { islandTop = it.boundsInWindow().top }
+                        .clip(VisibleIslandShape(barTop - gapPx - islandTop))
+                        .background(background),
+            ) {
+                AndroidView(
+                    factory = { context -> TerminalSurfaceView(context).also(handle::attach) },
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .padding(TerminalIsland.contentInset)
+                            .onGloballyPositioned { handle.surfacePlaced(it.boundsInWindow().bottom) },
+                    onRelease = handle::release,
+                    update = { view -> view.bind(controller, palette, settings.useNerdFont) },
+                )
+            }
+            Spacer(modifier = Modifier.height(TerminalAccessoryBarDefaults.height + TerminalIsland.keyboardGap))
         }
-        Column(modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().imePadding()) {
+        Column(
+            modifier =
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .imePadding(),
+        ) {
             if (mode == TerminalMode.HISTORY || !following) {
-                BackToLiveButton(foreground, Modifier.align(Alignment.End), controller::returnToLive)
+                BackToLiveButton(Modifier.align(Alignment.End), controller::returnToLive)
             }
             TerminalAccessoryBar(
                 sticky = sticky,
                 canCopy = handle.canCopy,
                 keyboardVisible = imeVisible,
-                background = background,
-                foreground = foreground,
+                background = theme.groupedBackground,
+                foreground = theme.foreground,
                 actions = handle,
-                modifier = Modifier.onGloballyPositioned { handle.barPlaced(it.boundsInWindow().top) },
+                modifier =
+                    Modifier.onGloballyPositioned {
+                        val top = it.boundsInWindow().top
+                        barTop = top
+                        handle.barPlaced(top)
+                    },
             )
         }
-        TerminalNotices(historyStart, notice, Modifier.align(Alignment.TopCenter))
+        TerminalNotices(historyStart, notice, Modifier.align(Alignment.TopCenter).padding(top = TerminalIsland.margin))
     }
 
     LaunchedEffect(isActive, handle) {
@@ -93,9 +137,28 @@ fun TerminalScreen(
     }
 }
 
+private object TerminalIsland {
+    val margin = 8.dp
+    val contentInset = 8.dp
+    val keyboardGap = 10.dp
+}
+
+private class VisibleIslandShape(
+    private val visibleHeight: Float,
+) : Shape {
+    override fun createOutline(
+        size: Size,
+        layoutDirection: LayoutDirection,
+        density: Density,
+    ): Outline {
+        val radius = with(density) { SurfaceCorners.card.toPx() }
+        val height = visibleHeight.coerceIn(0f, size.height)
+        return Outline.Rounded(RoundRect(0f, 0f, size.width, height, CornerRadius(radius)))
+    }
+}
+
 @Composable
 private fun BackToLiveButton(
-    foreground: Color,
     modifier: Modifier,
     onClick: () -> Unit,
 ) {
@@ -105,14 +168,14 @@ private fun BackToLiveButton(
         modifier = modifier.padding(16.dp).size(BUTTON_SIZE),
         shape = CircleShape,
         color = theme.secondaryGroupedBackground,
-        border = BorderStroke(1.dp, foreground.copy(alpha = BORDER_ALPHA)),
+        border = BorderStroke(1.dp, theme.foreground.copy(alpha = BORDER_ALPHA)),
         shadowElevation = 4.dp,
     ) {
         Box(contentAlignment = Alignment.Center) {
             Icon(
                 painter = painterResource(R.drawable.ic_expand_more),
                 contentDescription = BACK_TO_LIVE,
-                tint = foreground,
+                tint = theme.foreground,
                 modifier = Modifier.size(22.dp),
             )
         }

@@ -18,6 +18,7 @@ import com.muxy.app.features.billing.BillingRepository
 import com.muxy.app.features.billing.GooglePlayBilling
 import com.muxy.app.features.billing.SecretTrialStore
 import com.muxy.app.features.connections.ConnectionsListViewModel
+import com.muxy.app.features.demo.DemoBackend
 import com.muxy.app.features.demo.syncDemoMode
 import com.muxy.app.features.editconnection.ConnectionEditor
 import com.muxy.app.features.editconnection.EditConnectionViewModel
@@ -34,6 +35,8 @@ import com.muxy.app.features.server.ServerProjectViewModel
 import com.muxy.app.features.server.ServerProjectsViewModel
 import com.muxy.app.features.settings.SettingsViewModel
 import com.muxy.app.features.sshterminal.SshTerminalViewModel
+import com.muxy.app.features.tabs.TabsCatalog
+import com.muxy.app.features.tabs.TabsHomeViewModel
 import com.muxy.app.features.terminal.SystemTerminalClipboard
 import com.muxy.app.networking.muxy1.ConnectionLifecycle
 import com.muxy.app.networking.muxy1.ConnectionManager
@@ -135,13 +138,9 @@ class AppContainer(
     private val terminalClipboard = SystemTerminalClipboard(context)
 
     private val phoneName = SystemPhoneName(context)
+    private val demoBackend = DemoBackend()
 
-    val connectionManager =
-        ConnectionManager(
-            makeTransport = { url -> WebSocketTransport(url, httpClient) },
-            tokenStore = tokenStore,
-            phoneName = phoneName,
-        )
+    val connectionManager = makeDeviceConnectionManager()
 
     val connectionLifecycle = ConnectionLifecycle(connectionManager, connectionStore, mainScope)
 
@@ -149,6 +148,8 @@ class AppContainer(
         ServerDirectory(credentialStore, SdkServerConnector(), mainScope) { connectionId ->
             RemoteServerConnectionProvider(connectionId, connectionStore, remoteConnector)
         }
+
+    val tabsCatalog = TabsCatalog(connectionStore, billing, serverDirectory, ::makeDeviceConnectionManager, mainScope)
 
     val projectTools =
         ProjectToolsFactory(
@@ -175,6 +176,7 @@ class AppContainer(
             lifecycle.addObserver(connectionLifecycle)
             lifecycle.addObserver(serverDirectory)
             lifecycle.addObserver(billingLifecycle)
+            lifecycle.addObserver(tabsCatalog)
             ioScope.syncDemoMode(settingsStore.settings, connectionStore, tokenStore)
             mutableReady.value = true
         }
@@ -186,6 +188,8 @@ class AppContainer(
 
     fun makeConnectionsListViewModel(): ConnectionsListViewModel =
         ConnectionsListViewModel(connectionStore, tokenStore, credentialStore, serverDirectory)
+
+    fun makeTabsHomeViewModel(): TabsHomeViewModel = TabsHomeViewModel(tabsCatalog)
 
     fun makeEditConnectionViewModel(connectionId: UUID): EditConnectionViewModel =
         EditConnectionViewModel(
@@ -240,6 +244,7 @@ class AppContainer(
             settingsStore = settingsStore,
             outbound = mainScope,
             clipboard = terminalClipboard,
+            initialTabId = route.initialTabId,
         )
 
     fun makeServerProjectsViewModel(route: AppRoute.ServerProjects): ServerProjectsViewModel =
@@ -252,6 +257,15 @@ class AppContainer(
             server = serverDirectory.controller(route.serverId),
             connectionStore = connectionStore,
             settingsStore = settingsStore,
+            initialTabId = route.initialTabId,
+        )
+
+    private fun makeDeviceConnectionManager(): ConnectionManager =
+        ConnectionManager(
+            makeTransport = { url -> WebSocketTransport(url, httpClient) },
+            tokenStore = tokenStore,
+            phoneName = phoneName,
+            demoBackend = demoBackend,
         )
 
     private companion object {

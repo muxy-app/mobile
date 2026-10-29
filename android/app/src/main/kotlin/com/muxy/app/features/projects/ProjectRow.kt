@@ -2,12 +2,14 @@ package com.muxy.app.features.projects
 
 import android.graphics.BitmapFactory
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -18,20 +20,17 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.muxy.app.design.LocalAppTheme
+import com.muxy.app.design.components.ListRow
+import com.muxy.app.design.components.ThemedChevron
 import com.muxy.app.design.components.ThemedListItem
-import com.muxy.app.design.rgbColor
+import com.muxy.app.models.DisplayPath
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-val projectIconSize = 32.dp
-private val nestedIndent = 24.dp
-private val emojiSize = 22.sp
+private val markSize = 28.dp
 
 @Composable
 fun ProjectRow(
@@ -39,48 +38,32 @@ fun ProjectRow(
     onClick: () -> Unit,
 ) {
     ThemedListItem(
-        headline = { Text(item.name, fontWeight = FontWeight.SemiBold) },
-        supporting = { Text(item.path, maxLines = 1, overflow = TextOverflow.MiddleEllipsis) },
-        leading = { ProjectIcon(item, Modifier.padding(start = if (item.isNested) nestedIndent else 0.dp)) },
-        modifier = Modifier.clickable(onClick = onClick),
+        headline = { Text(item.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        supporting = { Text(DisplayPath.abbreviated(item.path), maxLines = 1, overflow = TextOverflow.MiddleEllipsis) },
+        leading = { ProjectMark(item, Modifier.padding(start = if (item.isNested) markSize else 0.dp)) },
+        trailing = { ThemedChevron() },
+        modifier = Modifier.clickable(role = Role.Button, onClick = onClick),
     )
 }
 
 @Composable
-private fun ProjectIcon(
+private fun ProjectMark(
     item: ProjectListItem,
     modifier: Modifier,
 ) {
     val logo = item.logo?.let { rememberLogo(it) }
-    Box(modifier = modifier.size(projectIconSize), contentAlignment = Alignment.Center) {
+    Box(modifier = modifier.size(markSize), contentAlignment = Alignment.Center) {
         if (logo != null) {
             Image(
                 bitmap = logo,
                 contentDescription = null,
-                modifier = Modifier.size(projectIconSize).clip(RoundedCornerShape(6.dp)),
+                modifier = Modifier.size(markSize).clip(RoundedCornerShape(ListRow.nestedCorner)),
                 contentScale = ContentScale.Fit,
             )
             return@Box
         }
-        when (val icon = item.icon) {
-            is ProjectIcon.Symbol -> SymbolIcon(icon.name, item.iconColor)
-            is ProjectIcon.Emoji -> Text(icon.text, fontSize = emojiSize)
-        }
+        Box(modifier = Modifier.size(8.dp).background(rememberProjectColor(item.id, item.iconColor), CircleShape))
     }
-}
-
-@Composable
-private fun SymbolIcon(
-    name: String?,
-    iconColor: String?,
-) {
-    val theme = LocalAppTheme.current
-    Icon(
-        painter = painterResource(ProjectSymbols.drawable(name)),
-        contentDescription = null,
-        modifier = Modifier.size(26.dp),
-        tint = ProjectIconColor.rgb(iconColor, theme.isDark)?.let(::rgbColor) ?: theme.foreground,
-    )
 }
 
 @Composable

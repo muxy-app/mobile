@@ -10,6 +10,7 @@ data class AppTheme(
     val secondaryBackground: Color,
     val groupedBackground: Color,
     val secondaryGroupedBackground: Color,
+    val tertiaryGroupedBackground: Color,
     val separator: Color,
     val foreground: Color,
     val secondaryForeground: Color,
@@ -32,6 +33,7 @@ data class AppTheme(
                 secondaryBackground = tokens.secondaryBackground.color,
                 groupedBackground = tokens.groupedBackground.color,
                 secondaryGroupedBackground = tokens.secondaryGroupedBackground.color,
+                tertiaryGroupedBackground = tokens.tertiaryGroupedBackground.color,
                 separator = tokens.separator.color,
                 foreground = tokens.foreground.color,
                 secondaryForeground = tokens.secondaryForeground.color,
@@ -43,6 +45,24 @@ data class AppTheme(
                 cyan = tokens.cyan.color,
                 isDark = tokens.isDark,
                 terminalPalette = palette.replacingBackground(tokens.groupedBackground.rgb),
+            )
+        }
+
+        fun interfaceTheme(
+            isDark: Boolean,
+            terminalPalette: ThemePalette,
+        ): AppTheme {
+            val palette =
+                ThemeCatalog.muxy.copy(
+                    foreground = if (isDark) 0xF3F4F8 else 0x20232D,
+                    background = if (isDark) 0x171A21 else 0xF4F5F8,
+                )
+            val terminalBackground = ThemeTokens.from(terminalPalette).groupedBackground.rgb
+            val theme = from(palette)
+            return theme.copy(
+                accent = theme.foreground,
+                onAccent = theme.background,
+                terminalPalette = terminalPalette.replacingBackground(terminalBackground),
             )
         }
     }

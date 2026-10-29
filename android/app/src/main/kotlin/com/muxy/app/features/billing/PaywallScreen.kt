@@ -23,6 +23,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.muxy.app.R
 import com.muxy.app.design.LocalAppTheme
 import com.muxy.app.design.components.MuxyTopAppBar
+import com.muxy.app.design.components.PageMargin
 import com.muxy.app.design.components.TopBarAction
 
 @Composable
@@ -53,7 +54,7 @@ fun PaywallScreen(
                     .fillMaxSize()
                     .padding(padding)
                     .verticalScroll(rememberScrollState())
-                    .padding(24.dp),
+                    .padding(horizontal = PageMargin.horizontal, vertical = 24.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {

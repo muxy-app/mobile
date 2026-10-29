@@ -2,7 +2,7 @@ package com.muxy.app.design.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -18,14 +18,22 @@ fun ThemedBorderedButton(
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
 ) {
     val theme = LocalAppTheme.current
     OutlinedButton(
         onClick = onClick,
         modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
+        enabled = enabled,
+        shape = CircleShape,
         border = BorderStroke(1.dp, theme.separator),
-        colors = ButtonDefaults.outlinedButtonColors(containerColor = theme.secondaryGroupedBackground, contentColor = theme.accent),
+        colors =
+            ButtonDefaults.outlinedButtonColors(
+                containerColor = theme.secondaryGroupedBackground,
+                contentColor = theme.foreground,
+                disabledContainerColor = theme.secondaryGroupedBackground,
+                disabledContentColor = theme.secondaryForeground,
+            ),
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
     ) {
         Text(text = text, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)

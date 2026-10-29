@@ -336,6 +336,7 @@ class AddConnectionViewModel(
         if (result !is PairingStatus.Paired) return
         if (reusable == null && !save(credential, connection.id)) return
         val paired = connection.copy(pairingState = PairingState.PAIRED)
+        manager.disconnect()
         store.upsert(paired)
         addedConnection = paired
     }

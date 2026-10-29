@@ -99,6 +99,46 @@ class WorkspaceFlatteningTest {
         assertEquals(SplitDirection.VERTICAL, split.direction)
     }
 
+    @Test
+    fun removingTheActiveTabActivatesTheFirstRemainingTabOfItsArea() {
+        val closing = tab()
+        val kept = tab()
+        val a = area(tab())
+        val b = area(closing, kept).copy(activeTabId = closing.id)
+        val removed = WorkspaceFlattening.removingTab(closing.id, workspace(b.id, split(a, b)))
+        val areas = WorkspaceFlattening.tabAreas(checkNotNull(removed))
+        assertEquals(listOf(kept.id), areas.first { it.id == b.id }.tabs.map(Tab::id))
+        assertEquals(kept.id, areas.first { it.id == b.id }.activeTabId)
+        assertEquals(a.tabs, areas.first { it.id == a.id }.tabs)
+        assertEquals(b.id, removed.focusedAreaId)
+    }
+
+    @Test
+    fun removingAnInactiveTabKeepsTheActiveTab() {
+        val active = tab()
+        val closing = tab()
+        val a = area(active, closing).copy(activeTabId = active.id)
+        val removed = WorkspaceFlattening.removingTab(closing.id, workspace(a.id, WorkspaceNode.Area(a)))
+        val area = WorkspaceFlattening.tabAreas(checkNotNull(removed)).single()
+        assertEquals(listOf(active.id), area.tabs.map(Tab::id))
+        assertEquals(active.id, area.activeTabId)
+    }
+
+    @Test
+    fun removingTheLastTabLeavesAnEmptyArea() {
+        val closing = tab()
+        val a = area(closing).copy(activeTabId = closing.id)
+        val removed = WorkspaceFlattening.removingTab(closing.id, workspace(a.id, WorkspaceNode.Area(a)))
+        val area = WorkspaceFlattening.tabAreas(checkNotNull(removed)).single()
+        assertEquals(emptyList<Tab>(), area.tabs)
+        assertNull(area.activeTabId)
+    }
+
+    @Test
+    fun removingAnUnknownTabReturnsNothing() {
+        assertNull(WorkspaceFlattening.removingTab(UUID.randomUUID(), workspace(null, WorkspaceNode.Area(area(tab())))))
+    }
+
     private fun area(vararg tabs: Tab) = TabArea(UUID.randomUUID(), "/p", tabs.toList(), null)
 
     private fun tab() = Tab(UUID.randomUUID(), TabKind.Terminal, "t", false, UUID.randomUUID())

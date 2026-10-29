@@ -60,7 +60,7 @@ struct ProjectDetailView: View {
         if tab.kind == .terminal, let session = viewModel.terminalSession(for: tab) {
             TerminalTabView(session: session)
         } else {
-            UnsupportedTabView(title: tab.title)
+            UnsupportedTabView(title: tab.displayTitle)
         }
     }
 }

@@ -6,6 +6,7 @@ struct TerminalScreenView: View {
     let isDisconnected: Bool
 
     @Environment(\.appTheme) private var theme
+    @Environment(\.isActiveTabPage) private var isActive
     @State private var keyboardOffset: CGFloat = 0
 
     var body: some View {
@@ -15,13 +16,16 @@ struct TerminalScreenView: View {
                 palette: theme.terminalPalette,
                 useNerdFont: settings.useNerdFont,
                 autoFocus: settings.autoFocusTerminal,
+                isActive: isActive,
                 onKeyboardOffsetChange: { keyboardOffset = $0 }
             )
+            .padding(TerminalViewportState.contentInset)
 
             overlay
 
             if controller.mode == .history || !controller.isFollowing {
-                jumpToLiveButton
+                JumpToLiveButton(action: controller.returnToLive)
+                    .padding(PageMargin.horizontal)
                     .padding(.bottom, keyboardOffset)
             }
         }
@@ -36,7 +40,7 @@ struct TerminalScreenView: View {
             }
             .allowsHitTesting(false)
         }
-        .background(theme.groupedBackground)
+        .keyboardIsland(bottomInset: keyboardOffset, background: ThemeColor(rgb: theme.terminalPalette.background).color)
     }
 
     @ViewBuilder
@@ -78,32 +82,8 @@ struct TerminalScreenView: View {
             .background(theme.groupedBackground)
     }
 
-    private var jumpToLiveButton: some View {
-        Button(action: controller.returnToLive) {
-            Image(systemName: "chevron.down")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(theme.foreground)
-                .frame(width: 40, height: 40)
-                .background(.regularMaterial, in: Circle())
-                .overlay {
-                    Circle()
-                        .stroke(theme.foreground.opacity(0.18), lineWidth: 1)
-                }
-                .contentShape(Circle())
-        }
-        .buttonStyle(.plain)
-        .shadow(color: .black.opacity(0.18), radius: 8, y: 3)
-        .padding(16)
-        .accessibilityLabel("Back to Live Output")
-    }
-
-    private func noticeView(_ notice: String) -> some View {
-        Text(notice)
-            .font(.footnote.weight(.medium))
-            .foregroundStyle(theme.foreground)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
-            .background(.regularMaterial, in: Capsule())
+    private func noticeView(_ text: String) -> some View {
+        TerminalNotice(text: text)
             .padding(.top, 12)
             .transition(.move(edge: .top).combined(with: .opacity))
     }
@@ -114,18 +94,19 @@ private struct TerminalSurfaceRepresentable: UIViewRepresentable {
     let palette: ThemePalette
     let useNerdFont: Bool
     let autoFocus: Bool
+    let isActive: Bool
     let onKeyboardOffsetChange: (CGFloat) -> Void
 
     func makeUIView(context: Context) -> TerminalSurfaceView {
         let view = TerminalSurfaceView(controller: controller, theme: palette, useNerdFont: useNerdFont)
         view.onKeyboardOffsetChange = onKeyboardOffsetChange
-        view.update(theme: palette, useNerdFont: useNerdFont, autoFocus: autoFocus)
+        view.update(theme: palette, useNerdFont: useNerdFont, autoFocus: autoFocus, isActive: isActive)
         return view
     }
 
     func updateUIView(_ view: TerminalSurfaceView, context: Context) {
         view.onKeyboardOffsetChange = onKeyboardOffsetChange
-        view.update(theme: palette, useNerdFont: useNerdFont, autoFocus: autoFocus)
+        view.update(theme: palette, useNerdFont: useNerdFont, autoFocus: autoFocus, isActive: isActive)
     }
 
     static func dismantleUIView(_ view: TerminalSurfaceView, coordinator: ()) {

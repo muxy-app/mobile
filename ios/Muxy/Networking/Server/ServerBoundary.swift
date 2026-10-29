@@ -21,6 +21,8 @@ nonisolated protocol ServerConnection: AnyObject, Sendable {
     func sessions(projectId: String) async throws -> [Session]
     func createSession(projectId: String, size: TerminalGridSize) async throws -> Session
     func endSession(_ sessionId: UInt64) async throws
+    func activity() async throws -> Activity
+    func acknowledgeActivity(eventIds: [UInt64]) async throws
     func attach(sessionId: UInt64, size: TerminalGridSize) async throws -> any ServerTerminalChannel
     func files(projectId: String) throws -> any ServerProjectFiles
     func git(projectId: String) throws -> any ServerGitRepository

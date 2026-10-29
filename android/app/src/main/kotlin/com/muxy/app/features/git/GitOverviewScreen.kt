@@ -1,19 +1,24 @@
 package com.muxy.app.features.git
 
-import androidx.annotation.DrawableRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.material3.Icon
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.muxy.app.R
 import com.muxy.app.design.LocalAppTheme
+import com.muxy.app.design.components.CardRow
+import com.muxy.app.design.components.ListRow
 import com.muxy.app.design.components.RowPosition
 import com.muxy.app.design.components.ThemedCell
+import com.muxy.app.design.components.ThemedChevron
 import com.muxy.app.design.components.ThemedList
 import com.muxy.app.design.components.ThemedListItem
 import com.muxy.app.design.components.ThemedSectionHeader
@@ -39,71 +44,93 @@ internal fun GitOverviewScreen(
             if (status == null) {
                 if (!state.isLoadingStatus) {
                     item("empty") {
-                        ThemedListItem(
-                            headline = { Text("No Git Information") },
-                            supporting = { Text("Git status is not available for this project.") },
-                        )
+                        ThemedCell(RowPosition.SINGLE) {
+                            CardRow(title = "No Git Information", supporting = "Git status is not available for this project.")
+                        }
                     }
                 }
                 return@ThemedList
             }
             item("branch") {
                 ThemedCell(RowPosition.SINGLE) {
-                    ThemedListItem(
-                        headline = { Text(status.branch) },
-                        supporting = {
-                            Text(
-                                if (status.hasUpstream) "↓ ${status.behindCount} behind    ↑ ${status.aheadCount} ahead" else "No upstream",
-                            )
-                        },
-                        leading = { Icon(painterResource(R.drawable.ic_fork_right), null) },
+                    CardRow(
+                        title = status.branch,
+                        icon = R.drawable.ic_fork_right,
+                        supporting =
+                            if (status.hasUpstream) "↓ ${status.behindCount} behind    ↑ ${status.aheadCount} ahead" else "No upstream",
                     )
                 }
             }
             item("actions") {
                 ThemedSectionHeader("Actions")
-                ThemedCell(
-                    RowPosition.FIRST,
-                ) { GitActionRow("Pull", R.drawable.ic_arrow_downward, !state.isBusy && status.hasUpstream, onPull) }
-                ThemedCell(RowPosition.MIDDLE) { GitActionRow(pushTitle, R.drawable.ic_arrow_upward, !state.isBusy && canPush, onPush) }
+                ThemedCell(RowPosition.FIRST) {
+                    CardRow("Pull", icon = R.drawable.ic_arrow_downward, enabled = !state.isBusy && status.hasUpstream, onClick = onPull)
+                }
+                ThemedCell(RowPosition.MIDDLE) {
+                    CardRow(pushTitle, icon = R.drawable.ic_arrow_upward, enabled = !state.isBusy && canPush, onClick = onPush)
+                }
                 ThemedCell(RowPosition.LAST) {
-                    GitActionRow(
-                        "Commit ${state.totalChanges}",
-                        R.drawable.ic_check,
-                        !state.isBusy && state.totalChanges > 0,
-                    ) { onOpen(GitRoute.Commit) }
+                    CardRow(
+                        "Commit",
+                        icon = R.drawable.ic_check,
+                        value = state.totalChanges.toString(),
+                        enabled = !state.isBusy && state.totalChanges > 0,
+                        navigates = true,
+                        onClick = { onOpen(GitRoute.Commit) },
+                    )
                 }
             }
             item("manage") {
                 ThemedSectionHeader("Manage")
-                ThemedCell(
-                    RowPosition.FIRST,
-                ) { GitActionRow("Branches", R.drawable.ic_fork_right, !state.isBusy) { onOpen(GitRoute.Branches) } }
-                ThemedCell(
-                    RowPosition.MIDDLE,
-                ) { GitActionRow("Worktrees", R.drawable.ic_stacks, !state.isBusy) { onOpen(GitRoute.Worktrees) } }
+                ThemedCell(RowPosition.FIRST) {
+                    CardRow(
+                        "Branches",
+                        icon = R.drawable.ic_fork_right,
+                        enabled = !state.isBusy,
+                        navigates = true,
+                        onClick = { onOpen(GitRoute.Branches) },
+                    )
+                }
+                ThemedCell(RowPosition.MIDDLE) {
+                    CardRow(
+                        "Worktrees",
+                        icon = R.drawable.ic_stacks,
+                        enabled = !state.isBusy,
+                        navigates = true,
+                        onClick = { onOpen(GitRoute.Worktrees) },
+                    )
+                }
                 val pr = status.pullRequest
                 if (pr == null) {
-                    ThemedCell(
-                        RowPosition.LAST,
-                    ) { GitActionRow("New Pull Request", R.drawable.ic_merge, !state.isBusy) { onOpen(GitRoute.NewPullRequest) } }
+                    ThemedCell(RowPosition.LAST) {
+                        CardRow(
+                            "New Pull Request",
+                            icon = R.drawable.ic_merge,
+                            enabled = !state.isBusy,
+                            navigates = true,
+                            onClick = { onOpen(GitRoute.NewPullRequest) },
+                        )
+                    }
                 } else {
                     ThemedCell(RowPosition.MIDDLE) {
-                        GitActionRow("Pull Request #${pr.number}", R.drawable.ic_merge, !state.isBusy) { onOpen(GitRoute.PullRequest) }
+                        CardRow(
+                            "Pull Request #${pr.number}",
+                            icon = R.drawable.ic_merge,
+                            enabled = !state.isBusy,
+                            navigates = true,
+                            onClick = { onOpen(GitRoute.PullRequest) },
+                        )
                     }
-                    ThemedCell(
-                        RowPosition.LAST,
-                    ) { GitActionRow("Open Pull Request", R.drawable.ic_language, !state.isBusy) { onLink(pr.url) } }
+                    ThemedCell(RowPosition.LAST) {
+                        CardRow("Open Pull Request", icon = R.drawable.ic_language, enabled = !state.isBusy, onClick = { onLink(pr.url) })
+                    }
                 }
             }
             if (state.totalChanges == 0) {
                 item("clean") {
                     ThemedSectionHeader("Status")
                     ThemedCell(RowPosition.SINGLE) {
-                        ThemedListItem(
-                            headline = { Text("Working tree clean") },
-                            leading = { Icon(painterResource(R.drawable.ic_check), null) },
-                        )
+                        CardRow("Working tree clean", icon = R.drawable.ic_check, iconTint = LocalAppTheme.current.green)
                     }
                 }
             }
@@ -114,7 +141,11 @@ internal fun GitOverviewScreen(
                         GitFileRow(
                             file,
                             staged,
-                            Modifier.clickable(enabled = !state.isBusy) { onOpen(GitRoute.Diff(GitDiffKey(file.path, staged))) },
+                            navigates = true,
+                            modifier =
+                                Modifier.clickable(enabled = !state.isBusy, role = Role.Button) {
+                                    onOpen(GitRoute.Diff(GitDiffKey(file.path, staged)))
+                                },
                         )
                     }
                 }
@@ -124,24 +155,11 @@ internal fun GitOverviewScreen(
 }
 
 @Composable
-internal fun GitActionRow(
-    text: String,
-    @DrawableRes icon: Int,
-    enabled: Boolean = true,
-    onClick: () -> Unit,
-) {
-    ThemedListItem(
-        headline = { Text(text, color = if (enabled) LocalAppTheme.current.foreground else LocalAppTheme.current.secondaryForeground) },
-        modifier = Modifier.clickable(enabled = enabled, onClick = onClick),
-        leading = { Icon(painterResource(icon), null) },
-    )
-}
-
-@Composable
 internal fun GitFileRow(
     file: VcsFile,
     staged: Boolean,
     modifier: Modifier = Modifier,
+    navigates: Boolean = false,
 ) {
     val theme = LocalAppTheme.current
     val color =
@@ -151,9 +169,18 @@ internal fun GitFileRow(
             else -> theme.yellow
         }
     ThemedListItem(
-        headline = { Text(file.path) },
+        headline = { Text(file.path, maxLines = 1, overflow = TextOverflow.MiddleEllipsis) },
         modifier = modifier,
         supporting = { Text(if (staged) "Staged" else "Unstaged") },
-        leading = { Text(file.status.letter, color = color) },
+        leading = {
+            Text(
+                file.status.letter,
+                modifier = Modifier.size(ListRow.iconSize),
+                color = color,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.SemiBold,
+            )
+        },
+        trailing = if (navigates) ({ ThemedChevron() }) else null,
     )
 }

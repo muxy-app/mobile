@@ -25,7 +25,7 @@ final class TerminalInputView: UIView, UITextInput {
     var mathExpressionCompletionType: UITextMathExpressionCompletionType = .no
     var writingToolsBehavior: UIWritingToolsBehavior = .none
     var keyboardType: UIKeyboardType = .default
-    var keyboardAppearance: UIKeyboardAppearance = .dark
+    var keyboardAppearance: UIKeyboardAppearance = .default
     var returnKeyType: UIReturnKeyType = .default
 
     private var state = TerminalTextInputState()

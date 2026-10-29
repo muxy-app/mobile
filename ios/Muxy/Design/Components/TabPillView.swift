@@ -9,40 +9,39 @@ struct TabPillView<Item: TabStripItem>: View {
     @Environment(\.appTheme) private var theme
 
     var body: some View {
-        HStack(spacing: 6) {
-            Image(systemName: tab.systemImage)
-                .font(.footnote)
-                .foregroundStyle(secondaryForeground)
+        HStack(spacing: 8) {
+            TabKindIcon(kind: tab.tileKind, activity: tab.activity)
 
-            Text(tab.title)
-                .font(.subheadline)
-                .foregroundStyle(foreground)
+            Text(tab.displayTitle)
+                .font(.subheadline.weight(isSelected ? .semibold : .regular))
+                .foregroundStyle(isSelected ? theme.foreground : theme.secondaryForeground)
                 .lineLimit(1)
                 .truncationMode(.tail)
 
-            Button(action: onClose) {
-                Image(systemName: "xmark")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(secondaryForeground)
+            if tab.activity.state != .idle {
+                TabActivityBadge(activity: tab.activity)
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Close \(tab.title)")
+
+            if isSelected {
+                Button(action: onClose) {
+                    Image(systemName: "xmark")
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(theme.secondaryForeground)
+                        .frame(width: 22, height: 22)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Close \(tab.displayTitle)")
+            }
         }
         .padding(.leading, 12)
-        .padding(.trailing, 10)
-        .padding(.vertical, 8)
-        .frame(maxWidth: 200)
-        .background(Capsule().fill(isSelected ? theme.accent : theme.secondaryGroupedBackground))
-        .clipShape(Capsule())
+        .padding(.trailing, isSelected ? 6 : 12)
+        .frame(height: 40)
+        .frame(maxWidth: 220)
+        .glassEffect(isSelected ? .regular.interactive() : .identity, in: Capsule())
         .contentShape(Capsule())
         .onTapGesture(perform: onSelect)
-    }
-
-    private var foreground: Color {
-        isSelected ? theme.onAccent : theme.foreground
-    }
-
-    private var secondaryForeground: Color {
-        isSelected ? theme.onAccent.opacity(0.7) : theme.secondaryForeground
+        .accessibilityElement(children: .contain)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 }

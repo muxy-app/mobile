@@ -177,10 +177,7 @@ final class TerminalViewportHostView: UIView, UIGestureRecognizerDelegate {
     }
 
     private func syncKeyboardOffset() {
-        let guideFrame = keyboardLayoutGuide.layoutFrame
-        let nextOffset = guideFrame == .zero
-            ? 0
-            : min(bounds.height, max(0, bounds.maxY - guideFrame.minY))
+        let nextOffset = TerminalViewportState.keyboardOverlap(in: bounds, keyboardFrame: keyboardLayoutGuide.layoutFrame)
         if abs(nextOffset - viewportState.keyboardOffset) > 0.5 {
             stopMomentum()
             viewportState.updateKeyboardOffset(nextOffset)

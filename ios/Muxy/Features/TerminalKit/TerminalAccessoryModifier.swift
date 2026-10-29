@@ -65,8 +65,6 @@ struct DPadControl: View {
     var body: some View {
         ZStack {
             Circle()
-                .fill(Color.black.opacity(0.35))
-            Circle()
                 .fill(tint.opacity(0.55))
                 .frame(width: thumbSize, height: thumbSize)
                 .offset(thumbOffset)

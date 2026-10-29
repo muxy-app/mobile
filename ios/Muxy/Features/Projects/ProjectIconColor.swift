@@ -7,6 +7,19 @@ nonisolated enum ProjectIconColor {
         return palette[token.lowercased()] ?? fallback
     }
 
+    static func color(for token: String?, stableFor id: String) -> Color {
+        color(for: token, fallback: fallbackPalette[fallbackIndex(for: id)])
+    }
+
+    static func fallbackIndex(for id: String) -> Int {
+        id.utf8.reduce(0) { ($0 * 31 + Int($1)) % fallbackPalette.count }
+    }
+
+    private static let fallbackPalette: [Color] = [
+        "#e5484d", "#f76b15", "#f5a623", "#ebcb00", "#9bcd1e", "#30a46c",
+        "#12a594", "#05a2c2", "#3e63dd", "#5b5bd6", "#8e4ec6", "#d6409f"
+    ].compactMap(hexColor)
+
     private static let palette: [String: Color] = [
         "red": .red,
         "orange": .orange,

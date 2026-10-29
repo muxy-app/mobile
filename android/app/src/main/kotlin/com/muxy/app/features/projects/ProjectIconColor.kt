@@ -1,6 +1,20 @@
 package com.muxy.app.features.projects
 
 object ProjectIconColor {
+    fun stableRgb(
+        token: String?,
+        isDark: Boolean,
+        id: String,
+    ): Int = rgb(token, isDark) ?: fallbackRgb(id)
+
+    private fun fallbackRgb(id: String): Int {
+        val index =
+            id.toByteArray(Charsets.UTF_8).fold(0) { value, byte ->
+                (value * HASH_MULTIPLIER + (byte.toInt() and BYTE_MASK)) % fallbackPalette.size
+            }
+        return fallbackPalette[index]
+    }
+
     fun rgb(
         token: String?,
         isDark: Boolean,
@@ -27,6 +41,24 @@ object ProjectIconColor {
     private const val SHORT_HEX_LENGTH = 3
     private const val HEX_LENGTH = 6
     private const val HEX_RADIX = 16
+    private const val HASH_MULTIPLIER = 31
+    private const val BYTE_MASK = 0xFF
+
+    private val fallbackPalette =
+        listOf(
+            0xE5484D,
+            0xF76B15,
+            0xF5A623,
+            0xEBCB00,
+            0x9BCD1E,
+            0x30A46C,
+            0x12A594,
+            0x05A2C2,
+            0x3E63DD,
+            0x5B5BD6,
+            0x8E4EC6,
+            0xD6409F,
+        )
 
     private val purple = SystemColor(0xAF52DE, 0xBF5AF2)
     private val gray = SystemColor(0x8E8E93, 0x8E8E93)

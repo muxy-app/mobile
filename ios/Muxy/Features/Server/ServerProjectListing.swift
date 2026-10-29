@@ -11,7 +11,6 @@ nonisolated enum ServerProjectListing {
             id: project.id,
             name: project.name,
             path: project.directory,
-            icon: icon(for: project),
             iconColor: project.color,
             logo: project.logo,
             isNested: row.isNested
@@ -49,7 +48,7 @@ nonisolated enum ServerProjectListing {
         }
     }
 
-    static func icon(for project: ServerProject) -> ProjectListItem.Icon {
+    static func icon(for project: ServerProject) -> ProjectIcon {
         guard let icon = project.icon?.trimmingCharacters(in: .whitespacesAndNewlines), !icon.isEmpty else {
             return .symbol(fallbackSymbol(for: project))
         }

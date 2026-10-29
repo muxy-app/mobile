@@ -30,15 +30,16 @@ import com.muxy.app.R
 import com.muxy.app.design.LocalAppTheme
 import com.muxy.app.design.ThemeCatalog
 import com.muxy.app.design.ThemePalette
+import com.muxy.app.design.components.ListRow
 import com.muxy.app.design.components.MuxyTopAppBar
 import com.muxy.app.design.components.ThemedList
 import com.muxy.app.design.components.ThemedListItem
+import com.muxy.app.design.components.ThemedSectionFooter
 import com.muxy.app.design.components.TopBarAction
 import com.muxy.app.design.components.themedSection
 import com.muxy.app.design.rgbColor
 
 private val swatchWidth = 40.dp
-private val swatchSeparatorInset = 16.dp + swatchWidth + 16.dp
 private val checkSize = 24.dp
 
 @Composable
@@ -50,13 +51,19 @@ fun ThemePickerScreen(
     Scaffold(
         topBar = {
             MuxyTopAppBar(
-                title = "Theme",
+                title = "Terminal theme",
                 navigationIcon = { TopBarAction(R.drawable.ic_arrow_back, "Back", onBack) },
             )
         },
     ) { padding ->
         ThemedList(contentPadding = padding, modifier = Modifier.selectableGroup()) {
-            themedSection(items = ThemeCatalog.all, key = { it.name }, separatorInset = swatchSeparatorInset) { palette ->
+            item(key = "appearance") {
+                ThemedSectionFooter(
+                    "Changes terminal colors only. The app follows your system's light or dark appearance.",
+                    Modifier.padding(bottom = 12.dp),
+                )
+            }
+            themedSection(items = ThemeCatalog.all, key = { it.name }) { palette ->
                 ThemeRow(
                     palette = palette,
                     isSelected = palette.name == selectedTheme,
@@ -84,7 +91,7 @@ private fun ThemeRow(
                     Icon(
                         painter = painterResource(R.drawable.ic_check),
                         contentDescription = null,
-                        tint = LocalAppTheme.current.accent,
+                        tint = LocalAppTheme.current.foreground,
                     )
                 }
             }
@@ -94,7 +101,7 @@ private fun ThemeRow(
 
 @Composable
 private fun Swatch(palette: ThemePalette) {
-    val shape = RoundedCornerShape(6.dp)
+    val shape = RoundedCornerShape(ListRow.nestedCorner)
     Box(
         modifier =
             Modifier

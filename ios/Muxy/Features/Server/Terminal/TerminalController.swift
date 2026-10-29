@@ -38,6 +38,11 @@ final class TerminalController: Identifiable, TabStripItem {
     let projectID: String
     private(set) var sessionID: UInt64?
     private(set) var title: String
+
+    var displayTitle: String {
+        title
+    }
+    private(set) var directory: String
     private(set) var phase: Phase = .waiting
     private(set) var mode: Mode = .live
     private(set) var isFollowing = true
@@ -63,15 +68,24 @@ final class TerminalController: Identifiable, TabStripItem {
     @ObservationIgnored private(set) var isRetired = false
     @ObservationIgnored private var noticeTask: Task<Void, Never>?
 
-    init(projectID: String, sessionID: UInt64?, server: ServerController) {
+    init(projectID: String, sessionID: UInt64?, directory: String = "", server: ServerController) {
         self.projectID = projectID
         self.sessionID = sessionID
+        self.directory = directory
         self.server = server
-        title = Self.defaultTitle(for: sessionID)
+        title = Self.defaultTitle(for: sessionID, directory: directory)
     }
 
     var systemImage: String {
         "terminal"
+    }
+
+    var activity: TabActivity {
+        server?.activity(forSession: sessionID) ?? .none
+    }
+
+    var tileKind: TabTileKind {
+        activity.isAgent ? .agent : .shell
     }
 
     var isLive: Bool {
@@ -114,7 +128,7 @@ final class TerminalController: Identifiable, TabStripItem {
 
     func assign(sessionID: UInt64) {
         self.sessionID = sessionID
-        title = Self.defaultTitle(for: sessionID)
+        title = Self.defaultTitle(for: sessionID, directory: directory)
     }
 
     func markCreating() {
@@ -358,13 +372,15 @@ final class TerminalController: Identifiable, TabStripItem {
     }
 
     private func updateTitle(from screen: Screen) {
-        let programTitle = screen.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !screen.directory.isEmpty {
+            directory = screen.directory
+        }
+        let programTitle = TerminalTitle.sanitized(screen.title)
         if !programTitle.isEmpty {
             title = programTitle
             return
         }
-        let folder = (screen.directory as NSString).lastPathComponent
-        title = folder.isEmpty ? Self.defaultTitle(for: sessionID) : folder
+        title = Self.defaultTitle(for: sessionID, directory: directory)
     }
 
     private func show(notice message: String) {
@@ -379,8 +395,10 @@ final class TerminalController: Identifiable, TabStripItem {
 
     private static let noModifiers = Modifiers(shift: false, alt: false, control: false)
 
-    private static func defaultTitle(for sessionID: UInt64?) -> String {
-        sessionID.map { "Terminal \($0)" } ?? "New Terminal"
+    private static func defaultTitle(for sessionID: UInt64?, directory: String) -> String {
+        let folder = DisplayPath.folderName(directory)
+        guard folder.isEmpty else { return folder }
+        return sessionID.map { "Terminal \($0)" } ?? "New Terminal"
     }
 
     private static func normalizedLineBreaks(_ text: String) -> String {

@@ -16,7 +16,7 @@ struct ProjectListScreen: View {
     var body: some View {
         content
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(theme.groupedBackground)
+            .tabPageChrome(theme)
             .screenTitle(title)
     }
 
@@ -47,14 +47,16 @@ struct ProjectListScreen: View {
                 message: "This workspace has no projects."
             )
         } else {
-            ThemedList {
-                ForEach(items) { item in
-                    Button {
-                        onSelect(item)
-                    } label: {
-                        ProjectRowView(item: item)
+            CardList {
+                CardSection {
+                    ForEach(items) { item in
+                        Button {
+                            onSelect(item)
+                        } label: {
+                            ProjectRowView(item: item)
+                        }
+                        .buttonStyle(.cardRow)
                     }
-                    .buttonStyle(.plain)
                 }
             }
         }

@@ -18,6 +18,13 @@ class TerminalSurfaceHandle(
 
     var keyboardVisible = false
 
+    var occlusionSpacing = 0f
+        set(value) {
+            if (field == value) return
+            field = value
+            updateOcclusion()
+        }
+
     var view: TerminalSurfaceView? = null
         private set
 
@@ -78,6 +85,6 @@ class TerminalSurfaceHandle(
     private fun updateOcclusion() {
         val bottom = surfaceBottom ?: return
         val top = barTop ?: return
-        view?.setKeyboardOcclusion((bottom - top).coerceAtLeast(0f))
+        view?.setKeyboardOcclusion((bottom - top + occlusionSpacing).coerceAtLeast(0f))
     }
 }

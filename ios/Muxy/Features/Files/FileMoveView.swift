@@ -20,7 +20,7 @@ struct FileMoveView: View {
                 HStack(alignment: .top, spacing: 12) {
                     Image(systemName: "folder.badge.arrowshape.forward")
                         .font(.title3)
-                        .foregroundStyle(theme.accent)
+                        .foregroundStyle(theme.secondaryForeground)
                     VStack(alignment: .leading, spacing: 5) {
                         Text("Moving \(viewModel.movingPaths.count) \(viewModel.movingPaths.count == 1 ? "item" : "items")")
                             .font(.subheadline.weight(.semibold))
@@ -32,10 +32,11 @@ struct FileMoveView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .padding(14)
-                .filePanel()
+                .padding(CardMetrics.rowPadding)
+                .cardSurface()
 
                 FileGuidance(message: "Open a folder, then tap Move here. A folder can’t be moved inside itself. Existing items are kept; moved items may be given a new name to avoid a conflict.")
+                    .padding(.horizontal, CardMetrics.rowPadding)
 
                 FileBreadcrumbs(path: viewModel.movePath, rootName: viewModel.location.name) { path in
                     Task { await viewModel.goToMoveDirectory(path) }
@@ -43,20 +44,18 @@ struct FileMoveView: View {
                 .disabled(!viewModel.canMutate)
                 .padding(.vertical, -8)
 
-                VStack(spacing: 8) {
-                    FileSectionHeading(title: "Destination folders", count: viewModel.moveEntries.count)
+                VStack(alignment: .leading, spacing: CardMetrics.headerSpacing) {
+                    CardSectionHeader("Destination folders", detail: viewModel.moveEntries.count.formatted())
                     if viewModel.isLoadingMove {
                         ProgressView("Loading folders…")
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 40)
                     } else if viewModel.moveEntries.isEmpty {
-                        ContentUnavailableView {
-                            Label("No subfolders here", systemImage: "folder")
-                                .foregroundStyle(theme.foreground)
-                        } description: {
-                            Text("You can still move your items into this folder.")
-                                .foregroundStyle(theme.secondaryForeground)
-                        }
+                        ThemedEmptyState(
+                            title: "No subfolders here",
+                            systemImage: "folder",
+                            message: "You can still move your items into this folder."
+                        )
                     } else {
                         FileEntryGroup(
                             entries: viewModel.moveEntries,
@@ -71,7 +70,8 @@ struct FileMoveView: View {
                     }
                 }
             }
-            .padding(18)
+            .padding(.horizontal, PageMargin.horizontal)
+            .padding(.vertical, CardMetrics.rowPadding)
         }
         .background(theme.groupedBackground)
         .safeAreaInset(edge: .bottom, spacing: 0) {
@@ -89,7 +89,7 @@ struct FileMoveView: View {
                     Label("Move here", systemImage: "folder.badge.arrowshape.forward")
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(FilePrimaryButtonStyle())
+                .buttonStyle(ThemedProminentButtonStyle())
                 .disabled(!viewModel.canMoveHere)
             }
             .fileFooter()

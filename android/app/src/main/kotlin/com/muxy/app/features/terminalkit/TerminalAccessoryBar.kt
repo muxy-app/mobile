@@ -32,6 +32,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import com.muxy.app.R
+import com.muxy.app.design.components.PageMargin
 
 interface TerminalAccessoryActions {
     fun key(key: TerminalKey)
@@ -69,13 +70,13 @@ fun TerminalAccessoryBar(
                 .fillMaxWidth()
                 .height(TerminalAccessoryBarDefaults.height)
                 .background(background)
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+                .padding(horizontal = PageMargin.horizontal, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         KeyPill(foreground) {
             TextKey("esc", foreground) { actions.key(TerminalKey.Escape) }
-            ModifierKey(sticky, foreground, actions::toggleModifier, actions::selectModifier)
+            ModifierKey(sticky, background, foreground, actions::toggleModifier, actions::selectModifier)
             TextKey("tab", foreground) { actions.key(TerminalKey.Tab) }
             IconKey(R.drawable.ic_content_paste, PASTE, foreground, enabled = true, onClick = actions::paste)
             IconKey(R.drawable.ic_content_copy, COPY, foreground, enabled = canCopy, onClick = actions::copy)
@@ -126,7 +127,7 @@ private fun TextKey(
         modifier =
             Modifier
                 .defaultMinSize(minWidth = KEY_SIZE, minHeight = KEY_SIZE)
-                .clip(RoundedCornerShape(12.dp))
+                .clip(CircleShape)
                 .clickable(role = Role.Button, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {

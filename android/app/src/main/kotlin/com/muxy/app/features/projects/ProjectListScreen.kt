@@ -3,6 +3,8 @@ package com.muxy.app.features.projects
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
@@ -10,7 +12,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalLayoutDirection
 import com.muxy.app.R
 import com.muxy.app.design.LocalAppTheme
 import com.muxy.app.design.components.MuxyTopAppBar
@@ -22,8 +24,6 @@ import com.muxy.app.design.components.TopBarAction
 import com.muxy.app.design.components.themedSection
 import com.muxy.app.models.ProjectWorkspace
 import java.util.UUID
-
-private val projectSeparatorInset = 16.dp + projectIconSize + 16.dp
 
 @Composable
 fun ProjectListScreen(
@@ -52,7 +52,16 @@ fun ProjectListScreen(
             EmptyProjects(status, connectionName, onRetry, onPairAgain, Modifier.padding(padding))
             return@Scaffold
         }
-        Column(modifier = Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
+        val layoutDirection = LocalLayoutDirection.current
+        Column(
+            modifier =
+                Modifier
+                    .padding(
+                        start = padding.calculateStartPadding(layoutDirection),
+                        top = padding.calculateTopPadding(),
+                        end = padding.calculateEndPadding(layoutDirection),
+                    ).fillMaxSize(),
+        ) {
             if (workspaces.size > 1) {
                 WorkspaceFilterBar(workspaces, selectedWorkspaceId, onSelectWorkspace)
             }
@@ -77,7 +86,7 @@ private fun ProjectList(
         return
     }
     ThemedList(contentPadding = padding) {
-        themedSection(items = items, key = { it.id }, separatorInset = projectSeparatorInset) { item ->
+        themedSection(items = items, key = { it.id }) { item ->
             ProjectRow(item = item, onClick = { onSelect(item) })
         }
     }

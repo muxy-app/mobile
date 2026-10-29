@@ -7,12 +7,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -37,6 +34,10 @@ import com.muxy.app.R
 import com.muxy.app.core.logging.Log
 import com.muxy.app.design.LocalAppTheme
 import com.muxy.app.design.components.MuxyTopAppBar
+import com.muxy.app.design.components.PageMargin
+import com.muxy.app.design.components.ThemedAlertDialog
+import com.muxy.app.design.components.ThemedDialogAction
+import com.muxy.app.design.components.ThemedNotice
 import com.muxy.app.design.components.TopBarAction
 import com.muxy.app.features.navigation.NavigationTransitions
 import com.muxy.app.features.navigation.close
@@ -116,11 +117,23 @@ fun GitModal(
     val submit: () -> Unit = {
         scope.launch {
             when (route) {
-                GitRoute.Commit -> git.commit(drafts.message, drafts.stageAll)
-                GitRoute.NewBranch -> git.createBranch(drafts.branch)
-                GitRoute.NewWorktree -> worktrees.create(drafts.worktreeName, drafts.worktreeBranch, drafts.createsBranch)
-                GitRoute.NewPullRequest -> git.createPullRequest(drafts.title, drafts.body, drafts.base, drafts.draft)
-                else -> Unit
+                GitRoute.Commit -> {
+                    git.commit(drafts.message, drafts.stageAll)
+                }
+
+                GitRoute.NewBranch -> {
+                    git.createBranch(drafts.branch)
+                }
+
+                GitRoute.NewWorktree -> {
+                    worktrees.create(drafts.worktreeName, drafts.worktreeBranch, drafts.createsBranch)
+                }
+
+                GitRoute.NewPullRequest -> {
+                    git.createPullRequest(drafts.title, drafts.body, drafts.base, drafts.draft)
+                }
+
+                else -> {}
             }
         }
     }
@@ -145,7 +158,13 @@ fun GitModal(
         ) {
             val isWorktree = route == GitRoute.Worktrees || route == GitRoute.NewWorktree
             val error = linkError ?: if (isWorktree) worktreeState.errorMessage else state.errorMessage
-            error?.let { Text(it, Modifier.padding(horizontal = 16.dp), color = LocalAppTheme.current.red) }
+            error?.let {
+                ThemedNotice(
+                    it,
+                    Modifier.padding(horizontal = PageMargin.horizontal, vertical = 4.dp),
+                    tint = LocalAppTheme.current.red,
+                )
+            }
             if (busy || state.isLoadingStatus || state.isLoadingBranches || state.loadingDiffs.isNotEmpty() ||
                 worktreeState.isLoading
             ) {
@@ -221,17 +240,20 @@ fun GitModal(
     }
     BackHandler { requestLeave(false) }
     pendingClose?.let { closesModal ->
-        AlertDialog(
+        ThemedAlertDialog(
+            title = "Unsaved changes",
+            message = "Discard this draft?",
             onDismissRequest = { pendingClose = null },
-            title = { Text("Unsaved changes") },
-            text = { Text("Discard this draft?") },
-            confirmButton = {
-                TextButton(onClick = {
-                    pendingClose = null
-                    leave(closesModal)
-                }) { Text("Discard") }
-            },
-            dismissButton = { TextButton(onClick = { pendingClose = null }) { Text("Keep editing") } },
+            confirm =
+                ThemedDialogAction(
+                    label = "Discard",
+                    onClick = {
+                        pendingClose = null
+                        leave(closesModal)
+                    },
+                    isDestructive = true,
+                ),
+            dismiss = listOf(ThemedDialogAction("Keep editing", { pendingClose = null })),
         )
     }
     worktreeState.pendingRemoval?.let { pending ->

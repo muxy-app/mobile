@@ -1,15 +1,14 @@
 import Foundation
 
-nonisolated struct ProjectListItem: Identifiable, Equatable, Sendable {
-    enum Icon: Equatable, Sendable {
-        case symbol(String)
-        case emoji(String)
-    }
+nonisolated enum ProjectIcon: Equatable, Sendable {
+    case symbol(String)
+    case emoji(String)
+}
 
+nonisolated struct ProjectListItem: Identifiable, Equatable, Sendable {
     let id: String
     let name: String
     let path: String
-    let icon: Icon
     let iconColor: String?
     let logo: Data?
     let isNested: Bool

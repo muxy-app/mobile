@@ -3,7 +3,7 @@ import Foundation
 nonisolated struct FileLocation: Sendable, Equatable {
     let name: String
     let path: String
-    let icon: ProjectListItem.Icon
+    let icon: ProjectIcon
     let host: FileHost
 }
 

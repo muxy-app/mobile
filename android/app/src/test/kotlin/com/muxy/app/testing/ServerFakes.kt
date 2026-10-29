@@ -9,6 +9,7 @@ import com.muxy.app.networking.server.ServerProject
 import com.muxy.app.networking.server.ServerProjectFiles
 import com.muxy.app.networking.server.ServerTerminalChannel
 import com.muxy.app.persistence.credentials.CredentialStore
+import uniffi.muxy_mobile.Activity
 import uniffi.muxy_mobile.ClientKind
 import uniffi.muxy_mobile.ConnectionEvent
 import uniffi.muxy_mobile.Cursor
@@ -209,8 +210,21 @@ class FakeServerConnection(
     var isDisconnected = false
         private set
     var failsEnding = false
+    var activity = Activity(agents = emptyList(), events = emptyList())
+    val acknowledged = mutableListOf<ULong>()
 
     override val serverVersion: String = "test"
+
+    override suspend fun activity(): Activity {
+        checkOpen()
+        return activity
+    }
+
+    override suspend fun acknowledgeActivity(eventIds: List<ULong>) {
+        checkOpen()
+        acknowledged += eventIds
+        activity = activity.copy(events = activity.events.filterNot { it.id in eventIds })
+    }
 
     fun channel(sessionId: ULong): FakeTerminalChannel? = channels[sessionId]
 

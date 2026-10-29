@@ -4,6 +4,7 @@ struct SSHTerminalTabView: View {
     @Bindable var session: SSHTerminalSession
 
     @Environment(\.appTheme) private var appTheme
+    @Environment(\.isActiveTabPage) private var isActive
     @AppStorage(AppSettingKey.autoFocusTerminal) private var autoFocusTerminal = false
     @State private var useNerdFont = AppSettings.storedUseNerdFont()
     @State private var fontSize = TerminalFont.defaultSize
@@ -26,17 +27,20 @@ struct SSHTerminalTabView: View {
                 fontSize: fontSize,
                 useNerdFont: useNerdFont,
                 autoFocusTerminal: autoFocusTerminal,
+                isActive: isActive,
                 onKeyboardOffsetChange: { keyboardOffset = $0 }
             )
+            .padding(TerminalViewportState.contentInset)
 
             overlay
 
             if !session.isFollowingBottom {
-                jumpToBottomButton
+                JumpToLiveButton(action: session.requestJumpToBottom)
+                    .padding(PageMargin.horizontal)
                     .padding(.bottom, keyboardOffset)
             }
         }
-        .background(session.theme.background.asColor)
+        .keyboardIsland(bottomInset: keyboardOffset, background: session.theme.background.asColor)
     }
 
     @ViewBuilder
@@ -71,26 +75,6 @@ struct SSHTerminalTabView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(appTheme.groupedBackground)
-    }
-
-    private var jumpToBottomButton: some View {
-        Button {
-            session.requestJumpToBottom()
-        } label: {
-            Image(systemName: "chevron.down")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(session.theme.foreground.asColor)
-                .frame(width: 40, height: 40)
-                .background(.regularMaterial, in: Circle())
-                .overlay {
-                    Circle()
-                        .stroke(session.theme.foreground.asColor.opacity(0.18), lineWidth: 1)
-                }
-                .contentShape(Circle())
-        }
-        .buttonStyle(.plain)
-        .shadow(color: .black.opacity(0.18), radius: 8, y: 3)
-        .padding(16)
     }
 }
 

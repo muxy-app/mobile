@@ -6,6 +6,7 @@ nonisolated struct ThemeTokens: Equatable, Sendable {
     let secondaryBackground: ThemeColor
     let groupedBackground: ThemeColor
     let secondaryGroupedBackground: ThemeColor
+    let tertiaryGroupedBackground: ThemeColor
     let separator: ThemeColor
     let foreground: ThemeColor
     let secondaryForeground: ThemeColor
@@ -42,6 +43,7 @@ nonisolated struct ThemeTokens: Equatable, Sendable {
         secondaryBackground = isDark ? rows : canvas
         groupedBackground = canvas
         secondaryGroupedBackground = rows
+        tertiaryGroupedBackground = rows.shiftingLightness(by: step.fill, toward: text)
         separator = rows.shiftingLightness(by: step.separator, toward: text)
         self.foreground = foreground
         secondaryForeground = background
@@ -68,11 +70,12 @@ nonisolated struct ThemeTokens: Equatable, Sendable {
     private struct LightnessStep {
         let total: Double
         let rowShare: Double
+        let fill: Double
         let separator: Double
     }
 
-    private static let darkStep = LightnessStep(total: 10, rowShare: 0.6, separator: 12)
-    private static let lightStep = LightnessStep(total: 7, rowShare: 0.4, separator: 14)
+    private static let darkStep = LightnessStep(total: 10, rowShare: 0.6, fill: 3.5, separator: 12)
+    private static let lightStep = LightnessStep(total: 7, rowShare: 0.4, fill: 3, separator: 14)
     private static let minimumContrast = 4.5
     private static let secondaryEmphasis = 0.6
 }

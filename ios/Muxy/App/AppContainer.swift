@@ -16,6 +16,7 @@ final class AppContainer {
     private let workspaceSelectionStore: WorkspaceSelectionStore
     private let makeBrowser: @MainActor () -> any BonjourBrowsing
     private let serverPairing: ServerPairingService
+    private let demoBackend = DemoBackend()
 
     init(
         connectionStore: ConnectionStore = UserDefaultsConnectionStore(),
@@ -43,7 +44,8 @@ final class AppContainer {
         directory = ServerDirectory(credentials: credentials, connector: serverConnector, connections: connectionStore, keychain: keychain)
         let connectionManager = ConnectionManager(
             makeTransport: { url in WebSocketTransport(url: url) },
-            pairingService: pairingService
+            pairingService: pairingService,
+            demoBackend: demoBackend
         )
         self.connectionManager = connectionManager
     }
@@ -57,6 +59,12 @@ final class AppContainer {
 
     func makeConnectionsListViewModel() -> ConnectionsListViewModel {
         ConnectionsListViewModel(store: connectionStore, keychain: keychain, credentials: credentials, directory: directory)
+    }
+
+    func makeTabsHomeViewModel() -> TabsHomeViewModel {
+        TabsHomeViewModel(store: connectionStore, keychain: keychain, directory: directory) { [demoBackend] in
+            ConnectionManager(makeTransport: { WebSocketTransport(url: $0) }, demoBackend: demoBackend)
+        }
     }
 
     func makeAddConnectionViewModel() -> AddConnectionViewModel {
@@ -96,14 +104,15 @@ final class AppContainer {
         )
     }
 
-    func makeProjectDetailViewModel(for project: Project, connection: Connection) -> ProjectDetailViewModel {
+    func makeProjectDetailViewModel(for project: Project, connection: Connection, initialTabID: UUID? = nil) -> ProjectDetailViewModel {
         let sessionStore = TerminalSessionStore(channel: connectionManager)
         return ProjectDetailViewModel(
             connection: connection,
             project: project,
             keychain: keychain,
             connectionManager: connectionManager,
-            sessionStore: sessionStore
+            sessionStore: sessionStore,
+            initialTabID: initialTabID
         )
     }
 

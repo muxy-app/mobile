@@ -4,16 +4,12 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.LiveRegionMode
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
@@ -24,10 +20,10 @@ import com.muxy.app.design.components.MuxyTopAppBar
 import com.muxy.app.design.components.RowPosition
 import com.muxy.app.design.components.ThemedCell
 import com.muxy.app.design.components.ThemedList
-import com.muxy.app.design.components.ThemedListItem
 import com.muxy.app.design.components.ThemedSectionFooter
 import com.muxy.app.design.components.ThemedSectionHeader
 import com.muxy.app.design.components.ThemedTextField
+import com.muxy.app.design.components.ThemedToggleRow
 import com.muxy.app.design.components.TopBarAction
 import com.muxy.app.design.components.TopBarTextAction
 import com.muxy.app.features.addconnection.sshAuthenticationFields
@@ -149,17 +145,12 @@ private fun LazyListScope.sshFields(
     }
     item(key = "replace-credentials") {
         ThemedCell(RowPosition.LAST) {
-            ThemedListItem(
-                headline = { Text("Replace saved credentials") },
-                supporting = { Text("Off keeps saved secrets. Turn on to replace them or change authentication method.") },
-                trailing = { Switch(checked = model.replaceCredentials, onCheckedChange = null, enabled = enabled) },
-                modifier =
-                    Modifier.toggleable(
-                        value = model.replaceCredentials,
-                        enabled = enabled,
-                        role = Role.Switch,
-                        onValueChange = model::changeCredentialReplacement,
-                    ),
+            ThemedToggleRow(
+                title = "Replace saved credentials",
+                supporting = "Off keeps saved secrets. Turn on to replace them or change authentication method.",
+                checked = model.replaceCredentials,
+                onCheckedChange = model::changeCredentialReplacement,
+                enabled = enabled,
             )
         }
     }

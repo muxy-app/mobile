@@ -35,4 +35,5 @@ data class ProjectCatalog(
     val projects: List<ServerProject> = emptyList(),
     val hasLoaded: Boolean = false,
     val loadFailed: Boolean = false,
+    val isRefreshing: Boolean = false,
 )

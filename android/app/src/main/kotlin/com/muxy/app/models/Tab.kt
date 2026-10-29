@@ -61,4 +61,7 @@ data class Tab(
     val isPinned: Boolean,
     @SerialName("paneID")
     val paneId: UUID? = null,
-)
+) {
+    val displayTitle: String
+        get() = TerminalTitle.sanitized(title).ifBlank { "Terminal" }
+}

@@ -28,7 +28,6 @@ struct AddConnectionView: View {
                     statusSection
                 }
             }
-            .tint(theme.accent)
             .screenTitle("Add Connection")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -36,12 +35,10 @@ struct AddConnectionView: View {
                         submissionTask?.cancel()
                         dismiss()
                     }
-                    .tint(theme.foreground)
                     .disabled(viewModel.isWorking && !viewModel.isRemoteSSH)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     submitButton
-                        .tint(theme.foreground)
                 }
             }
             .sheet(isPresented: $viewModel.isShowingScanner) {
@@ -126,7 +123,7 @@ struct AddConnectionView: View {
                 guard let link = links.first else { return }
                 viewModel.serverPairing.receive(link: link, source: .manual)
             }
-            .tint(theme.accent)
+            .tint(theme.secondaryForeground)
         }
         .disabled(viewModel.isWorking)
 

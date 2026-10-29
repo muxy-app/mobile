@@ -5,8 +5,6 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,11 +12,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
@@ -29,27 +25,23 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.dropShadow
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import com.muxy.app.R
 import com.muxy.app.design.LocalAppTheme
+import com.muxy.app.design.components.PageMargin
 import com.muxy.app.design.components.ScrollableCenteredColumn
+import com.muxy.app.design.components.SurfaceCorners
+import com.muxy.app.design.components.ThemedProminentButton
 import kotlinx.coroutines.launch
 
 @Composable
@@ -65,7 +57,7 @@ fun OnboardingScreen(
         modifier =
             Modifier
                 .fillMaxSize()
-                .background(LocalAppTheme.current.background)
+                .background(LocalAppTheme.current.groupedBackground)
                 .windowInsetsPadding(WindowInsets.safeDrawing),
     ) {
         Box(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), contentAlignment = Alignment.CenterEnd) {
@@ -78,7 +70,7 @@ fun OnboardingScreen(
             }
         }
         HorizontalPager(state = pagerState, modifier = Modifier.weight(1f)) { page ->
-            OnboardingSlideView(slides[page], Modifier.padding(horizontal = 32.dp))
+            OnboardingSlideView(slides[page], Modifier.padding(horizontal = PageMargin.horizontal * 2))
         }
         Footer(
             pagerState = pagerState,
@@ -101,7 +93,7 @@ private fun Footer(
     onAdvance: () -> Unit,
 ) {
     Column(
-        modifier = Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, bottom = 16.dp),
+        modifier = Modifier.fillMaxWidth().padding(start = PageMargin.horizontal, end = PageMargin.horizontal, bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -123,7 +115,7 @@ private fun PageIndicator(
             val isSelected = index == selected
             val width by animateDpAsState(if (isSelected) 22.dp else 6.dp, tween(200), label = "indicator")
             val color by animateColorAsState(
-                if (isSelected) LocalAppTheme.current.accent else LocalAppTheme.current.separator,
+                if (isSelected) LocalAppTheme.current.foreground else LocalAppTheme.current.separator,
                 tween(200),
                 label = "indicator",
             )
@@ -137,42 +129,11 @@ private fun ContinueButton(
     isLastSlide: Boolean,
     onClick: () -> Unit,
 ) {
-    val theme = LocalAppTheme.current
-    val shape = RoundedCornerShape(12.dp)
-    Box(
-        modifier =
-            Modifier
-                .minimumInteractiveComponentSize()
-                .dropShadow(shape, Shadow(radius = 1.dp, color = Color.Black.copy(alpha = 0.18f), offset = DpOffset(0.dp, 1.dp)))
-                .clip(shape)
-                .background(theme.accent)
-                .clickable(
-                    onClickLabel = if (isLastSlide) "open device pairing" else "show the next onboarding step",
-                    role = Role.Button,
-                    onClick = onClick,
-                ).height(40.dp)
-                .widthIn(min = if (isLastSlide) 190.dp else 144.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Box(
-            modifier =
-                Modifier
-                    .matchParentSize()
-                    .padding(1.dp)
-                    .border(
-                        width = 1.dp,
-                        brush = Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.18f), Color.White.copy(alpha = 0f))),
-                        shape = RoundedCornerShape(11.dp),
-                    ),
-        )
-        Text(
-            text = if (isLastSlide) "Pair your desktop" else "Continue",
-            modifier = Modifier.padding(horizontal = 24.dp),
-            style = MaterialTheme.typography.labelLarge,
-            color = theme.onAccent,
-            maxLines = 1,
-        )
-    }
+    ThemedProminentButton(
+        text = if (isLastSlide) "Pair your desktop" else "Continue",
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+    )
 }
 
 @Composable
@@ -220,15 +181,15 @@ private fun HeroArt(icon: Int?) {
         modifier =
             Modifier
                 .size(96.dp)
-                .clip(RoundedCornerShape(24.dp))
-                .background(theme.accent),
+                .clip(RoundedCornerShape(SurfaceCorners.card))
+                .background(theme.secondaryGroupedBackground),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
             painter = painterResource(icon),
             contentDescription = null,
             modifier = Modifier.size(46.dp),
-            tint = theme.onAccent,
+            tint = theme.foreground,
         )
     }
 }
@@ -261,22 +222,20 @@ private fun SlideTitle(title: String) {
 @Composable
 private fun OnboardingRowView(row: OnboardingRow) {
     val theme = LocalAppTheme.current
-    val shape = RoundedCornerShape(12.dp)
     Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
         Box(
             modifier =
                 Modifier
                     .size(44.dp)
-                    .clip(shape)
-                    .background(theme.secondaryBackground)
-                    .border(0.5.dp, theme.separator, shape),
+                    .clip(RoundedCornerShape(SurfaceCorners.row))
+                    .background(theme.secondaryGroupedBackground),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 painter = painterResource(row.icon),
                 contentDescription = null,
                 modifier = Modifier.size(22.dp),
-                tint = theme.accent,
+                tint = theme.foreground,
             )
         }
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {

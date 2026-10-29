@@ -3,75 +3,50 @@ import SwiftUI
 struct WorktreesSheetView: View {
     @State var viewModel: WorktreesViewModel
 
+    @Environment(\.dismiss) private var dismiss
+
     var body: some View {
         NavigationStack {
             GitWorktreesView(viewModel: viewModel)
+                .toolbar {
+                    DoneToolbarItem { dismiss() }
+                }
         }
+        .presentationDetents([.large])
     }
 }
 
 struct GitWorktreesView: View {
     let viewModel: WorktreesViewModel
-    @Environment(\.appTheme) private var theme
     @State private var selectedWorktreeID: UUID?
     @State private var removingWorktreeID: UUID?
 
     var body: some View {
-        ThemedList {
-            Section {
+        CardList {
+            CardSection {
                 NavigationLink {
                     GitNewWorktreeView(viewModel: viewModel)
                 } label: {
-                    Label("New Worktree", systemImage: "plus")
-                        .foregroundStyle(theme.foreground)
+                    CardRow("New Worktree", systemImage: "plus")
                 }
+                .buttonStyle(.cardRow)
             }
 
             if let worktrees = viewModel.worktrees {
-                Section {
+                CardSection("Worktrees", footer: removalHint(worktrees), separatorInset: CardMetrics.textInset) {
                     ForEach(worktrees) { worktree in
-                        Button {
-                            select(worktree)
-                        } label: {
-                            HStack {
-                                Text(worktree.name)
-                                    .font(.headline)
-                                    .foregroundStyle(theme.foreground)
-                                Spacer()
-                                if selectedWorktreeID == worktree.id || removingWorktreeID == worktree.id {
-                                    ProgressView()
-                                } else if worktree.id == viewModel.activeWorktreeID {
-                                    Image(systemName: "checkmark")
-                                        .font(.body.weight(.semibold))
-                                        .foregroundStyle(theme.accent)
-                                }
-                            }
-                            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-                            .contentShape(Rectangle())
-                        }
-                        .disabled(selectedWorktreeID != nil || removingWorktreeID != nil)
-                        .buttonStyle(.plain)
-                        .swipeActions {
-                            if worktree.canBeRemoved {
-                                Button(role: .destructive) {
-                                    remove(worktree)
-                                } label: {
-                                    Label("Remove", systemImage: "trash")
-                                }
-                            }
-                        }
+                        worktreeRow(worktree)
                     }
-                } header: {
-                    ThemedSectionHeader("Worktrees")
                 }
             } else if viewModel.isLoadingWorktrees {
                 ProgressView()
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 40)
             }
 
             if let errorMessage = viewModel.errorMessage {
-                Section {
-                    Text(errorMessage)
-                        .foregroundStyle(theme.red)
+                CardSection {
+                    CardMessageRow(errorMessage)
                 }
             }
         }
@@ -88,7 +63,6 @@ struct GitWorktreesView: View {
                     }
                 }
                 .disabled(viewModel.isLoadingWorktrees)
-                .tint(theme.foreground)
                 .accessibilityLabel("Sync Worktrees with Desktop")
             }
         }
@@ -98,6 +72,37 @@ struct GitWorktreesView: View {
             }
         }
         .refreshable { await viewModel.refreshWorktrees() }
+    }
+
+    private func worktreeRow(_ worktree: Worktree) -> some View {
+        Button {
+            select(worktree)
+        } label: {
+            CardRow(worktree.name) {
+                if selectedWorktreeID == worktree.id || removingWorktreeID == worktree.id {
+                    ProgressView()
+                } else if worktree.id == viewModel.activeWorktreeID {
+                    CardRowCheckmark()
+                }
+            }
+        }
+        .buttonStyle(.cardRow)
+        .disabled(selectedWorktreeID != nil || removingWorktreeID != nil)
+        .accessibilityAddTraits(worktree.id == viewModel.activeWorktreeID ? .isSelected : [])
+        .contextMenu {
+            if worktree.canBeRemoved {
+                Button("Remove", systemImage: "trash", role: .destructive) { remove(worktree) }
+            }
+        }
+        .accessibilityActions {
+            if worktree.canBeRemoved {
+                Button("Remove") { remove(worktree) }
+            }
+        }
+    }
+
+    private func removalHint(_ worktrees: [Worktree]) -> String? {
+        worktrees.contains(where: \.canBeRemoved) ? "Touch and hold a worktree to remove it." : nil
     }
 
     private func select(_ worktree: Worktree) {
@@ -141,18 +146,7 @@ struct GitNewWorktreeView: View {
             }
             .foregroundStyle(theme.foreground)
 
-            Section {
-                Button {
-                    submit()
-                } label: {
-                    if isSubmitting {
-                        ProgressView()
-                    } else {
-                        Text("Create Worktree")
-                    }
-                }
-                .disabled(!canSubmit || isSubmitting)
-            }
+            FormSubmitSection("Create Worktree", isSubmitting: isSubmitting, isDisabled: !canSubmit, action: submit)
 
             if let errorMessage = viewModel.errorMessage {
                 Section {

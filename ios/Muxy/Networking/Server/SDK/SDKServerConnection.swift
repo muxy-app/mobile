@@ -49,6 +49,18 @@ nonisolated final class SDKServerConnection: ServerConnection {
         }
     }
 
+    func activity() async throws -> Activity {
+        try await lanes.request { [connection] in
+            try connection.activity()
+        }
+    }
+
+    func acknowledgeActivity(eventIds: [UInt64]) async throws {
+        try await lanes.request { [connection] in
+            try connection.acknowledgeActivity(eventIds: eventIds)
+        }
+    }
+
     func attach(sessionId: UInt64, size: TerminalGridSize) async throws -> any ServerTerminalChannel {
         let terminal = try await lanes.request { [connection] in
             try connection.attach(sessionId: sessionId, columns: size.columns, rows: size.rows)

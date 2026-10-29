@@ -1,10 +1,7 @@
 package com.muxy.app.design.components
 
-import androidx.annotation.DrawableRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.indication
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -18,6 +15,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -25,30 +23,32 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.muxy.app.R
 import com.muxy.app.design.LocalAppTheme
+import com.muxy.app.models.TabActivity
+import com.muxy.app.models.TabTileKind
 
-private const val SELECTED_SECONDARY_ALPHA = 0.7f
 private val touchTarget = 48.dp
-private val pillHeight = 36.dp
-private val pillMaxWidth = 200.dp
-private val closeClearance = 36.dp
+private val chipHeight = 40.dp
+private val chipMaxWidth = 220.dp
 private val closeRippleRadius = 16.dp
 
 data class TabStripItem(
     val id: Any,
     val title: String,
-    @param:DrawableRes val icon: Int,
+    val tile: TabTileKind = TabTileKind.SHELL,
+    val activity: TabActivity = TabActivity.None,
 )
 
 @Composable
@@ -68,8 +68,8 @@ fun TabStrip(
     LazyRow(
         state = listState,
         modifier = modifier.fillMaxWidth().background(LocalAppTheme.current.groupedBackground),
-        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 2.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        contentPadding = PaddingValues(horizontal = PageMargin.horizontal, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         items(tabs, key = { it.id }) { tab ->
@@ -93,57 +93,60 @@ fun TabPill(
     modifier: Modifier = Modifier,
 ) {
     val theme = LocalAppTheme.current
-    val foreground = if (isSelected) theme.onAccent else theme.foreground
-    val secondary = if (isSelected) theme.onAccent.copy(alpha = SELECTED_SECONDARY_ALPHA) else theme.secondaryForeground
-    val selection = remember { MutableInteractionSource() }
-    Box(
+    val shape = CircleShape
+    Row(
         modifier =
             modifier
-                .widthIn(max = pillMaxWidth)
+                .widthIn(max = chipMaxWidth)
                 .height(touchTarget)
                 .semantics { selected = isSelected }
-                .clickable(interactionSource = selection, indication = null, role = Role.Tab, onClick = onSelect),
-        contentAlignment = Alignment.CenterStart,
+                .clip(shape)
+                .clickable(role = Role.Tab, onClick = onSelect),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Row(
             modifier =
                 Modifier
-                    .height(pillHeight)
-                    .clip(CircleShape)
-                    .background(if (isSelected) theme.accent else theme.secondaryGroupedBackground)
-                    .indication(selection, ripple())
-                    .padding(start = 12.dp, end = closeClearance),
+                    .height(chipHeight)
+                    .background(if (isSelected) theme.secondaryGroupedBackground else Color.Transparent, shape)
+                    .padding(start = 12.dp, end = if (isSelected) 0.dp else 12.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Icon(painter = painterResource(tab.icon), contentDescription = null, modifier = Modifier.size(14.dp), tint = secondary)
+            TabKindIcon(kind = tab.tile, activity = tab.activity)
             Text(
                 text = tab.title,
+                modifier = Modifier.weight(1f, fill = false),
                 style = MaterialTheme.typography.bodyMedium,
-                color = foreground,
+                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                color = if (isSelected) theme.foreground else theme.secondaryForeground,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-        }
-        Box(
-            modifier =
-                Modifier
-                    .align(Alignment.CenterEnd)
-                    .size(touchTarget)
-                    .clickable(
-                        role = Role.Button,
-                        indication = ripple(bounded = false, radius = closeRippleRadius),
-                        interactionSource = null,
-                        onClick = onClose,
-                    ),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                painter = painterResource(R.drawable.ic_close),
-                contentDescription = "Close ${tab.title}",
-                modifier = Modifier.size(14.dp),
-                tint = secondary,
-            )
+            if (tab.activity.state != TabActivity.State.IDLE) {
+                TabActivityBadge(tab.activity)
+            }
+            if (isSelected) {
+                Box(
+                    modifier =
+                        Modifier
+                            .size(36.dp)
+                            .clickable(
+                                role = Role.Button,
+                                indication = ripple(bounded = false, radius = closeRippleRadius),
+                                interactionSource = null,
+                                onClick = onClose,
+                            ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_close),
+                        contentDescription = "Close ${tab.title}",
+                        modifier = Modifier.size(14.dp),
+                        tint = theme.secondaryForeground,
+                    )
+                }
+            }
         }
     }
 }
@@ -152,16 +155,11 @@ fun TabPill(
 private fun NewTabButton(onCreate: () -> Unit) {
     val theme = LocalAppTheme.current
     IconButton(onClick = onCreate) {
-        Box(
-            modifier = Modifier.size(32.dp).clip(CircleShape).background(theme.secondaryGroupedBackground),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                painter = painterResource(R.drawable.ic_add),
-                contentDescription = "New Tab",
-                modifier = Modifier.size(18.dp),
-                tint = theme.foreground,
-            )
-        }
+        Icon(
+            painter = painterResource(R.drawable.ic_add),
+            contentDescription = "New Tab",
+            modifier = Modifier.size(22.dp),
+            tint = theme.secondaryForeground,
+        )
     }
 }

@@ -103,6 +103,8 @@ final class FakeServerConnection: ServerConnection {
         var nextSessionID: UInt64 = 900
         var isDisconnected = false
         var files: [String: FakeProjectFiles] = [:]
+        var activity = Activity(agents: [], events: [])
+        var acknowledged: [UInt64] = []
     }
 
     init(
@@ -130,6 +132,25 @@ final class FakeServerConnection: ServerConnection {
 
     var isDisconnected: Bool {
         state.withLock { $0.isDisconnected }
+    }
+
+    var acknowledged: [UInt64] {
+        state.withLock { $0.acknowledged }
+    }
+
+    func setActivity(_ activity: Activity) {
+        state.withLock { $0.activity = activity }
+    }
+
+    func activity() async throws -> Activity {
+        state.withLock { $0.activity }
+    }
+
+    func acknowledgeActivity(eventIds: [UInt64]) async throws {
+        state.withLock { state in
+            state.acknowledged += eventIds
+            state.activity.events.removeAll { eventIds.contains($0.id) }
+        }
     }
 
     func channel(for sessionId: UInt64) -> FakeTerminalChannel? {

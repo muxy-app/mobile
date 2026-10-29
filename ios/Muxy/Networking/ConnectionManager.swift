@@ -6,7 +6,7 @@ actor ConnectionManager {
 
     private let makeTransport: TransportFactory
     private let pairingService: PairingService
-    private let demoBackend = DemoBackend()
+    private let demoBackend: DemoBackend
 
     private var client: MuxyClient?
     private var connectedDeviceID: Connection.ID?
@@ -20,9 +20,14 @@ actor ConnectionManager {
     private var eventContinuations: [UUID: AsyncStream<EventEnvelope>.Continuation] = [:]
     private var eventPump: Task<Void, Never>?
 
-    init(makeTransport: @escaping TransportFactory, pairingService: PairingService = LivePairingService()) {
+    init(
+        makeTransport: @escaping TransportFactory,
+        pairingService: PairingService = LivePairingService(),
+        demoBackend: DemoBackend = DemoBackend()
+    ) {
         self.makeTransport = makeTransport
         self.pairingService = pairingService
+        self.demoBackend = demoBackend
     }
 
     var currentState: ConnectionState {
