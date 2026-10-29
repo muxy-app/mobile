@@ -115,19 +115,19 @@ prepare() {
 select_theme() {
   launch
   tap "Settings"
-  tap "Theme"
+  tap "Terminal theme"
   tap_scrolling "$1"
   tap "Back"
   tap "Close"
 }
 
-open_projects() { launch; tap "Demo Desktop" center 2.5; }
-open_muxy() { open_projects; tap "Muxy" center 3; }
+open_home_tab() { launch; tap "$1" center 3; }
+open_muxy() { open_home_tab agent; }
 open_tab() { tap "$1" left 3; }
 
 prepare
 
-if want projects; then open_projects; shot projects; fi
+if want projects; then launch; shot projects; fi
 if want agent; then open_muxy; shot agent; fi
 if want editor; then open_muxy; open_tab nvim; shot editor; fi
 if want git; then open_muxy; tap "Git" center 2.5; shot git; fi
@@ -136,7 +136,7 @@ if want files; then open_muxy; tap "Files" center 2.5; shot files; fi
 if want preview; then
   open_muxy; tap "Files" center 2.5; tap "Sources"; OCCURRENCE=last tap "Muxy"; tap "Tabs"; tap "TabStore.swift" center 2.5; shot preview
 fi
-if want dev; then open_projects; tap "Web App" center 3; shot dev; fi
+if want dev; then open_home_tab dev; shot dev; fi
 
 for theme in "TokyoNight" "Gruvbox Dark" "Catppuccin Latte"; do
   slug=$(echo "$theme" | tr '[:upper:] ' '[:lower:]-')

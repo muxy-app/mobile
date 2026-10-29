@@ -71,13 +71,6 @@ tap_scrolling() {
   return 1
 }
 
-reveal() {
-  read -r width height < <(screen_points)
-  local x=$((width / 2)) y=$((height * 3 / 4))
-  axe swipe --start-x "$x" --start-y "$y" --end-x "$x" --end-y "$((y - 140))" --duration 1.5 --udid "$SIM" >/dev/null 2>&1
-  sleep 1.2
-}
-
 prepare() {
   local locale
   xcrun simctl boot "$SIM" 2>/dev/null || true
@@ -106,14 +99,14 @@ launch() {
   sleep 2.5
 }
 
-open_projects() { tap "Demo Desktop, demo.local:4865" 2; }
-open_muxy() { open_projects; tap "Muxy, /Users/demo/Projects/muxy" 3; }
+open_tab() { tap "$1, Demo Desktop" 3; }
+open_muxy() { open_tab "agent, Muxy"; }
 
 prepare
 
-if want projects; then launch; open_projects; shot projects; fi
-if want agent; then launch; open_muxy; reveal; shot agent; fi
-if want editor; then launch; open_muxy; tap "nvim" 2.5; reveal; shot editor; fi
+if want projects; then launch; shot projects; fi
+if want agent; then launch; open_muxy; shot agent; fi
+if want editor; then launch; open_muxy; tap "nvim" 2.5; shot editor; fi
 if want git; then launch; open_muxy; tap "Git" 2.5; shot git; fi
 if want diff; then launch; open_muxy; tap "Git" 2.5; tap_scrolling "TabStore.swift, Sources/Muxy/Tabs/TabStore.swift, M" 2.5; shot diff; fi
 if want files; then launch; open_muxy; tap "Files" 2.5; shot files; fi
@@ -121,11 +114,11 @@ if want preview; then
   launch; open_muxy; tap "Files" 2.5; tap "Sources, Folder"; tap "Muxy, Folder"; tap "Tabs, Folder"; tap "TabStore.swift, Swift source" 2.5
   shot preview
 fi
-if want dev; then launch; open_projects; tap "Web App, /Users/demo/Projects/web-app" 3; shot dev; fi
+if want dev; then launch; open_tab "dev, Web App"; shot dev; fi
 
 for theme in "TokyoNight" "Gruvbox Dark" "Catppuccin Latte"; do
   slug=$(echo "$theme" | tr '[:upper:] ' '[:lower:]-')
-  if want "theme-editor-$slug"; then launch "$theme"; open_muxy; tap "nvim" 2.5; reveal; shot "theme-editor-$slug"; fi
+  if want "theme-editor-$slug"; then launch "$theme"; open_muxy; tap "nvim" 2.5; shot "theme-editor-$slug"; fi
 done
 
 launch
