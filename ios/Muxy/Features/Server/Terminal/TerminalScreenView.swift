@@ -39,8 +39,7 @@ struct TerminalScreenView: View {
             }
             .allowsHitTesting(false)
         }
-        .background(ThemeColor(rgb: theme.terminalPalette.background).color)
-        .keyboardIsland(bottomInset: keyboardOffset)
+        .keyboardIsland(bottomInset: keyboardOffset, background: ThemeColor(rgb: theme.terminalPalette.background).color)
     }
 
     @ViewBuilder

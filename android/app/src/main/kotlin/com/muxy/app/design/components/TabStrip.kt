@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -67,7 +68,7 @@ fun TabStrip(
     LazyRow(
         state = listState,
         modifier = modifier.fillMaxWidth().background(LocalAppTheme.current.groupedBackground),
-        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+        contentPadding = PaddingValues(horizontal = PageMargin.horizontal, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -92,7 +93,7 @@ fun TabPill(
     modifier: Modifier = Modifier,
 ) {
     val theme = LocalAppTheme.current
-    val shape = RoundedCornerShape(14.dp)
+    val shape = CircleShape
     Row(
         modifier =
             modifier
@@ -108,11 +109,11 @@ fun TabPill(
                 Modifier
                     .height(chipHeight)
                     .background(if (isSelected) theme.secondaryGroupedBackground else Color.Transparent, shape)
-                    .padding(start = 6.dp, end = if (isSelected) 0.dp else 12.dp),
+                    .padding(start = 12.dp, end = if (isSelected) 0.dp else 12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            TabKindTile(kind = tab.tile, activity = tab.activity, size = 28.dp)
+            TabKindIcon(kind = tab.tile, activity = tab.activity)
             Text(
                 text = tab.title,
                 style = MaterialTheme.typography.bodyMedium,
@@ -121,6 +122,9 @@ fun TabPill(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
+            if (tab.activity.state != TabActivity.State.IDLE) {
+                TabActivityBadge(tab.activity)
+            }
             if (isSelected) {
                 Box(
                     modifier =

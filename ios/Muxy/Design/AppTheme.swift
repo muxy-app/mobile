@@ -5,6 +5,7 @@ nonisolated struct AppTheme: Equatable, Sendable {
     let secondaryBackground: Color
     let groupedBackground: Color
     let secondaryGroupedBackground: Color
+    let tertiaryGroupedBackground: Color
     let separator: Color
     let foreground: Color
     let secondaryForeground: Color
@@ -42,6 +43,7 @@ nonisolated struct AppTheme: Equatable, Sendable {
         secondaryBackground = tokens.secondaryBackground.color
         groupedBackground = tokens.groupedBackground.color
         secondaryGroupedBackground = tokens.secondaryGroupedBackground.color
+        tertiaryGroupedBackground = tokens.tertiaryGroupedBackground.color
         separator = tokens.separator.color
         foreground = tokens.foreground.color
         secondaryForeground = tokens.secondaryForeground.color

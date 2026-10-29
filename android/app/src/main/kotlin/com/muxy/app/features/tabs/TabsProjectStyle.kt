@@ -19,4 +19,18 @@ internal fun tabsProjectColor(project: TabsProject): Color {
     }
 }
 
-private val fallbackProjectColors = listOf(0xC370D3, 0x4796F0, 0x34D399, 0xE0AF68, 0x22D3EE, 0xEC4899)
+private val fallbackProjectColors =
+    listOf(
+        0xE5484D,
+        0xF76B15,
+        0xF5A623,
+        0xEBCB00,
+        0x9BCD1E,
+        0x30A46C,
+        0x12A594,
+        0x05A2C2,
+        0x3E63DD,
+        0x5B5BD6,
+        0x8E4EC6,
+        0xD6409F,
+    )

@@ -54,14 +54,15 @@ private struct TabsHomeNotificationRow: View {
     var body: some View {
         Button(action: onOpen) {
             HStack(spacing: 14) {
-                TabKindTile(kind: item.tab.kind, activity: item.tab.activity)
+                TabKindIcon(kind: item.tab.kind, activity: item.tab.activity, size: 22)
+                    .frame(width: 36)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(item.tab.title)
                         .foregroundStyle(theme.foreground)
                         .lineLimit(1)
                     Text(item.tab.activity.statusLabel ?? "")
                         .font(.subheadline)
-                        .foregroundStyle(item.tab.activity.state == .waiting ? Color.orange : Color.blue)
+                        .foregroundStyle(item.tab.activity.state == .waiting ? Color.orange : theme.green)
                         .lineLimit(1)
                     Text(context)
                         .font(.caption)

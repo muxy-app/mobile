@@ -113,6 +113,10 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate, UIGestureRecogniz
             return
         }
         guard !input.isFirstResponder else { return }
+        if let transition = activeNavigationTransition {
+            transition.animate(alongsideTransition: nil) { [weak self] _ in self?.syncFocus() }
+            return
+        }
         input.becomeFirstResponder()
     }
 

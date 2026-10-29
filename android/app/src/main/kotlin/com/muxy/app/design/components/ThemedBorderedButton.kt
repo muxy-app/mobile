@@ -2,6 +2,7 @@ package com.muxy.app.design.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
@@ -23,7 +24,7 @@ fun ThemedBorderedButton(
     OutlinedButton(
         onClick = onClick,
         modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
+        shape = CircleShape,
         border = BorderStroke(1.dp, theme.separator),
         colors = ButtonDefaults.outlinedButtonColors(containerColor = theme.secondaryGroupedBackground, contentColor = theme.accent),
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),

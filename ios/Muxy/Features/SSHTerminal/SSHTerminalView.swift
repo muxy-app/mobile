@@ -44,7 +44,6 @@ struct SSHTerminalView: View {
             }
         }
         .tabViewStyle(.page(indexDisplayMode: .never))
-        .background(theme.groupedBackground.ignoresSafeArea())
     }
 
     private var emptyState: some View {

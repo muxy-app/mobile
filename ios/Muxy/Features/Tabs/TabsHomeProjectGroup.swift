@@ -10,61 +10,82 @@ struct TabsHomeProjectGroup: View {
     @Environment(\.appTheme) private var theme
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 6) {
             header
-            if isExpanded, !project.tabs.isEmpty {
-                TabsHomeCard {
-                    ForEach(Array(project.tabs.enumerated()), id: \.element.id) { index, tab in
-                        if index > 0 {
-                            Rectangle()
-                                .fill(theme.separator)
-                                .frame(height: 0.5)
-                                .padding(.leading, 66)
-                        }
-                        TabsHomeTabRow(tab: tab) { onOpenTab(tab.id) }
-                            .accessibilityLabel("\(tab.title), \(project.name), \(deviceName)")
-                    }
+            if showsTabs {
+                ForEach(project.tabs) { tab in
+                    TabsHomeTabRow(tab: tab) { onOpenTab(tab.id) }
+                        .accessibilityLabel("\(tab.title), \(project.name), \(deviceName)")
                 }
             }
         }
-        .padding(.top, 12)
+        .padding(.top, 4)
+        .padding(.horizontal, SurfaceCorner.cardPadding)
+        .padding(.bottom, showsTabs ? SurfaceCorner.cardPadding : 4)
+        .glassEffect(.regular, in: .rect(cornerRadius: SurfaceCorner.card, style: .continuous))
+        .padding(.horizontal, 16)
+    }
+
+    private var showsTabs: Bool {
+        isExpanded && !project.tabs.isEmpty
     }
 
     private var header: some View {
         HStack(spacing: 0) {
-            Text(project.name)
-                .font(.headline)
-                .foregroundStyle(theme.secondaryForeground)
-                .lineLimit(1)
-                .accessibilityAddTraits(.isHeader)
-            Spacer(minLength: 8)
+            Button(action: toggle) {
+                HStack(spacing: 8) {
+                    Circle()
+                        .fill(ProjectIconColor.color(for: project.color, stableFor: project.id))
+                        .frame(width: 8, height: 8)
+                    Text(project.name)
+                        .font(.headline)
+                        .foregroundStyle(theme.foreground)
+                        .lineLimit(1)
+                    if !isExpanded, !project.tabs.isEmpty {
+                        Text(project.tabs.count == 1 ? "1 tab" : "\(project.tabs.count) tabs")
+                            .font(.subheadline)
+                            .foregroundStyle(theme.secondaryForeground)
+                            .lineLimit(1)
+                    }
+                    Spacer(minLength: 4)
+                }
+                .padding(.leading, 6)
+                .frame(minHeight: 40)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(project.tabs.isEmpty)
+            .accessibilityLabel(project.name)
+            .accessibilityAddTraits(.isHeader)
+            .accessibilityValue(project.tabs.isEmpty ? "" : isExpanded ? "Expanded" : "Collapsed")
+            .accessibilityHint(project.tabs.isEmpty ? "" : isExpanded ? "Collapses this project" : "Expands this project")
             Button(action: onCreateTab) {
-                Label("New tab in \(project.name)", systemImage: "plus.circle")
+                Label("New tab in \(project.name)", systemImage: "plus")
                     .labelStyle(.iconOnly)
-                    .font(.title3)
+                    .font(.body.weight(.medium))
                     .foregroundStyle(theme.secondaryForeground)
-                    .frame(width: 44, height: 44)
+                    .frame(width: 40, height: 40)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .disabled(!project.canCreate)
             if !project.tabs.isEmpty {
-                Button {
-                    withAnimation(.snappy) { isExpanded.toggle() }
-                } label: {
-                    Label(isExpanded ? "Collapse \(project.name)" : "Expand \(project.name)", systemImage: "chevron.down")
-                        .labelStyle(.iconOnly)
+                Button(action: toggle) {
+                    Image(systemName: "chevron.down")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(theme.secondaryForeground)
                         .rotationEffect(.degrees(isExpanded ? 0 : -90))
-                        .frame(width: 44, height: 44)
+                        .frame(width: 40, height: 40)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityHidden(true)
             }
         }
-        .padding(.leading, 20)
-        .padding(.trailing, 8)
+    }
+
+    private func toggle() {
+        withAnimation(.snappy) { isExpanded.toggle() }
     }
 }
 
@@ -76,46 +97,36 @@ struct TabsHomeTabRow: View {
 
     var body: some View {
         Button(action: onOpen) {
-            HStack(spacing: 14) {
-                TabKindTile(kind: tab.kind, activity: tab.activity)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(tab.title)
-                        .foregroundStyle(theme.foreground)
-                        .lineLimit(1)
-                    if !tab.detail.isEmpty {
-                        Text(tab.detail)
-                            .font(.subheadline)
-                            .foregroundStyle(detailColor)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                if tab.activity.state == .working {
-                    Image(systemName: "ellipsis")
-                        .font(.body.weight(.bold))
-                        .foregroundStyle(theme.secondaryForeground)
-                        .symbolEffect(.variableColor.iterative, options: .repeating)
-                        .accessibilityLabel("Working")
-                }
-                Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(.tertiary)
-                    .accessibilityHidden(true)
+            HStack(spacing: 10) {
+                TabKindIcon(kind: tab.kind, activity: tab.activity)
+                Text(tab.title)
+                    .foregroundStyle(theme.foreground)
+                    .lineLimit(1)
+                    .layoutPriority(1)
+                Spacer(minLength: 8)
+                trailing
             }
-            .padding(.horizontal, 16)
-            .frame(minHeight: 62)
-            .contentShape(Rectangle())
+            .padding(.leading, 12)
+            .padding(.trailing, 14)
+            .frame(minHeight: 48)
+            .background(theme.foreground.opacity(0.06), in: .rect(cornerRadius: SurfaceCorner.row, style: .continuous))
+            .contentShape(.rect(cornerRadius: SurfaceCorner.row, style: .continuous))
         }
         .buttonStyle(.plain)
+        .accessibilityValue(tab.activity.state == .idle ? tab.detail : tab.activity.statusLabel ?? "")
         .accessibilityHint("Opens this tab")
     }
 
-    private var detailColor: Color {
-        switch tab.activity.state {
-        case .waiting: .orange
-        case .finished: .blue
-        case .idle, .working: theme.secondaryForeground
+    @ViewBuilder
+    private var trailing: some View {
+        if tab.activity.state != .idle {
+            TabActivityBadge(activity: tab.activity)
+        } else if !tab.detail.isEmpty {
+            Text(tab.detail)
+                .font(.footnote.monospaced())
+                .foregroundStyle(theme.secondaryForeground)
+                .lineLimit(1)
+                .truncationMode(.head)
         }
     }
 }

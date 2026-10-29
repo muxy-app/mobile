@@ -56,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import com.muxy.app.R
+import com.muxy.app.design.components.SurfaceCorners
 
 @Composable
 fun ModifierKey(
@@ -166,10 +167,10 @@ private fun ModifierPicker(
         modifier =
             Modifier
                 .width(PICKER_WIDTH)
-                .clip(RoundedCornerShape(PICKER_RADIUS))
+                .clip(RoundedCornerShape(SurfaceCorners.popover))
                 .background(background)
-                .border(BorderStroke(1.dp, foreground.copy(alpha = BORDER_ALPHA)), RoundedCornerShape(PICKER_RADIUS))
-                .padding(vertical = 6.dp),
+                .border(BorderStroke(1.dp, foreground.copy(alpha = BORDER_ALPHA)), RoundedCornerShape(SurfaceCorners.popover))
+                .padding(vertical = SurfaceCorners.popoverPadding),
     ) {
         TerminalModifier.entries.forEach { entry ->
             val disabled = entry == active
@@ -180,8 +181,8 @@ private fun ModifierPicker(
                         .fillMaxWidth()
                         .height(PICKER_ROW_HEIGHT)
                         .onGloballyPositioned { onRowPlaced(entry, it.boundsInWindow()) }
-                        .padding(horizontal = 8.dp)
-                        .clip(RoundedCornerShape(10.dp))
+                        .padding(horizontal = SurfaceCorners.popoverPadding)
+                        .clip(RoundedCornerShape(SurfaceCorners.popoverRow))
                         .background(if (entry == hovered) foreground.copy(alpha = HIGHLIGHT_ALPHA) else Color.Transparent)
                         .padding(horizontal = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -238,5 +239,4 @@ private val KEY_HEIGHT = 48.dp
 private val KEY_PILL_HEIGHT = 32.dp
 private val PICKER_WIDTH = 180.dp
 private val PICKER_ROW_HEIGHT = 44.dp
-private val PICKER_RADIUS = 18.dp
 private val PICKER_GAP = 8.dp

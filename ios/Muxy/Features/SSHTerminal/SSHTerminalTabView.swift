@@ -39,8 +39,7 @@ struct SSHTerminalTabView: View {
                     .padding(.bottom, keyboardOffset)
             }
         }
-        .background(session.theme.background.asColor)
-        .keyboardIsland(bottomInset: keyboardOffset)
+        .keyboardIsland(bottomInset: keyboardOffset, background: session.theme.background.asColor)
     }
 
     @ViewBuilder

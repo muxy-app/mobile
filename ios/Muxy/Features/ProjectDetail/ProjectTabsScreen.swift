@@ -57,7 +57,6 @@ struct ProjectTabsScreen<Item: TabStripItem, Page: View>: View {
             }
         }
         .tabViewStyle(.page(indexDisplayMode: .never))
-        .background(theme.groupedBackground.ignoresSafeArea())
     }
 
     @ViewBuilder

@@ -1,16 +1,19 @@
 package com.muxy.app.features.tabs
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Badge
@@ -38,21 +41,25 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.muxy.app.R
 import com.muxy.app.design.LocalAppTheme
-import com.muxy.app.design.components.TabKindTile
+import com.muxy.app.design.components.SurfaceCorners
+import com.muxy.app.design.components.TabActivityBadge
+import com.muxy.app.design.components.TabKindIcon
 import com.muxy.app.design.components.TabTileColors
 import com.muxy.app.features.demo.DemoConnection
 import com.muxy.app.models.ConnectionKind
 import com.muxy.app.models.TabActivity
 
-private val cardShape = RoundedCornerShape(24.dp)
+private val cardShape = RoundedCornerShape(SurfaceCorners.card)
 private val outerCorner = 24.dp
 private val innerCorner = 4.dp
 
@@ -73,51 +80,65 @@ internal fun TabsDeviceHeader(
     trailing: @Composable () -> Unit = {},
 ) {
     val theme = LocalAppTheme.current
-    val icon =
-        when (device.connection.kind) {
-            ConnectionKind.DEVICE, ConnectionKind.SERVER -> R.drawable.ic_desktop_mac
-            ConnectionKind.SSH -> R.drawable.ic_terminal
-        }
     Row(
         modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 4.dp, top = 12.dp).heightIn(min = 56.dp),
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(painterResource(icon), contentDescription = null, modifier = Modifier.size(26.dp), tint = theme.secondaryForeground)
-        Text(
-            device.connection.name,
-            modifier = Modifier.weight(1f).semantics { heading() },
-            style = MaterialTheme.typography.headlineMedium,
-            color = theme.foreground,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        if (device.isFetching) {
-            CircularProgressIndicator(modifier = Modifier.size(18.dp), color = theme.secondaryForeground, strokeWidth = 2.dp)
-        }
-        statusLabel(device.status)?.let { label ->
+        Row(
+            modifier = Modifier.weight(1f),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Text(
-                label,
-                modifier = Modifier.widthIn(max = 120.dp),
-                style = MaterialTheme.typography.labelMedium,
-                color = theme.secondaryForeground,
+                device.connection.name,
+                modifier = Modifier.weight(1f, fill = false).semantics { heading() },
+                style = MaterialTheme.typography.headlineSmall,
+                color = theme.foreground,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
+            if (device.isFetching) {
+                CircularProgressIndicator(modifier = Modifier.size(16.dp), color = theme.secondaryForeground, strokeWidth = 2.dp)
+            } else {
+                DeviceStatus(device.status)
+            }
         }
         trailing()
     }
 }
 
-private fun statusLabel(status: TabsDeviceStatus): String? =
-    when (status) {
-        TabsDeviceStatus.CONNECTING -> "Connecting"
-        TabsDeviceStatus.ONLINE -> null
-        TabsDeviceStatus.OFFLINE -> "Offline"
-        TabsDeviceStatus.DEMO -> "Demo"
-        TabsDeviceStatus.SSH -> "SSH"
-        TabsDeviceStatus.LOCKED -> "Locked"
+@Composable
+private fun DeviceStatus(status: TabsDeviceStatus) {
+    val theme = LocalAppTheme.current
+    val label =
+        when (status) {
+            TabsDeviceStatus.CONNECTING -> "connecting"
+            TabsDeviceStatus.ONLINE -> "online"
+            TabsDeviceStatus.OFFLINE -> "offline"
+            TabsDeviceStatus.DEMO -> "demo"
+            TabsDeviceStatus.SSH -> "SSH"
+            TabsDeviceStatus.LOCKED -> "locked"
+        }
+    Row(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
+        when (status) {
+            TabsDeviceStatus.ONLINE, TabsDeviceStatus.DEMO -> {
+                Box(modifier = Modifier.size(7.dp).background(theme.green, CircleShape))
+            }
+
+            TabsDeviceStatus.LOCKED -> {
+                Box(modifier = Modifier.size(7.dp).background(TabTileColors.waiting, CircleShape))
+            }
+
+            TabsDeviceStatus.OFFLINE -> {
+                Box(modifier = Modifier.size(7.dp).border(1.5.dp, theme.secondaryForeground, CircleShape))
+            }
+
+            TabsDeviceStatus.CONNECTING, TabsDeviceStatus.SSH -> {}
+        }
+        Text(label, style = MaterialTheme.typography.labelMedium, color = theme.secondaryForeground, maxLines = 1)
     }
+}
 
 @Composable
 internal fun TabsDeviceMenu(
@@ -244,7 +265,43 @@ internal fun OpenSshTerminalCard(
 }
 
 @Composable
-internal fun TabsProjectHeader(
+internal fun TabsProjectCard(
+    project: TabsProject,
+    canCreate: Boolean,
+    creating: Boolean,
+    expanded: Boolean,
+    tabsEnabled: Boolean,
+    onCreate: () -> Unit,
+    onToggle: () -> Unit,
+    onSelectTab: (TabsTab) -> Unit,
+) {
+    val theme = LocalAppTheme.current
+    val showsTabs = expanded && project.tabs.isNotEmpty()
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 5.dp)
+                .background(theme.secondaryGroupedBackground, RoundedCornerShape(SurfaceCorners.card))
+                .padding(
+                    start = SurfaceCorners.cardPadding,
+                    end = SurfaceCorners.cardPadding,
+                    top = 4.dp,
+                    bottom = if (showsTabs) SurfaceCorners.cardPadding else 4.dp,
+                ),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        TabsProjectHeader(project, canCreate, creating, expanded, onCreate, onToggle)
+        if (showsTabs) {
+            project.tabs.forEach { tab ->
+                TabsTabRow(tab = tab, enabled = tabsEnabled, onSelect = { onSelectTab(tab) })
+            }
+        }
+    }
+}
+
+@Composable
+private fun TabsProjectHeader(
     project: TabsProject,
     enabled: Boolean,
     creating: Boolean,
@@ -253,18 +310,47 @@ internal fun TabsProjectHeader(
     onToggle: () -> Unit,
 ) {
     val theme = LocalAppTheme.current
+    val hasTabs = project.tabs.isNotEmpty()
     Row(
-        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(start = 20.dp, end = 4.dp, top = 8.dp),
+        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            project.name,
-            modifier = Modifier.weight(1f).semantics { heading() },
-            style = MaterialTheme.typography.titleSmall,
-            color = theme.secondaryForeground,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
+        Row(
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .heightIn(min = 48.dp)
+                    .clip(RoundedCornerShape(SurfaceCorners.row))
+                    .clickable(
+                        enabled = hasTabs,
+                        onClickLabel = if (expanded) "Collapse" else "Expand",
+                        role = Role.Button,
+                        onClick = onToggle,
+                    ).semantics(mergeDescendants = true) {
+                        heading()
+                        if (hasTabs) stateDescription = if (expanded) "Expanded" else "Collapsed"
+                    }.padding(start = 6.dp, end = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(modifier = Modifier.size(8.dp).background(tabsProjectColor(project), CircleShape))
+            Text(
+                project.name,
+                modifier = Modifier.weight(1f, fill = false),
+                style = MaterialTheme.typography.titleMedium,
+                color = theme.foreground,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (!expanded && hasTabs) {
+                Text(
+                    if (project.tabs.size == 1) "1 tab" else "${project.tabs.size} tabs",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = theme.secondaryForeground,
+                    maxLines = 1,
+                )
+            }
+        }
         IconButton(onClick = onCreate, enabled = enabled) {
             if (creating) {
                 CircularProgressIndicator(modifier = Modifier.size(18.dp), color = theme.secondaryForeground, strokeWidth = 2.dp)
@@ -277,14 +363,14 @@ internal fun TabsProjectHeader(
                 )
             }
         }
-        if (project.tabs.isNotEmpty()) {
+        if (hasTabs) {
             IconButton(
                 onClick = onToggle,
-                modifier = Modifier.semantics { stateDescription = if (expanded) "Expanded" else "Collapsed" },
+                modifier = Modifier.clearAndSetSemantics {},
             ) {
                 Icon(
                     painterResource(R.drawable.ic_expand_more),
-                    contentDescription = "${if (expanded) "Collapse" else "Expand"} ${project.name}",
+                    contentDescription = null,
                     modifier = Modifier.size(22.dp).rotate(if (expanded) 0f else -90f),
                     tint = theme.secondaryForeground,
                 )
@@ -294,44 +380,47 @@ internal fun TabsProjectHeader(
 }
 
 @Composable
-internal fun TabsTabRow(
+private fun TabsTabRow(
     tab: TabsTab,
-    shape: Shape,
     enabled: Boolean,
     onSelect: () -> Unit,
 ) {
     val theme = LocalAppTheme.current
+    val shape = RoundedCornerShape(SurfaceCorners.row)
+    val status = tab.activity.statusLabel.takeIf { tab.activity.state != TabActivity.State.IDLE }
     Row(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 1.dp)
+                .heightIn(min = 48.dp)
                 .clip(shape)
-                .background(theme.secondaryGroupedBackground)
+                .background(theme.tertiaryGroupedBackground)
                 .clickable(enabled = enabled, role = Role.Button, onClick = onSelect)
-                .padding(horizontal = 16.dp)
-                .heightIn(min = 68.dp),
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                .semantics { if (status != null) stateDescription = status }
+                .padding(start = 12.dp, end = 14.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        TabKindTile(kind = tab.tile, activity = tab.activity)
-        Column(modifier = Modifier.weight(1f)) {
+        TabKindIcon(kind = tab.tile, activity = tab.activity)
+        Text(
+            tab.title,
+            modifier = Modifier.weight(1f),
+            color = theme.foreground,
+            style = MaterialTheme.typography.bodyLarge,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        if (status != null) {
+            TabActivityBadge(tab.activity)
+        } else if (tab.detail.isNotEmpty()) {
             Text(
-                tab.title,
-                color = theme.foreground,
-                style = MaterialTheme.typography.bodyLarge,
+                tab.detail,
+                modifier = Modifier.widthIn(max = 160.dp),
+                color = theme.secondaryForeground,
+                style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+                overflow = TextOverflow.StartEllipsis,
             )
-            if (tab.detail.isNotEmpty()) {
-                Text(
-                    tab.detail,
-                    color = activityColor(tab.activity) ?: theme.secondaryForeground,
-                    style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
         }
     }
 }
@@ -340,7 +429,7 @@ internal fun TabsTabRow(
 internal fun activityColor(activity: TabActivity) =
     when (activity.state) {
         TabActivity.State.WAITING -> if (LocalAppTheme.current.isDark) TabTileColors.waiting else LocalAppTheme.current.yellow
-        TabActivity.State.FINISHED -> LocalAppTheme.current.accent
+        TabActivity.State.FINISHED -> LocalAppTheme.current.green
         TabActivity.State.IDLE, TabActivity.State.WORKING -> null
     }
 
@@ -424,7 +513,7 @@ internal fun FloatingHomeBar(
                         Icon(painterResource(R.drawable.ic_settings), contentDescription = "Settings", tint = theme.foreground)
                     }
                     IconButton(onClick = onNotifications, enabled = enabled) {
-                        BadgedBox(badge = { if (notificationCount > 0) Badge { Text("$notificationCount") } }) {
+                        BadgedBox(badge = { if (notificationCount > 0) Badge(containerColor = TabTileColors.waiting) }) {
                             Icon(
                                 painterResource(R.drawable.ic_notifications),
                                 contentDescription = if (notificationCount > 0) "Notifications, $notificationCount" else "Notifications",
@@ -437,8 +526,9 @@ internal fun FloatingHomeBar(
         }
         FloatingActionButton(
             onClick = { if (enabled && canCreate) onNewTab() },
-            containerColor = theme.foreground,
-            contentColor = theme.groupedBackground,
+            shape = CircleShape,
+            containerColor = theme.secondaryGroupedBackground,
+            contentColor = theme.foreground,
             modifier =
                 Modifier.semantics {
                     contentDescription = "New tab"
@@ -446,7 +536,7 @@ internal fun FloatingHomeBar(
                 },
         ) {
             if (creating) {
-                CircularProgressIndicator(modifier = Modifier.size(24.dp), color = theme.groupedBackground, strokeWidth = 2.dp)
+                CircularProgressIndicator(modifier = Modifier.size(24.dp), color = theme.foreground, strokeWidth = 2.dp)
             } else {
                 Icon(painterResource(R.drawable.ic_edit), contentDescription = null)
             }

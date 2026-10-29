@@ -32,6 +32,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import com.muxy.app.R
+import com.muxy.app.design.components.PageMargin
 
 interface TerminalAccessoryActions {
     fun key(key: TerminalKey)
@@ -69,7 +70,7 @@ fun TerminalAccessoryBar(
                 .fillMaxWidth()
                 .height(TerminalAccessoryBarDefaults.height)
                 .background(background)
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+                .padding(horizontal = PageMargin.horizontal, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
@@ -126,7 +127,7 @@ private fun TextKey(
         modifier =
             Modifier
                 .defaultMinSize(minWidth = KEY_SIZE, minHeight = KEY_SIZE)
-                .clip(RoundedCornerShape(12.dp))
+                .clip(CircleShape)
                 .clickable(role = Role.Button, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {

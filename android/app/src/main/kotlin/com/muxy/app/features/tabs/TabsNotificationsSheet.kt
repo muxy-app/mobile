@@ -3,12 +3,14 @@ package com.muxy.app.features.tabs
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -27,7 +29,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.muxy.app.R
 import com.muxy.app.design.LocalAppTheme
-import com.muxy.app.design.components.TabKindTile
+import com.muxy.app.design.components.TabKindIcon
 import com.muxy.app.design.components.TopBarAction
 import java.time.Duration
 import java.time.Instant
@@ -102,7 +104,9 @@ private fun NotificationRow(
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        TabKindTile(kind = item.tab.tile, activity = item.tab.activity)
+        Box(modifier = Modifier.size(40.dp), contentAlignment = Alignment.Center) {
+            TabKindIcon(kind = item.tab.tile, activity = item.tab.activity, size = 22.dp)
+        }
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 item.tab.title,

@@ -151,7 +151,7 @@ struct TerminalAccessoryView: View {
                 model.onKey?(key)
             }
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, PageMargin.horizontal)
         .padding(.vertical, 10)
     }
 
@@ -480,7 +480,7 @@ final class ModifierKeyHostView: UIView {
 final class ModifierPickerView: UIView {
     private let rowHeight: CGFloat = 44
     private let horizontalPadding: CGFloat = 16
-    private let verticalPadding: CGFloat = 6
+    private let verticalPadding = SurfaceCorner.popoverPadding
     private let pickerWidth: CGFloat = 180
     private let arrowHeight: CGFloat = 8
 
@@ -513,7 +513,7 @@ final class ModifierPickerView: UIView {
     private func setupViews() {
         containerView.translatesAutoresizingMaskIntoConstraints = false
         containerView.backgroundColor = UIColor.secondarySystemGroupedBackground.withAlphaComponent(0.9)
-        containerView.layer.cornerRadius = 18
+        containerView.layer.cornerRadius = SurfaceCorner.popover
         containerView.layer.cornerCurve = .continuous
         containerView.layer.borderWidth = 0.5
         containerView.layer.borderColor = fgColor.withAlphaComponent(0.12).cgColor
@@ -521,7 +521,7 @@ final class ModifierPickerView: UIView {
 
         let blur = UIVisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterial))
         blur.translatesAutoresizingMaskIntoConstraints = false
-        blur.layer.cornerRadius = 18
+        blur.layer.cornerRadius = SurfaceCorner.popover
         blur.layer.cornerCurve = .continuous
         blur.clipsToBounds = true
         containerView.insertSubview(blur, at: 0)
@@ -640,8 +640,8 @@ final class ModifierPickerRow: UIView {
         NSLayoutConstraint.activate([
             highlight.topAnchor.constraint(equalTo: topAnchor),
             highlight.bottomAnchor.constraint(equalTo: bottomAnchor),
-            highlight.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
-            highlight.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
+            highlight.leadingAnchor.constraint(equalTo: leadingAnchor, constant: SurfaceCorner.popoverPadding),
+            highlight.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -SurfaceCorner.popoverPadding),
             glyphLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
             glyphLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
             glyphLabel.widthAnchor.constraint(equalToConstant: 20),
@@ -652,7 +652,7 @@ final class ModifierPickerRow: UIView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        highlight.layer.cornerRadius = 10
+        highlight.layer.cornerRadius = SurfaceCorner.popoverRow
         highlight.layer.cornerCurve = .continuous
     }
 

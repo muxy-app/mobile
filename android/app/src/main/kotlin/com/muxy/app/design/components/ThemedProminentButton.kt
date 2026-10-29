@@ -2,6 +2,7 @@ package com.muxy.app.design.components
 
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -29,7 +30,7 @@ fun ThemedProminentButton(
         onClick = onClick,
         modifier = modifier,
         enabled = enabled && !loading,
-        shape = RoundedCornerShape(12.dp),
+        shape = CircleShape,
         colors = ButtonDefaults.buttonColors(containerColor = theme.accent, contentColor = theme.onAccent),
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
     ) {

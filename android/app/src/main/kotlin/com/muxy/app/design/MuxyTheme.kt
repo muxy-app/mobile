@@ -35,6 +35,7 @@ private fun AppTheme.animated(): AppTheme =
         secondaryBackground = animated(secondaryBackground),
         groupedBackground = animated(groupedBackground),
         secondaryGroupedBackground = animated(secondaryGroupedBackground),
+        tertiaryGroupedBackground = animated(tertiaryGroupedBackground),
         separator = animated(separator),
         foreground = animated(foreground),
         secondaryForeground = animated(secondaryForeground),

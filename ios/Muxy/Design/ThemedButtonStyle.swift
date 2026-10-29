@@ -9,7 +9,7 @@ struct ThemedProminentButtonStyle: ButtonStyle {
             .foregroundStyle(theme.onAccent)
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
-            .background(theme.accent, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .background(theme.accent, in: Capsule())
             .opacity(configuration.isPressed ? 0.8 : 1)
     }
 }
@@ -23,9 +23,9 @@ struct ThemedBorderedButtonStyle: ButtonStyle {
             .foregroundStyle(theme.accent)
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
-            .background(theme.secondaryGroupedBackground, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .background(theme.secondaryGroupedBackground, in: Capsule())
             .overlay {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                Capsule()
                     .stroke(theme.separator, lineWidth: 1)
             }
             .opacity(configuration.isPressed ? 0.8 : 1)

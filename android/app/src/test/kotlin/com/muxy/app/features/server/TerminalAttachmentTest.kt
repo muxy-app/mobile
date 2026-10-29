@@ -306,7 +306,7 @@ class TerminalAttachmentTest {
                     .projectModel("muxy")
                     .tabs.value
                     .single()
-            assertEquals("Terminal 1", tab.title.value)
+            assertEquals("muxy", tab.title.value)
             tab.controller.viewportDidChange(size)
             runCurrent()
             assertEquals("shell 1", tab.title.value)

@@ -10,13 +10,17 @@ struct TabPillView<Item: TabStripItem>: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            TabKindTile(kind: tab.tileKind, activity: tab.activity, size: 26)
+            TabKindIcon(kind: tab.tileKind, activity: tab.activity)
 
             Text(tab.title)
                 .font(.subheadline.weight(isSelected ? .semibold : .regular))
                 .foregroundStyle(isSelected ? theme.foreground : theme.secondaryForeground)
                 .lineLimit(1)
                 .truncationMode(.tail)
+
+            if tab.activity.state != .idle {
+                TabActivityBadge(activity: tab.activity)
+            }
 
             if isSelected {
                 Button(action: onClose) {
@@ -30,12 +34,12 @@ struct TabPillView<Item: TabStripItem>: View {
                 .accessibilityLabel("Close \(tab.title)")
             }
         }
-        .padding(.leading, 6)
+        .padding(.leading, 12)
         .padding(.trailing, isSelected ? 6 : 12)
         .frame(height: 40)
         .frame(maxWidth: 220)
-        .glassEffect(isSelected ? .regular.interactive() : .identity, in: .rect(cornerRadius: 13, style: .continuous))
-        .contentShape(.rect(cornerRadius: 13))
+        .glassEffect(isSelected ? .regular.interactive() : .identity, in: Capsule())
+        .contentShape(Capsule())
         .onTapGesture(perform: onSelect)
         .accessibilityElement(children: .contain)
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)

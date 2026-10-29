@@ -7,9 +7,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.AlertDialog
@@ -72,10 +70,14 @@ fun TabsHomeScreen(
     val attention = TabsAttention.collect(loaded.orEmpty())
 
     Scaffold(bottomBar = footer, containerColor = theme.groupedBackground) { padding ->
-        Box(modifier = Modifier.padding(padding).fillMaxSize()) {
+        Box(modifier = Modifier.fillMaxSize()) {
             LazyColumn(
-                modifier = Modifier.fillMaxSize().statusBarsPadding(),
-                contentPadding = PaddingValues(top = 8.dp, bottom = 120.dp),
+                modifier = Modifier.fillMaxSize(),
+                contentPadding =
+                    PaddingValues(
+                        top = padding.calculateTopPadding() + 8.dp,
+                        bottom = padding.calculateBottomPadding() + 120.dp,
+                    ),
             ) {
                 if (loaded == null) {
                     item(key = "loading") { TabsHomeMessage("Loading devices…") }
@@ -123,26 +125,18 @@ fun TabsHomeScreen(
                         val sectionId = "$deviceKey:${project.id}"
                         val expanded = searching || sectionId !in collapsedProjects
                         item(key = "project:$sectionId") {
-                            TabsProjectHeader(
+                            TabsProjectCard(
                                 project = project,
-                                enabled = idle && (device.canCreate(project) || device.status == TabsDeviceStatus.LOCKED),
+                                canCreate = idle && (device.canCreate(project) || device.status == TabsDeviceStatus.LOCKED),
                                 creating = creating == key,
                                 expanded = expanded,
+                                tabsEnabled = idle,
                                 onCreate = { create(key) },
                                 onToggle = {
                                     collapsedProjects = if (expanded) collapsedProjects + sectionId else collapsedProjects - sectionId
                                 },
+                                onSelectTab = { tab -> handle(viewModel.select(key, tab.id)) },
                             )
-                        }
-                        if (expanded) {
-                            itemsIndexed(project.tabs, key = { _, tab -> "tab:$sectionId:${tab.id}" }) { index, tab ->
-                                TabsTabRow(
-                                    tab = tab,
-                                    shape = segmentShape(index, project.tabs.size),
-                                    enabled = idle,
-                                    onSelect = { handle(viewModel.select(key, tab.id)) },
-                                )
-                            }
                         }
                     }
                     val idleProjects = device.projects.count { it.tabs.isEmpty() }
@@ -167,7 +161,7 @@ fun TabsHomeScreen(
                 notificationCount = attention.size,
                 onNotifications = { showNotifications = true },
                 onNewTab = { showNewTab = true },
-                modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding(),
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = padding.calculateBottomPadding()),
             )
         }
     }

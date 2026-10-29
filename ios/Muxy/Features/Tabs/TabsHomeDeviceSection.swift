@@ -28,6 +28,7 @@ struct TabsHomeDeviceSection: View {
                     onOpenTab: { onOpenTab(project.id, $0) },
                     onCreateTab: { onCreateTab(project.id) }
                 )
+                .padding(.top, 10)
             }
             idleProjectsToggle
         }
@@ -131,8 +132,8 @@ struct TabsHomeCard<Content: View>: View {
         VStack(spacing: 0) {
             content
         }
-        .background(theme.secondaryGroupedBackground, in: .rect(cornerRadius: 22, style: .continuous))
-        .clipShape(.rect(cornerRadius: 22, style: .continuous))
+        .background(theme.secondaryGroupedBackground, in: .rect(cornerRadius: SurfaceCorner.card, style: .continuous))
+        .clipShape(.rect(cornerRadius: SurfaceCorner.card, style: .continuous))
         .padding(.horizontal, 16)
     }
 }
@@ -175,28 +176,60 @@ struct TabsHomeDeviceHeader<Trailing: View>: View {
     @Environment(\.appTheme) private var theme
 
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: device.systemImage)
-                .font(.title3)
-                .foregroundStyle(theme.secondaryForeground)
-                .accessibilityHidden(true)
+        HStack(spacing: 10) {
             Text(device.name)
                 .font(.title2.bold())
                 .foregroundStyle(theme.foreground)
                 .lineLimit(1)
                 .accessibilityAddTraits(.isHeader)
                 .accessibilityValue(device.status.label)
+            status
             Spacer(minLength: 8)
-            if device.status == .loading {
-                ProgressView()
-                    .controlSize(.small)
-            } else if device.status != .connected {
-                TabsHomeConnectionStatus(status: device.status)
-            }
             trailing
         }
         .padding(.leading, 20)
         .padding(.trailing, 8)
         .frame(minHeight: 44)
+    }
+
+    @ViewBuilder
+    private var status: some View {
+        if device.status == .loading {
+            ProgressView()
+                .controlSize(.small)
+        } else {
+            HStack(spacing: 5) {
+                statusDot
+                Text(statusText)
+                    .font(.footnote)
+                    .foregroundStyle(theme.secondaryForeground)
+                    .lineLimit(1)
+            }
+            .accessibilityHidden(true)
+        }
+    }
+
+    @ViewBuilder
+    private var statusDot: some View {
+        switch device.status {
+        case .connected:
+            Circle().fill(.green).frame(width: 7, height: 7)
+        case .needsPairing:
+            Circle().fill(.orange).frame(width: 7, height: 7)
+        case .offline:
+            Circle().strokeBorder(theme.secondaryForeground, lineWidth: 1.5).frame(width: 7, height: 7)
+        case .loading, .ssh:
+            EmptyView()
+        }
+    }
+
+    private var statusText: String {
+        switch device.status {
+        case .connected: "online"
+        case .offline: "offline"
+        case .needsPairing: "pairing needed"
+        case .ssh: "SSH"
+        case .loading: ""
+        }
     }
 }

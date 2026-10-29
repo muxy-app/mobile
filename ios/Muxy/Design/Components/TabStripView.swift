@@ -32,8 +32,8 @@ struct TabStripView<Item: TabStripItem>: View {
                         }
                         newTabButton
                     }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
+                    .padding(.horizontal, PageMargin.horizontal)
+                    .padding(.top, 8)
                 }
                 .onChange(of: selectedTabID) { _, newValue in
                     guard let newValue else { return }
@@ -42,7 +42,6 @@ struct TabStripView<Item: TabStripItem>: View {
             }
         }
         .scrollClipDisabled()
-        .background(theme.groupedBackground)
     }
 
     private var newTabButton: some View {

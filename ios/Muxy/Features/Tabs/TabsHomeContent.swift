@@ -127,13 +127,3 @@ struct TabsHomeContent: View {
         )
     }
 }
-
-struct TabsHomeConnectionStatus: View {
-    let status: TabsHomeStatus
-
-    var body: some View {
-        Text(status.label)
-            .font(.caption)
-            .foregroundStyle(.secondary)
-    }
-}

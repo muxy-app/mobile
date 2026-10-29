@@ -8,6 +8,7 @@ data class ThemeTokens(
     val secondaryBackground: ThemeColor,
     val groupedBackground: ThemeColor,
     val secondaryGroupedBackground: ThemeColor,
+    val tertiaryGroupedBackground: ThemeColor,
     val separator: ThemeColor,
     val foreground: ThemeColor,
     val secondaryForeground: ThemeColor,
@@ -22,8 +23,8 @@ data class ThemeTokens(
         const val MINIMUM_CONTRAST = 4.5
 
         private const val SECONDARY_EMPHASIS = 0.6
-        private val darkStep = LightnessStep(total = 10.0, rowShare = 0.6, separator = 12.0)
-        private val lightStep = LightnessStep(total = 7.0, rowShare = 0.4, separator = 14.0)
+        private val darkStep = LightnessStep(total = 10.0, rowShare = 0.6, fill = 3.5, separator = 12.0)
+        private val lightStep = LightnessStep(total = 7.0, rowShare = 0.4, fill = 3.0, separator = 14.0)
 
         fun from(palette: ThemePalette): ThemeTokens {
             val background = ThemeColor(palette.background)
@@ -52,6 +53,7 @@ data class ThemeTokens(
                 secondaryBackground = if (isDark) rows else canvas,
                 groupedBackground = canvas,
                 secondaryGroupedBackground = rows,
+                tertiaryGroupedBackground = rows.shiftingLightness(step.fill, text),
                 separator = rows.shiftingLightness(step.separator, text),
                 foreground = foreground,
                 secondaryForeground =
@@ -88,6 +90,7 @@ data class ThemeTokens(
     private data class LightnessStep(
         val total: Double,
         val rowShare: Double,
+        val fill: Double,
         val separator: Double,
     )
 }
