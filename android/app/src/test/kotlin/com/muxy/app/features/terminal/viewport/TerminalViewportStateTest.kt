@@ -19,7 +19,6 @@ class TerminalViewportStateTest {
             val state = raised()
             state.placeCursor(cursorAt(y), 600f)
             assertEquals(0f, state.viewportOffset)
-            assertFalse(state.needsCursorPlacement)
         }
     }
 
@@ -53,7 +52,6 @@ class TerminalViewportStateTest {
         assertTrue(state.needsCursorPlacement)
         state.placeCursor(bottomCursor, 600f)
         assertEquals(300f, state.viewportOffset)
-        assertFalse(state.needsCursorPlacement)
     }
 
     @Test
@@ -132,5 +130,58 @@ class TerminalViewportStateTest {
         assertEquals(100f, state.consume(100f))
         assertEquals(-100f, state.consume(-100f))
         assertEquals(0f, state.viewportOffset)
+    }
+
+    @Test
+    fun aPartlyCoveredCursorShiftsOnlyEnoughToClearTheKeyboard() {
+        val state = raised()
+        state.placeCursor(cursorAt(320f), 600f)
+        assertEquals(40f, state.viewportOffset)
+    }
+
+    @Test
+    fun aVisibleCursorKeepsTheCurrentOffset() {
+        val state = raised()
+        state.placeCursor(cursorAt(320f), 600f)
+        state.placeCursor(cursorAt(200f), 600f)
+        assertEquals(40f, state.viewportOffset)
+    }
+
+    @Test
+    fun aCursorAboveTheVisibleAreaScrollsDownJustEnough() {
+        val state = raised()
+        state.placeCursor(bottomCursor, 600f)
+        state.placeCursor(cursorAt(100f), 600f)
+        assertEquals(100f, state.viewportOffset)
+    }
+
+    @Test
+    fun steppingTheCursorPastTheKeyboardMovesOneRowAtATime() {
+        val state = raised()
+        val offsets =
+            (14..17).map { row ->
+                state.placeCursor(cursorAt(row * 20f), 600f)
+                state.viewportOffset
+            }
+        assertEquals(listOf(0f, 20f, 40f, 60f), offsets)
+        state.placeCursor(cursorAt(280f), 600f)
+        assertEquals(60f, state.viewportOffset)
+    }
+
+    @Test
+    fun followingKeepsTheCursorVisibleAcrossScreenUpdates() {
+        val state = raised()
+        state.placeCursor(cursorAt(320f), 600f)
+        assertTrue(state.needsCursorPlacement)
+        state.placeCursor(bottomCursor, 600f)
+        assertEquals(300f, state.viewportOffset)
+    }
+
+    @Test
+    fun aShrinkingKeyboardClampsTheOffsetWhileFollowing() {
+        val state = raised()
+        state.placeCursor(bottomCursor, 600f)
+        state.updateKeyboardOffset(100f)
+        assertEquals(100f, state.viewportOffset)
     }
 }

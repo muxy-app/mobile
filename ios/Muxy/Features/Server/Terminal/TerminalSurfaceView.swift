@@ -197,11 +197,7 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate, UIGestureRecogniz
     }
 
     private func placeCursorAboveKeyboard() {
-        guard terminalSize != nil, viewportState.needsCursorPlacement else { return }
-        guard displayedHistory == nil else {
-            viewportState.stopFollowingCursor()
-            return
-        }
+        guard terminalSize != nil, displayedHistory == nil, viewportState.needsCursorPlacement else { return }
         guard let cursorFrame else { return }
         let previousOffset = viewportState.viewportOffset
         viewportState.placeCursor(
