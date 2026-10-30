@@ -725,11 +725,7 @@ class TerminalSurfaceView(
     }
 
     private fun placeCursorAboveKeyboard() {
-        if (sizeLock.locked == null || !viewport.needsCursorPlacement) return
-        if (displayedHistory != null) {
-            viewport.stopFollowingCursor()
-            return
-        }
+        if (sizeLock.locked == null || displayedHistory != null || !viewport.needsCursorPlacement) return
         val rect = cursorRect ?: return
         viewport.placeCursor(rect.translate(-offsetX, -offsetY), height.toFloat())
     }

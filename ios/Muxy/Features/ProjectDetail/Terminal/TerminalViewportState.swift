@@ -3,9 +3,12 @@ import UIKit
 struct TerminalViewportState {
     private(set) var keyboardOffset: CGFloat = 0
     private(set) var viewportOffset: CGFloat = 0
-    private(set) var needsCursorPlacement = false
 
     private var followsCursor = false
+
+    var needsCursorPlacement: Bool {
+        followsCursor && keyboardOffset > 0
+    }
 
     static let contentInset: CGFloat = 8
     static let keyboardGap: CGFloat = 10
@@ -32,28 +35,34 @@ struct TerminalViewportState {
         if previousKeyboardOffset == 0 {
             followCursor()
         }
-        needsCursorPlacement = followsCursor
-        guard !followsCursor else { return }
-        viewportOffset = wasAboveKeyboard ? keyboardOffset : min(viewportOffset, keyboardOffset)
+        let raisedOffset = wasAboveKeyboard && !followsCursor ? keyboardOffset : viewportOffset
+        viewportOffset = min(raisedOffset, keyboardOffset)
     }
 
     mutating func placeCursor(in frame: CGRect?, viewportHeight: CGFloat) {
         guard needsCursorPlacement, let frame, viewportHeight > 0 else { return }
-        needsCursorPlacement = false
-        viewportOffset = 0
+        viewportOffset = min(viewportOffset, keyboardOffset)
         guard frame.maxY > 0, frame.minY < viewportHeight else { return }
-        guard frame.maxY > viewportHeight - keyboardOffset else { return }
-        viewportOffset = min(keyboardOffset, max(0, frame.minY))
+        viewportOffset = Self.revealingOffset(
+            for: frame,
+            current: viewportOffset,
+            visibleHeight: viewportHeight - keyboardOffset,
+            limit: keyboardOffset
+        )
+    }
+
+    static func revealingOffset(for frame: CGRect, current: CGFloat, visibleHeight: CGFloat, limit: CGFloat) -> CGFloat {
+        let clearingKeyboard = max(current, frame.maxY - visibleHeight)
+        let showingTop = min(clearingKeyboard, frame.minY)
+        return min(max(0, showingTop), limit)
     }
 
     mutating func followCursor() {
         followsCursor = true
-        needsCursorPlacement = keyboardOffset > 0
     }
 
     mutating func stopFollowingCursor() {
         followsCursor = false
-        needsCursorPlacement = false
     }
 
     mutating func captureRenderedOffset(_ offset: CGFloat) {

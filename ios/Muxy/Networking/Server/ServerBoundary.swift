@@ -68,6 +68,8 @@ nonisolated protocol ServerTerminalChannel: AnyObject, Sendable {
     func send(text: String)
     func send(key: Key, modifiers: Modifiers)
     func paste(_ text: String)
+    func click(button: MouseButton, row: UInt16, column: UInt16, modifiers: Modifiers)
+    func scroll(direction: ScrollDirection, row: UInt16, column: UInt16)
     func resize(to size: TerminalGridSize) async throws
     func scrollback(maxRows: UInt16) async throws -> any ScrollbackSnapshot
     func detach() async throws

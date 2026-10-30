@@ -12,7 +12,6 @@ struct TerminalViewportStateTests {
         state.updateKeyboardOffset(300)
         state.placeCursor(in: CGRect(x: 0, y: y, width: 10, height: 20), viewportHeight: 600)
         #expect(state.viewportOffset == 0)
-        #expect(!state.needsCursorPlacement)
     }
 
     @Test func aCoveredCursorShiftsTheViewportByTheKeyboardOverlap() {
@@ -44,7 +43,6 @@ struct TerminalViewportStateTests {
         #expect(state.needsCursorPlacement)
         state.placeCursor(in: bottomCursor, viewportHeight: 600)
         #expect(state.viewportOffset == 300)
-        #expect(!state.needsCursorPlacement)
     }
 
     @Test func hidingTheKeyboardResetsTheViewport() {
@@ -122,5 +120,57 @@ struct TerminalViewportStateTests {
         #expect(state.consume(100) == 100)
         #expect(state.consume(-100) == -100)
         #expect(state.viewportOffset == 0)
+    }
+
+    @Test func aPartlyCoveredCursorShiftsOnlyEnoughToClearTheKeyboard() {
+        var state = TerminalViewportState()
+        state.updateKeyboardOffset(300)
+        state.placeCursor(in: CGRect(x: 0, y: 320, width: 10, height: 20), viewportHeight: 600)
+        #expect(state.viewportOffset == 40)
+    }
+
+    @Test func aVisibleCursorKeepsTheCurrentOffset() {
+        var state = TerminalViewportState()
+        state.updateKeyboardOffset(300)
+        state.placeCursor(in: CGRect(x: 0, y: 320, width: 10, height: 20), viewportHeight: 600)
+        state.placeCursor(in: CGRect(x: 0, y: 200, width: 10, height: 20), viewportHeight: 600)
+        #expect(state.viewportOffset == 40)
+    }
+
+    @Test func aCursorAboveTheVisibleAreaScrollsDownJustEnough() {
+        var state = TerminalViewportState()
+        state.updateKeyboardOffset(300)
+        state.placeCursor(in: bottomCursor, viewportHeight: 600)
+        state.placeCursor(in: CGRect(x: 0, y: 100, width: 10, height: 20), viewportHeight: 600)
+        #expect(state.viewportOffset == 100)
+    }
+
+    @Test func steppingTheCursorPastTheKeyboardMovesOneRowAtATime() {
+        var state = TerminalViewportState()
+        state.updateKeyboardOffset(300)
+        let offsets = (14...17).map { row -> CGFloat in
+            state.placeCursor(in: CGRect(x: 0, y: CGFloat(row) * 20, width: 10, height: 20), viewportHeight: 600)
+            return state.viewportOffset
+        }
+        #expect(offsets == [0, 20, 40, 60])
+        state.placeCursor(in: CGRect(x: 0, y: 280, width: 10, height: 20), viewportHeight: 600)
+        #expect(state.viewportOffset == 60)
+    }
+
+    @Test func followingKeepsTheCursorVisibleAcrossScreenUpdates() {
+        var state = TerminalViewportState()
+        state.updateKeyboardOffset(300)
+        state.placeCursor(in: CGRect(x: 0, y: 320, width: 10, height: 20), viewportHeight: 600)
+        #expect(state.needsCursorPlacement)
+        state.placeCursor(in: bottomCursor, viewportHeight: 600)
+        #expect(state.viewportOffset == 300)
+    }
+
+    @Test func aShrinkingKeyboardClampsTheOffsetWhileFollowing() {
+        var state = TerminalViewportState()
+        state.updateKeyboardOffset(300)
+        state.placeCursor(in: bottomCursor, viewportHeight: 600)
+        state.updateKeyboardOffset(100)
+        #expect(state.viewportOffset == 100)
     }
 }

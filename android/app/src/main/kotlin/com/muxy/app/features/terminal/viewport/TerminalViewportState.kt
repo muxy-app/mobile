@@ -10,10 +10,10 @@ class TerminalViewportState {
     var viewportOffset: Float = 0f
         private set
 
-    var needsCursorPlacement: Boolean = false
-        private set
-
     private var followsCursor = false
+
+    val needsCursorPlacement: Boolean
+        get() = followsCursor && keyboardOffset > 0f
 
     fun updateKeyboardOffset(offset: Float) {
         val previousKeyboardOffset = keyboardOffset
@@ -25,9 +25,8 @@ class TerminalViewportState {
             return
         }
         if (previousKeyboardOffset == 0f) followCursor()
-        needsCursorPlacement = followsCursor
-        if (followsCursor) return
-        viewportOffset = if (wasAboveKeyboard) keyboardOffset else minOf(viewportOffset, keyboardOffset)
+        val raisedOffset = if (wasAboveKeyboard && !followsCursor) keyboardOffset else viewportOffset
+        viewportOffset = minOf(raisedOffset, keyboardOffset)
     }
 
     fun placeCursor(
@@ -35,21 +34,17 @@ class TerminalViewportState {
         viewportHeight: Float,
     ) {
         if (!needsCursorPlacement || frame == null || viewportHeight <= 0f) return
-        needsCursorPlacement = false
-        viewportOffset = 0f
+        viewportOffset = minOf(viewportOffset, keyboardOffset)
         if (frame.bottom <= 0f || frame.top >= viewportHeight) return
-        if (frame.bottom <= viewportHeight - keyboardOffset) return
-        viewportOffset = minOf(keyboardOffset, maxOf(0f, frame.top))
+        viewportOffset = revealingOffset(frame, viewportOffset, viewportHeight - keyboardOffset, keyboardOffset)
     }
 
     fun followCursor() {
         followsCursor = true
-        needsCursorPlacement = keyboardOffset > 0f
     }
 
     fun stopFollowingCursor() {
         followsCursor = false
-        needsCursorPlacement = false
     }
 
     fun consume(delta: Float): Float {
@@ -63,7 +58,18 @@ class TerminalViewportState {
         return delta - consumed
     }
 
-    private companion object {
-        const val HALF_PIXEL = 0.5f
+    companion object {
+        private const val HALF_PIXEL = 0.5f
+
+        fun revealingOffset(
+            frame: Rect,
+            current: Float,
+            visibleHeight: Float,
+            limit: Float,
+        ): Float {
+            val clearingKeyboard = maxOf(current, frame.bottom - visibleHeight)
+            val showingTop = minOf(clearingKeyboard, frame.top)
+            return showingTop.coerceIn(0f, limit)
+        }
     }
 }

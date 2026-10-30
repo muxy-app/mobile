@@ -107,8 +107,13 @@ final class TerminalController: Identifiable, TabStripItem {
 
     func metadataDidChange() {
         guard let channel else { return }
-        updateTitle(from: channel.screen())
-        display?.screenNeedsRefresh()
+        let screen = channel.screen()
+        updateTitle(from: screen)
+        guard mode == .history, screen.readsScrolling else {
+            display?.screenNeedsRefresh()
+            return
+        }
+        returnToLive()
     }
 
     func currentScreen() -> Screen? {
@@ -240,6 +245,19 @@ final class TerminalController: Identifiable, TabStripItem {
         }
         returnToLive()
         channel.paste(text)
+    }
+
+    func scroll(_ direction: ScrollDirection, at cell: TerminalCellPosition) {
+        channel?.scroll(direction: direction, row: UInt16(clamping: cell.row), column: UInt16(clamping: cell.column))
+    }
+
+    func click(at cell: TerminalCellPosition) {
+        channel?.click(
+            button: .left,
+            row: UInt16(clamping: cell.row),
+            column: UInt16(clamping: cell.column),
+            modifiers: Self.noModifiers
+        )
     }
 
     func setModifierArmed(_ armed: Bool) {
@@ -403,6 +421,12 @@ final class TerminalController: Identifiable, TabStripItem {
 
     private static func normalizedLineBreaks(_ text: String) -> String {
         text.replacingOccurrences(of: "\r\n", with: "\r").replacingOccurrences(of: "\n", with: "\r")
+    }
+}
+
+extension Screen {
+    var readsScrolling: Bool {
+        mouseTracking || alternateScroll
     }
 }
 

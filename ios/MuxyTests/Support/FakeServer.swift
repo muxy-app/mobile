@@ -4,7 +4,13 @@ import Synchronization
 @testable import Muxy
 
 extension Fixtures {
-    static func screen(title: String = "", columns: UInt16 = 80, rows: UInt16 = 24) -> Screen {
+    static func screen(
+        title: String = "",
+        columns: UInt16 = 80,
+        rows: UInt16 = 24,
+        mouseTracking: Bool = false,
+        alternateScroll: Bool = false
+    ) -> Screen {
         Screen(
             columns: columns,
             rows: rows,
@@ -15,8 +21,8 @@ extension Fixtures {
             historyRows: 0,
             applicationCursorKeys: false,
             bracketedPaste: false,
-            mouseTracking: false,
-            alternateScroll: false
+            mouseTracking: mouseTracking,
+            alternateScroll: alternateScroll
         )
     }
 
@@ -63,6 +69,10 @@ final class FakeTerminalChannel: ServerTerminalChannel {
         state.withLock { $0.screen }
     }
 
+    func update(screen: Screen) {
+        state.withLock { $0.screen = screen }
+    }
+
     func send(text: String) {
         state.withLock { $0.sent.append("text:\(text)") }
     }
@@ -74,6 +84,14 @@ final class FakeTerminalChannel: ServerTerminalChannel {
 
     func paste(_ text: String) {
         state.withLock { $0.pastes.append(text) }
+    }
+
+    func click(button: MouseButton, row: UInt16, column: UInt16, modifiers: Modifiers) {
+        state.withLock { $0.sent.append("click:\(button):\(row):\(column)") }
+    }
+
+    func scroll(direction: ScrollDirection, row: UInt16, column: UInt16) {
+        state.withLock { $0.sent.append("scroll:\(direction):\(row):\(column)") }
     }
 
     func resize(to size: TerminalGridSize) async throws {
