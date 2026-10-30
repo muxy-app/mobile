@@ -14,7 +14,7 @@ struct TabsHomeListingTests {
     }
 
     private func project(_ name: String, tabs: [TabsHomeTab]) -> TabsHomeProject {
-        TabsHomeProject(id: name, name: name, path: "/Users/demo/\(name)", color: nil, tabs: tabs, canCreate: true)
+        TabsHomeProject(id: name, name: name, path: "/Users/demo/\(name)", tabs: tabs, canCreate: true)
     }
 
     private func device(_ name: String, projects: [TabsHomeProject]) -> TabsHomeDevice {

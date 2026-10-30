@@ -2,12 +2,13 @@ import SwiftUI
 import UIKit
 
 extension View {
-    func swipeToClose(isEnabled: Bool = true, label: String = "Close", onClose: @escaping () -> Void) -> some View {
-        modifier(SwipeToClose(isEnabled: isEnabled, label: label, onClose: onClose))
+    func swipeToClose(in shape: some Shape, isEnabled: Bool = true, label: String = "Close", onClose: @escaping () -> Void) -> some View {
+        modifier(SwipeToClose(shape: AnyShape(shape), isEnabled: isEnabled, label: label, onClose: onClose))
     }
 }
 
 private struct SwipeToClose: ViewModifier {
+    let shape: AnyShape
     let isEnabled: Bool
     let label: String
     let onClose: () -> Void
@@ -33,7 +34,7 @@ private struct SwipeToClose: ViewModifier {
             }
             .offset(x: offset)
             .background(alignment: .trailing) { closeButton }
-            .clipShape(.rect(cornerRadius: SurfaceCorner.row, style: .continuous))
+            .clipShape(shape)
             .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
             .gesture(HorizontalPan(isEnabled: isEnabled, onChange: drag, onEnd: endDrag))
             .sensoryFeedback(.impact, trigger: passesFullSwipe)
@@ -49,7 +50,7 @@ private struct SwipeToClose: ViewModifier {
                 .opacity(visible > 32 ? 1 : 0)
                 .frame(width: visible)
                 .frame(maxHeight: .infinity)
-                .background(theme.red, in: .rect(cornerRadius: SurfaceCorner.row, style: .continuous))
+                .background(theme.red, in: shape)
         }
         .buttonStyle(.plain)
         .accessibilityHidden(true)

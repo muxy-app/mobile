@@ -54,6 +54,30 @@ struct Card<Content: View>: View {
     }
 }
 
+struct SegmentedCard<Content: View>: View {
+    private let content: Content
+
+    @Environment(\.appTheme) private var theme
+
+    init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(spacing: SurfaceCorner.segmentGap) {
+            Group(subviews: content) { subviews in
+                ForEach(Array(subviews.enumerated()), id: \.element.id) { index, subview in
+                    let shape = RowPosition.of(index: index, count: subviews.count).shape
+                    subview
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(theme.secondaryGroupedBackground, in: shape)
+                        .clipShape(shape)
+                }
+            }
+        }
+    }
+}
+
 struct CardSeparator: View {
     var inset: CGFloat = CardMetrics.iconTextInset
 

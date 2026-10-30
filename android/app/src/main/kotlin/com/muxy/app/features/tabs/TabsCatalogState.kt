@@ -29,7 +29,6 @@ data class TabsTab(
 data class TabsProject(
     val id: String,
     val name: String,
-    val color: String?,
     val path: String? = null,
     val tabs: List<TabsTab> = emptyList(),
     val hasLoadedTabs: Boolean = false,

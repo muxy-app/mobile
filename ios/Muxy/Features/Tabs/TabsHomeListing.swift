@@ -59,7 +59,6 @@ nonisolated struct TabsHomeProject: Identifiable {
     let id: String
     let name: String
     let path: String
-    let color: String?
     let tabs: [TabsHomeTab]
     let canCreate: Bool
 
@@ -67,7 +66,7 @@ nonisolated struct TabsHomeProject: Identifiable {
         if name.localizedStandardContains(needle) { return self }
         let matched = tabs.filter { $0.title.localizedStandardContains(needle) || $0.detail.localizedStandardContains(needle) }
         guard !matched.isEmpty else { return nil }
-        return TabsHomeProject(id: id, name: name, path: path, color: color, tabs: matched, canCreate: canCreate)
+        return TabsHomeProject(id: id, name: name, path: path, tabs: matched, canCreate: canCreate)
     }
 }
 

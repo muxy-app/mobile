@@ -70,8 +70,8 @@ import com.muxy.app.design.components.TabTileColors
 import com.muxy.app.design.components.ThemedCard
 import com.muxy.app.design.components.ThemedChevron
 import com.muxy.app.design.components.ThemedDropdownMenu
+import com.muxy.app.design.components.segmentShape
 import com.muxy.app.features.demo.DemoConnection
-import com.muxy.app.features.projects.rememberProjectColor
 import com.muxy.app.models.ConnectionKind
 import com.muxy.app.models.TabActivity
 
@@ -267,33 +267,25 @@ internal fun TabsProjectCard(
     onSelectTab: (TabsTab) -> Unit,
     onCloseTab: (TabsTab) -> Unit,
 ) {
-    val theme = LocalAppTheme.current
     val showsTabs = expanded && project.tabs.isNotEmpty()
     Column(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = PageMargin.horizontal, vertical = 5.dp)
-                .background(theme.secondaryGroupedBackground, RoundedCornerShape(SurfaceCorners.card))
-                .padding(
-                    start = SurfaceCorners.cardPadding,
-                    end = SurfaceCorners.cardPadding,
-                    top = 4.dp,
-                    bottom = if (showsTabs) SurfaceCorners.cardPadding else 4.dp,
-                ),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = PageMargin.horizontal, vertical = 5.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         TabsProjectHeader(project, canCreate, creating, expanded, onCreate, onToggle)
         if (showsTabs) {
-            project.tabs.forEach { tab ->
-                key(tab.id) {
-                    TabsTabRow(
-                        tab = tab,
-                        enabled = tabsEnabled,
-                        closable = tabsClosable,
-                        onSelect = { onSelectTab(tab) },
-                        onClose = { onCloseTab(tab) },
-                    )
+            Column(verticalArrangement = Arrangement.spacedBy(SurfaceCorners.segmentGap)) {
+                project.tabs.forEachIndexed { index, tab ->
+                    key(tab.id) {
+                        TabsTabRow(
+                            tab = tab,
+                            shape = segmentShape(index, project.tabs.size),
+                            enabled = tabsEnabled,
+                            closable = tabsClosable,
+                            onSelect = { onSelectTab(tab) },
+                            onClose = { onCloseTab(tab) },
+                        )
+                    }
                 }
             }
         }
@@ -333,12 +325,11 @@ private fun TabsProjectHeader(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Box(modifier = Modifier.size(8.dp).background(rememberProjectColor(project.id, project.color), CircleShape))
             Text(
                 project.name,
                 modifier = Modifier.weight(1f, fill = false),
                 style = MaterialTheme.typography.titleMedium,
-                color = theme.foreground,
+                color = theme.secondaryForeground,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -382,13 +373,13 @@ private fun TabsProjectHeader(
 @Composable
 private fun TabsTabRow(
     tab: TabsTab,
+    shape: Shape,
     enabled: Boolean,
     closable: Boolean,
     onSelect: () -> Unit,
     onClose: () -> Unit,
 ) {
     val theme = LocalAppTheme.current
-    val shape = RoundedCornerShape(SurfaceCorners.row)
     val swipe = rememberSwipeToDismissBoxState()
     LaunchedEffect(swipe.settledValue) {
         if (swipe.settledValue != SwipeToDismissBoxValue.EndToStart) return@LaunchedEffect
@@ -437,7 +428,7 @@ private fun TabsTabRowContent(
                 .fillMaxWidth()
                 .heightIn(min = 48.dp)
                 .clip(shape)
-                .background(if (isActive) theme.accent.copy(alpha = ACTIVE_TAB_ALPHA) else theme.tertiaryGroupedBackground)
+                .background(if (isActive) theme.accent.copy(alpha = ACTIVE_TAB_ALPHA) else theme.secondaryGroupedBackground)
                 .border(1.dp, if (isActive) theme.accent.copy(alpha = ACTIVE_TAB_BORDER_ALPHA) else Color.Transparent, shape)
                 .clickable(enabled = enabled, role = Role.Button, onClick = onSelect)
                 .semantics {

@@ -181,7 +181,6 @@ final class TabsHomeViewModel {
                 id: project.id.uuidString,
                 name: project.name,
                 path: project.path,
-                color: project.iconColor,
                 tabs: areas.flatMap { area in area.tabs.map { Self.listing(of: $0, in: area) } },
                 canCreate: status == .connected && catalog?.loadFailed == false
             )
@@ -234,7 +233,6 @@ final class TabsHomeViewModel {
                 id: project.id,
                 name: project.name,
                 path: project.directory,
-                color: project.color,
                 tabs: model?.tabs.map(Self.listing(of:)) ?? [],
                 canCreate: status == .connected && model?.hasLoadedSessions == true && model?.sessionsLoadFailed == false
             )

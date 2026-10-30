@@ -338,7 +338,6 @@ internal class DeviceTabsCatalog(
                         TabsProject(
                             id = project.id.uuidString,
                             name = project.name,
-                            color = project.iconColor,
                             path = project.path,
                             tabs = areas.flatMap { area -> area.tabs.map { tab -> deviceTab(tab, area) } },
                             hasLoadedTabs = project.id in loadedWorkspaces,
