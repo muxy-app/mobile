@@ -20,7 +20,7 @@ class TabsCatalogStateTest {
     private fun project(
         name: String,
         tabs: List<TabsTab>,
-    ) = TabsProject(name, name, color = null, tabs = tabs, hasLoadedTabs = true)
+    ) = TabsProject(name, name, tabs = tabs, hasLoadedTabs = true)
 
     private fun device(
         name: String,

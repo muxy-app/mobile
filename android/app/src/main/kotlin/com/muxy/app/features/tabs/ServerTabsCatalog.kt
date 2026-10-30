@@ -97,7 +97,6 @@ private fun projectTabs(
         TabsProject(
             id = project.id,
             name = project.name,
-            color = project.color,
             path = project.directory,
             tabs = tabs,
             hasLoadedTabs = loaded,

@@ -31,6 +31,8 @@ Environment:
   SIM_ID            Select an existing simulator by UDID (overrides SIM_NAME)
   DEVICE_ID         Select a paired device when no name or ID argument is given
   DEVELOPMENT_TEAM  Override the project's signing team for a device build
+
+When several paired devices match, an interactive terminal prompts for one.
 USAGE
 }
 

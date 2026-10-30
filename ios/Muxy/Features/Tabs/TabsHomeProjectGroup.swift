@@ -14,17 +14,16 @@ struct TabsHomeProjectGroup: View {
         VStack(alignment: .leading, spacing: 6) {
             header
             if showsTabs {
-                ForEach(project.tabs) { tab in
-                    TabsHomeTabRow(tab: tab) { onOpenTab(tab.id) }
-                        .accessibilityLabel("\(tab.title), \(project.name), \(deviceName)")
-                        .swipeToClose(isEnabled: project.canCreate, label: "Close tab") { onCloseTab(tab.id) }
+                VStack(spacing: SurfaceCorner.segmentGap) {
+                    ForEach(Array(project.tabs.enumerated()), id: \.element.id) { index, tab in
+                        let position = RowPosition.of(index: index, count: project.tabs.count)
+                        TabsHomeTabRow(tab: tab, position: position) { onOpenTab(tab.id) }
+                            .accessibilityLabel("\(tab.title), \(project.name), \(deviceName)")
+                            .swipeToClose(in: position.shape, isEnabled: project.canCreate, label: "Close tab") { onCloseTab(tab.id) }
+                    }
                 }
             }
         }
-        .padding(.top, 4)
-        .padding(.horizontal, SurfaceCorner.cardPadding)
-        .padding(.bottom, showsTabs ? SurfaceCorner.cardPadding : 4)
-        .glassEffect(.regular, in: .rect(cornerRadius: SurfaceCorner.card, style: .continuous))
         .padding(.horizontal, PageMargin.horizontal)
     }
 
@@ -36,12 +35,9 @@ struct TabsHomeProjectGroup: View {
         HStack(spacing: 0) {
             Button(action: toggle) {
                 HStack(spacing: 8) {
-                    Circle()
-                        .fill(ProjectIconColor.color(for: project.color, stableFor: project.id))
-                        .frame(width: 8, height: 8)
                     Text(project.name)
                         .font(.headline)
-                        .foregroundStyle(theme.foreground)
+                        .foregroundStyle(theme.secondaryForeground)
                         .lineLimit(1)
                     if !isExpanded, !project.tabs.isEmpty {
                         Text(project.tabs.count == 1 ? "1 tab" : "\(project.tabs.count) tabs")
@@ -93,6 +89,7 @@ struct TabsHomeProjectGroup: View {
 
 struct TabsHomeTabRow: View {
     let tab: TabsHomeTab
+    let position: RowPosition
     let onOpen: () -> Void
 
     @Environment(\.appTheme) private var theme
@@ -116,14 +113,14 @@ struct TabsHomeTabRow: View {
             .padding(.leading, 12)
             .padding(.trailing, 14)
             .frame(minHeight: 48)
-            .background(rowBackground, in: .rect(cornerRadius: SurfaceCorner.row, style: .continuous))
+            .background(rowBackground, in: position.shape)
             .overlay {
                 if isActive {
-                    RoundedRectangle(cornerRadius: SurfaceCorner.row, style: .continuous)
+                    position.shape
                         .strokeBorder(theme.accent.opacity(0.6), lineWidth: 1)
                 }
             }
-            .contentShape(.rect(cornerRadius: SurfaceCorner.row, style: .continuous))
+            .contentShape(position.shape)
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(isActive ? .isSelected : [])
@@ -132,7 +129,7 @@ struct TabsHomeTabRow: View {
     }
 
     private var rowBackground: Color {
-        isActive ? theme.accent.opacity(0.18) : theme.foreground.opacity(0.06)
+        isActive ? theme.accent.opacity(0.18) : theme.secondaryGroupedBackground
     }
 
     @ViewBuilder

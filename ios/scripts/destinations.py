@@ -105,12 +105,36 @@ def select_device(selector):
         ]
     if not devices:
         raise ValueError("No matching paired iPhone or iPad. Connect and unlock it, trust this Mac, and check Xcode > Window > Devices and Simulators.")
-    if len(devices) > 1:
-        raise ValueError("Multiple devices found. Run scripts/run.sh devices, then scripts/run.sh device '<name or ID>'.")
 
-    device = devices[0]
+    device = devices[0] if len(devices) == 1 else prompt_for_device(devices)
     print(f"Device: {device['deviceProperties']['name']}", file=sys.stderr)
     return device["hardwareProperties"]["udid"]
+
+
+def describe_device(device):
+    hardware = device["hardwareProperties"]
+    model = hardware.get("marketingName") or hardware.get("productType", "")
+    os_version = device["deviceProperties"].get("osVersionNumber", "")
+    return f"{device['deviceProperties']['name']} — {model}, iOS {os_version} ({hardware['udid']})"
+
+
+def prompt_for_device(devices):
+    if not sys.stdin.isatty():
+        raise ValueError("Multiple devices found. Run scripts/run.sh devices, then scripts/run.sh device '<name or ID>'.")
+
+    print("Multiple devices found:", file=sys.stderr)
+    for index, device in enumerate(devices, start=1):
+        print(f"  {index}) {describe_device(device)}", file=sys.stderr)
+
+    while True:
+        print(f"Select a device [1-{len(devices)}]: ", end="", file=sys.stderr, flush=True)
+        answer = sys.stdin.readline()
+        if not answer:
+            raise ValueError("No device selected.")
+        choice = answer.strip()
+        if choice.isdigit() and 1 <= int(choice) <= len(devices):
+            return devices[int(choice) - 1]
+        print("Invalid selection.", file=sys.stderr)
 
 
 def main():
@@ -128,6 +152,9 @@ def main():
     except (ValueError, subprocess.CalledProcessError) as error:
         print(f"Error: {error}", file=sys.stderr)
         return 1
+    except KeyboardInterrupt:
+        print(file=sys.stderr)
+        return 130
     print(destination)
     return 0
 

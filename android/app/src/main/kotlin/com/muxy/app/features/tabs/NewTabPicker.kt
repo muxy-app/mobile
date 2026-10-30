@@ -1,9 +1,7 @@
 package com.muxy.app.features.tabs
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -17,7 +15,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -38,7 +35,6 @@ import com.muxy.app.design.components.RowPosition
 import com.muxy.app.design.components.ThemedBorderedButton
 import com.muxy.app.design.components.ThemedBottomSheet
 import com.muxy.app.design.components.ThemedCell
-import com.muxy.app.features.projects.rememberProjectColor
 import com.muxy.app.models.Connection
 import com.muxy.app.models.ConnectionKind
 import com.muxy.app.models.DisplayPath
@@ -151,7 +147,6 @@ private fun NewTabProjectRow(
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(modifier = Modifier.size(8.dp).background(rememberProjectColor(project.id, project.color), CircleShape))
         Text(
             project.name,
             modifier = Modifier.weight(1f),

@@ -62,11 +62,12 @@ struct NewTabPickerContent: View {
                 .foregroundStyle(theme.secondaryForeground)
                 .padding(.horizontal, PageMargin.horizontal + CardMetrics.rowPadding)
         } else {
-            CardSection {
+            SegmentedCard {
                 ForEach(device.projects) { project in
                     projectRow(project, on: device)
                 }
             }
+            .padding(.horizontal, PageMargin.horizontal)
         }
     }
 
@@ -82,10 +83,6 @@ struct NewTabPickerContent: View {
             onCreate(device.id, project.id)
         } label: {
             HStack(spacing: CardMetrics.iconSpacing) {
-                Circle()
-                    .fill(ProjectIconColor.color(for: project.color, stableFor: project.id))
-                    .frame(width: 8, height: 8)
-                    .frame(width: CardMetrics.iconWidth)
                 Text(project.name)
                     .foregroundStyle(theme.foreground)
                     .lineLimit(1)

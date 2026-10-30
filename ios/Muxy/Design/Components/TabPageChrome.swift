@@ -4,6 +4,8 @@ nonisolated enum SurfaceCorner {
     static let card: CGFloat = 24
     static let cardPadding: CGFloat = 11
     static let row: CGFloat = card - cardPadding
+    static let segment: CGFloat = 4
+    static let segmentGap: CGFloat = 2
     static let popover: CGFloat = 18
     static let popoverPadding: CGFloat = 8
     static let popoverRow: CGFloat = popover - popoverPadding
