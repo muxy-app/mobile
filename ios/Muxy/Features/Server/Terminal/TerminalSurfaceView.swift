@@ -26,6 +26,8 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate, UIGestureRecogniz
     private var momentumVelocity: CGFloat = 0
     private var momentumTimestamp: CFTimeInterval = 0
     private var historyPullDistance: CGFloat = 0
+    private var wheel = TerminalWheelAccumulator()
+    private var wheelLocation: CGPoint = .zero
     private let canvas: TerminalCanvasView
     private let input = TerminalInputView()
     private let accessoryBar = TerminalAccessoryBar()
@@ -38,6 +40,8 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate, UIGestureRecogniz
     private var columnCount = 0
     private var cursor: TerminalCursorMark?
     private var liveHistoryRows: UInt64 = 0
+    private var mouseTracking = false
+    private var readsScrolling = false
     private var displayedHistory: HistoryDocument?
     private var isRequestingHistory = false
     private var isLoadingOlderHistory = false
@@ -138,7 +142,7 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate, UIGestureRecogniz
 
     override func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
         guard gestureRecognizer === viewportPanGesture else { return true }
-        guard viewportState.keyboardOffset > 0, selection == nil else { return false }
+        guard selection == nil, viewportState.keyboardOffset > 0 || forwardsScrolling else { return false }
         let velocity = viewportPanGesture.velocity(in: self)
         return abs(velocity.y) > abs(velocity.x)
     }
@@ -242,6 +246,8 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate, UIGestureRecogniz
             controller.setFollowing(false)
             controller.discardOutdatedHistoryPrefetch()
             historyPullDistance = 0
+            wheel.reset()
+            wheelLocation = gesture.location(in: self)
             if let renderedFrame = scrollView.layer.presentation()?.frame {
                 viewportState.captureRenderedOffset(-renderedFrame.minY)
                 scrollView.layer.removeAllAnimations()
@@ -250,6 +256,7 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate, UIGestureRecogniz
         case .changed:
             let translation = gesture.translation(in: self)
             gesture.setTranslation(.zero, in: self)
+            wheelLocation = gesture.location(in: self)
             routeViewportScroll(delta: -translation.y)
         case .ended:
             startMomentum(velocity: -gesture.velocity(in: self).y)
@@ -272,6 +279,10 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate, UIGestureRecogniz
         positionTerminal()
         let viewportMoved = previousOffset != viewportState.viewportOffset
         guard residual != 0 else { return viewportMoved }
+        guard !forwardsScrolling else {
+            sendWheel(delta: residual)
+            return true
+        }
         let currentOffset = scrollView.contentOffset.y
         let maxOffset = max(0, scrollView.contentSize.height - scrollView.bounds.height)
         let nextOffset = min(max(0, currentOffset + residual), maxOffset)
@@ -284,6 +295,19 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate, UIGestureRecogniz
         }
         prefetchOlderHistory()
         return viewportMoved || scrollView.contentOffset.y != currentOffset
+    }
+
+    private var forwardsScrolling: Bool {
+        displayedHistory == nil && readsScrolling
+    }
+
+    private func sendWheel(delta: CGFloat) {
+        let steps = wheel.steps(for: delta, rowHeight: metrics.cellHeight)
+        guard steps != 0, let cell = cell(at: wheelLocation) else { return }
+        let direction: ScrollDirection = steps > 0 ? .down : .up
+        for _ in 0..<abs(steps) {
+            controller.scroll(direction, at: cell)
+        }
     }
 
     private func startMomentum(velocity: CGFloat) {
@@ -401,7 +425,7 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate, UIGestureRecogniz
         scrollView.addGestureRecognizer(viewportPanGesture)
         scrollView.panGestureRecognizer.require(toFail: viewportPanGesture)
 
-        let tap = UITapGestureRecognizer(target: self, action: #selector(handleTap))
+        let tap = UITapGestureRecognizer(target: self, action: #selector(handleTap(_:)))
         addGestureRecognizer(tap)
 
         let longPress = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress(_:)))
@@ -462,6 +486,8 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate, UIGestureRecogniz
             columnCount = Int(screen.columns)
         }
         liveHistoryRows = screen.historyRows
+        mouseTracking = screen.mouseTracking
+        readsScrolling = screen.readsScrolling
         cursorFrame = metrics.cellRect(
             row: Int(screen.cursor.row),
             column: min(Int(screen.cursor.column), max(columnCount - 1, 0))
@@ -554,7 +580,7 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate, UIGestureRecogniz
     }
 
     private func prefetchHistory() {
-        guard displayedHistory == nil, liveHistoryRows > 0 else { return }
+        guard displayedHistory == nil, liveHistoryRows > 0, !readsScrolling else { return }
         controller.prefetchHistory()
     }
 
@@ -662,12 +688,15 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate, UIGestureRecogniz
         return TerminalCellPosition(row: row, column: column)
     }
 
-    @objc private func handleTap() {
+    @objc private func handleTap(_ gesture: UITapGestureRecognizer) {
         editMenu?.dismissMenu()
         selection = nil
-        if !input.isFirstResponder {
-            input.becomeFirstResponder()
+        if mouseTracking, displayedHistory == nil, let cell = cell(at: gesture.location(in: self)) {
+            controller.click(at: cell)
+            return
         }
+        guard !input.isFirstResponder else { return }
+        input.becomeFirstResponder()
     }
 
     @objc private func handleLongPress(_ gesture: UILongPressGestureRecognizer) {

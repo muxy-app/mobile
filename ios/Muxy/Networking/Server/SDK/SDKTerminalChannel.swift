@@ -36,6 +36,18 @@ nonisolated final class SDKTerminalChannel: ServerTerminalChannel {
         }
     }
 
+    func click(button: MouseButton, row: UInt16, column: UInt16, modifiers: Modifiers) {
+        lanes.send { [terminal] in
+            try terminal.click(button: button, row: row, column: column, modifiers: modifiers)
+        }
+    }
+
+    func scroll(direction: ScrollDirection, row: UInt16, column: UInt16) {
+        lanes.send { [terminal] in
+            try terminal.scroll(direction: direction, row: row, column: column)
+        }
+    }
+
     func resize(to size: TerminalGridSize) async throws {
         try await lanes.request { [terminal] in
             try terminal.resize(columns: size.columns, rows: size.rows)
