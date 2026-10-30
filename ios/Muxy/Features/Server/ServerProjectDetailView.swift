@@ -92,13 +92,12 @@ private struct ServerProjectTabsView: View {
         }
         .onAppear {
             if !hasAppliedInitialSelection {
-                if let tab = model.tabs.first(where: { $0.id == initialTabID }) {
-                    model.select(tab)
-                }
+                select(tabID: initialTabID)
                 hasAppliedInitialSelection = true
             }
             model.setVisible(true)
         }
+        .onChange(of: initialTabID) { _, tabID in select(tabID: tabID) }
         .onDisappear { model.setVisible(false) }
     }
 
@@ -133,6 +132,11 @@ private struct ServerProjectTabsView: View {
                 ServerWorktreesModel(projectID: model.projectID, server: server)
             )
         }
+    }
+
+    private func select(tabID: UUID?) {
+        guard let tab = model.tabs.first(where: { $0.id == tabID }) else { return }
+        model.select(tab)
     }
 
     private func open(_ projectID: String) {

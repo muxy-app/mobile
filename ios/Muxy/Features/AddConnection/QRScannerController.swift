@@ -7,6 +7,8 @@ final class QRScannerController: UIViewController {
     private let session = AVCaptureSession()
     private let sessionQueue = DispatchQueue(label: "com.muxy.app.qr.session")
     private var previewLayer: AVCaptureVideoPreviewLayer?
+    private var rotationCoordinator: AVCaptureDevice.RotationCoordinator?
+    private var rotationObservation: NSKeyValueObservation?
     private var didReportCode = false
 
     override func viewDidLoad() {
@@ -51,6 +53,22 @@ final class QRScannerController: UIViewController {
         layer.frame = view.bounds
         view.layer.addSublayer(layer)
         previewLayer = layer
+        followDeviceRotation(of: device, in: layer)
+    }
+
+    private func followDeviceRotation(of device: AVCaptureDevice, in layer: AVCaptureVideoPreviewLayer) {
+        let coordinator = AVCaptureDevice.RotationCoordinator(device: device, previewLayer: layer)
+        rotationCoordinator = coordinator
+        applyPreviewRotation(coordinator.videoRotationAngleForHorizonLevelPreview)
+        rotationObservation = coordinator.observe(\.videoRotationAngleForHorizonLevelPreview, options: [.new]) { [weak self] _, change in
+            guard let angle = change.newValue else { return }
+            Task { @MainActor [weak self] in self?.applyPreviewRotation(angle) }
+        }
+    }
+
+    private func applyPreviewRotation(_ angle: CGFloat) {
+        guard let connection = previewLayer?.connection, connection.isVideoRotationAngleSupported(angle) else { return }
+        connection.videoRotationAngle = angle
     }
 
     private func startSession() {

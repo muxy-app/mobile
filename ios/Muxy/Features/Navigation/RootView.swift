@@ -5,6 +5,7 @@ struct RootView: View {
 
     @AppStorage("muxy.hasCompletedOnboarding") private var hasCompletedOnboarding = false
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.scenePhase) private var scenePhase
     @State private var connectionsViewModel: ConnectionsListViewModel
     @State private var tabsViewModel: TabsHomeViewModel
@@ -32,25 +33,22 @@ struct RootView: View {
     private var themedContent: some View {
         Group {
             if hasCompletedOnboarding {
-                NavigationStack(path: $path) {
-                    TabsHomeView(
-                        viewModel: tabsViewModel,
-                        onOpen: { path.append($0) },
-                        onOpenDevice: navigate(to:),
-                        onEdit: { editingConnection = $0 },
-                        onDelete: { connection in
-                            connectionsViewModel.delete(connection)
-                            tabsViewModel.load()
-                        },
-                        onAddDevice: { addRequest = AddConnectionRequest() },
-                        onSettings: { isShowingSettings = true }
-                    )
-                    .navigationDestination(for: AppRoute.self) { route in
+                if isSplit {
+                    SplitRootView(path: $path, sidebar: { home }) { route in
                         destination(for: route)
                             .toolbar(.visible, for: .navigationBar)
                     }
+                    .onChange(of: path) { _, newPath in pathDidChange(newPath) }
+                } else {
+                    NavigationStack(path: $path) {
+                        home
+                            .navigationDestination(for: AppRoute.self) { route in
+                                destination(for: route)
+                                    .toolbar(.visible, for: .navigationBar)
+                            }
+                    }
+                    .onChange(of: path) { _, newPath in pathDidChange(newPath) }
                 }
-                .onChange(of: path) { _, newPath in pathDidChange(newPath) }
             } else {
                 OnboardingView(
                     onSkip: completeOnboarding,
@@ -66,18 +64,40 @@ struct RootView: View {
                 pairingCode: request.pairingCode,
                 onAdded: didAdd
             )
+            .formModalPresentation()
         }
         .sheet(item: $editingConnection, onDismiss: reloadConnections) { connection in
             EditConnectionView(viewModel: container.makeEditConnectionViewModel(for: connection)) {
                 editingConnection = nil
                 reloadConnections()
             }
+            .formModalPresentation()
         }
         .sheet(isPresented: $isShowingSettings) {
             SettingsView(settings: container.settings) {
                 isShowingSettings = false
             }
+            .formModalPresentation()
         }
+    }
+
+    private var home: some View {
+        TabsHomeView(
+            viewModel: tabsViewModel,
+            onOpen: show(_:),
+            onOpenDevice: navigate(to:),
+            onEdit: { editingConnection = $0 },
+            onDelete: { connection in
+                connectionsViewModel.delete(connection)
+                tabsViewModel.load()
+            },
+            onAddDevice: { addRequest = AddConnectionRequest() },
+            onSettings: { isShowingSettings = true }
+        )
+    }
+
+    private var isSplit: Bool {
+        horizontalSizeClass == .regular
     }
 
     @ViewBuilder
@@ -91,7 +111,10 @@ struct RootView: View {
                 }
             )
         case let .projectDetail(connection, project, tabID):
-            ProjectDetailView(viewModel: container.makeProjectDetailViewModel(for: project, connection: connection, initialTabID: tabID))
+            ProjectDetailView(
+                viewModel: container.makeProjectDetailViewModel(for: project, connection: connection, initialTabID: tabID),
+                requestedTabID: tabID
+            )
         case let .serverProjects(connection):
             ServerProjectsView(
                 connection: connection,
@@ -123,12 +146,20 @@ struct RootView: View {
     private func navigate(to connection: Connection) {
         switch connection.kind {
         case .device:
-            path.append(AppRoute.projects(connection))
+            show(.projects(connection))
         case .server:
-            path.append(AppRoute.serverProjects(connection))
+            show(.serverProjects(connection))
         case .ssh:
-            path.append(AppRoute.sshTerminal(connection))
+            show(.sshTerminal(connection))
         }
+    }
+
+    private func show(_ route: AppRoute) {
+        guard isSplit else {
+            path.append(route)
+            return
+        }
+        path = [route]
     }
 
     private func didAdd(_ connection: Connection) {

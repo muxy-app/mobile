@@ -143,20 +143,20 @@ final class TerminalViewportHostView: UIView, UIGestureRecognizerDelegate {
     }
 
     private func lockTerminalSizeIfStable() -> Bool {
-        if terminalSize != nil { return true }
-        guard terminalDimensionsAreUsable(for: bounds.size) else { return false }
+        if terminalSize == bounds.size { return true }
+        guard terminalDimensionsAreUsable(for: bounds.size) else { return terminalSize != nil }
         pendingTerminalSize = bounds.size
-        guard !terminalSizeConfirmationScheduled else { return false }
+        guard !terminalSizeConfirmationScheduled else { return terminalSize != nil }
         terminalSizeConfirmationScheduled = true
         DispatchQueue.main.async { [weak self] in
             self?.confirmTerminalSize()
         }
-        return false
+        return terminalSize != nil
     }
 
     private func confirmTerminalSize() {
         terminalSizeConfirmationScheduled = false
-        guard terminalSize == nil, let pendingTerminalSize else { return }
+        guard let pendingTerminalSize else { return }
         guard pendingTerminalSize == bounds.size, terminalDimensionsAreUsable(for: bounds.size) else {
             setNeedsLayout()
             return

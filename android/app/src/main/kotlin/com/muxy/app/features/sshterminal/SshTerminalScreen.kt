@@ -16,11 +16,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.muxy.app.R
 import com.muxy.app.design.LocalAppTheme
 import com.muxy.app.design.components.MuxyTopAppBar
+import com.muxy.app.design.components.PaneNavigationIcon
 import com.muxy.app.design.components.TabStrip
 import com.muxy.app.design.components.ThemedBorderedButton
 import com.muxy.app.design.components.ThemedEmptyState
 import com.muxy.app.design.components.ThemedProminentButton
-import com.muxy.app.design.components.TopBarAction
 import com.muxy.app.design.components.blockingTouches
 import com.muxy.app.features.projectdetail.TabPager
 import com.muxy.app.features.terminal.TerminalScreen
@@ -38,7 +38,7 @@ fun SshTerminalScreen(
         topBar = {
             MuxyTopAppBar(
                 title = state.name,
-                navigationIcon = { TopBarAction(R.drawable.ic_arrow_back, "Back", onBack) },
+                navigationIcon = { PaneNavigationIcon(onBack) },
             )
         },
     ) { padding ->

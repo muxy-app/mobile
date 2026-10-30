@@ -10,6 +10,7 @@ struct TerminalViewportState {
     static let contentInset: CGFloat = 8
     static let keyboardGap: CGFloat = 10
     static let keyboardSpacing = keyboardGap + contentInset
+    static let pageOutset = PageMargin.horizontal + contentInset
 
     static func keyboardOverlap(in bounds: CGRect, keyboardFrame: CGRect) -> CGFloat {
         guard keyboardFrame != .zero else { return 0 }

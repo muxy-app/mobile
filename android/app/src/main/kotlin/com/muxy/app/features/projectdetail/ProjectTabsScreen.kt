@@ -12,6 +12,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
@@ -19,7 +20,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.muxy.app.R
 import com.muxy.app.design.LocalAppTheme
+import com.muxy.app.design.components.LocalSidebarControl
 import com.muxy.app.design.components.MuxyTopAppBar
+import com.muxy.app.design.components.PaneNavigationIcon
 import com.muxy.app.design.components.TabStrip
 import com.muxy.app.design.components.TabStripItem
 import com.muxy.app.design.components.ThemedEmptyState
@@ -48,11 +51,12 @@ fun ProjectTabsScreen(
     onTool: (ProjectTool) -> Unit,
     page: @Composable (tab: TabStripItem, isActive: Boolean) -> Unit,
 ) {
+    ReportActiveTab(state.selectedTabId)
     Scaffold(
         topBar = {
             MuxyTopAppBar(
                 title = state.projectName,
-                navigationIcon = { TopBarAction(R.drawable.ic_arrow_back, "Back", onBack) },
+                navigationIcon = { PaneNavigationIcon(onBack) },
                 actions = {
                     ProjectTool.entries.forEach { tool -> TopBarAction(tool.icon, tool.title, { onTool(tool) }) }
                 },
@@ -73,6 +77,15 @@ fun ProjectTabsScreen(
             )
             TabPager(state.tabs, state.selectedTabId, onSelect, page)
         }
+    }
+}
+
+@Composable
+private fun ReportActiveTab(tabId: Any?) {
+    val sidebar = LocalSidebarControl.current ?: return
+    DisposableEffect(sidebar.state, tabId) {
+        tabId?.let(sidebar.state::select)
+        onDispose { tabId?.let(sidebar.state::clear) }
     }
 }
 

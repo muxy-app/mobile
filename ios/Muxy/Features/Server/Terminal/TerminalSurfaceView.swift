@@ -72,9 +72,10 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate, UIGestureRecogniz
     }
 
     func update(theme: ThemePalette, useNerdFont: Bool, autoFocus: Bool, isActive: Bool) {
+        let becameActiveOrInactive = isActive != self.isActive
         self.autoFocus = autoFocus
         self.isActive = isActive
-        syncFocus()
+        if becameActiveOrInactive { syncFocus() }
         guard theme != self.theme || useNerdFont != self.useNerdFont else { return }
         self.theme = theme
         self.useNerdFont = useNerdFont
@@ -123,6 +124,7 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate, UIGestureRecogniz
     override func layoutSubviews() {
         super.layoutSubviews()
         guard bounds.width > 0, bounds.height > 0 else { return }
+        accessoryBar.alignContent(toPageOf: self)
         syncKeyboardOffset()
         positionKeyboardOcclusion()
         guard lockTerminalSizeIfStable() else { return }
@@ -142,15 +144,15 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate, UIGestureRecogniz
     }
 
     private func lockTerminalSizeIfStable() -> Bool {
-        if terminalSize != nil { return true }
-        guard terminalDimensionsAreUsable else { return false }
+        if terminalSize == bounds.size { return true }
+        guard terminalDimensionsAreUsable else { return terminalSize != nil }
         pendingTerminalSize = bounds.size
-        guard !terminalSizeConfirmationScheduled else { return false }
+        guard !terminalSizeConfirmationScheduled else { return terminalSize != nil }
         terminalSizeConfirmationScheduled = true
         DispatchQueue.main.async { [weak self] in
             self?.confirmTerminalSize()
         }
-        return false
+        return terminalSize != nil
     }
 
     private var terminalDimensionsAreUsable: Bool {
@@ -160,7 +162,7 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate, UIGestureRecogniz
 
     private func confirmTerminalSize() {
         terminalSizeConfirmationScheduled = false
-        guard terminalSize == nil, let pendingTerminalSize else { return }
+        guard let pendingTerminalSize else { return }
         guard pendingTerminalSize == bounds.size, terminalDimensionsAreUsable else {
             setNeedsLayout()
             return

@@ -14,7 +14,7 @@ struct GitSheetView<Worktrees: View>: View {
                     DoneToolbarItem { dismiss() }
                 }
         }
-        .presentationDetents([.large])
+        .pageModalPresentation()
         .task {
             if viewModel.status == nil {
                 await viewModel.refreshStatus()

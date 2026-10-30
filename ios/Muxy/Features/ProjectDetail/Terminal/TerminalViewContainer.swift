@@ -232,6 +232,7 @@ final class FollowAwareTerminalView: TerminalView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
+        accessoryBar.alignContent(toPageOf: self)
         session?.terminalDidLayout()
     }
 

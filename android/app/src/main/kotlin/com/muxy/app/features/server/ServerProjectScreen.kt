@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -18,13 +19,16 @@ import com.muxy.app.features.projectdetail.ProjectTabsScreen
 import com.muxy.app.features.projectdetail.ProjectTool
 import com.muxy.app.features.terminal.TerminalScreen
 import com.muxy.app.features.terminal.TerminalSettings
+import java.util.UUID
 
 @Composable
 fun ServerProjectScreen(
     viewModel: ServerProjectViewModel,
+    requestedTabId: UUID?,
     onBack: () -> Unit,
     onTool: (ProjectTool) -> Unit,
 ) {
+    LaunchedEffect(requestedTabId) { requestedTabId?.let(viewModel::select) }
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val settings by viewModel.terminalSettings.collectAsStateWithLifecycle()
     val isConnectionLost by viewModel.isConnectionLost.collectAsStateWithLifecycle()

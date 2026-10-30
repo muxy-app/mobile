@@ -13,7 +13,7 @@ struct ServerWorktreesSheetView: View {
                     DoneToolbarItem { dismiss() }
                 }
         }
-        .presentationDetents([.large])
+        .pageModalPresentation()
     }
 }
 

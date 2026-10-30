@@ -12,7 +12,7 @@ struct WorktreesSheetView: View {
                     DoneToolbarItem { dismiss() }
                 }
         }
-        .presentationDetents([.large])
+        .pageModalPresentation()
     }
 }
 

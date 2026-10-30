@@ -14,6 +14,7 @@ internal fun NavBackStack<AppRoute>.openConnection(
     connection: Connection,
     enforcement: BillingEnforcement,
     entitlement: Entitlement,
+    inPane: Boolean = false,
 ) {
     if (connection.requiresUnlock(enforcement, entitlement)) {
         open(AppRoute.Paywall)
@@ -21,7 +22,7 @@ internal fun NavBackStack<AppRoute>.openConnection(
     }
     when (connection.kind) {
         ConnectionKind.DEVICE -> {
-            open(AppRoute.Projects(connection.id))
+            show(AppRoute.Projects(connection.id), inPane)
         }
 
         ConnectionKind.SERVER -> {
@@ -30,11 +31,11 @@ internal fun NavBackStack<AppRoute>.openConnection(
                 Log.connection.error("A Muxy 2 connection has no server id")
                 return
             }
-            open(AppRoute.ServerProjects(connection.id, serverId))
+            show(AppRoute.ServerProjects(connection.id, serverId), inPane)
         }
 
         ConnectionKind.SSH -> {
-            open(AppRoute.SshTerminal(connection.id))
+            show(AppRoute.SshTerminal(connection.id), inPane)
         }
     }
 }
@@ -43,6 +44,7 @@ internal fun NavBackStack<AppRoute>.openTab(
     selection: TabsSelection,
     enforcement: BillingEnforcement,
     entitlement: Entitlement,
+    inPane: Boolean = false,
 ) {
     val connection = selection.connection
     if (connection.requiresUnlock(enforcement, entitlement)) {
@@ -64,6 +66,17 @@ internal fun NavBackStack<AppRoute>.openTab(
                 return
             }
         }
+    show(route, inPane)
+}
+
+private fun NavBackStack<AppRoute>.show(
+    route: AppRoute,
+    inPane: Boolean,
+) {
+    if (inPane) {
+        showInPane(route)
+        return
+    }
     open(route)
 }
 

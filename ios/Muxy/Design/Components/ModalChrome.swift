@@ -11,3 +11,14 @@ struct DoneToolbarItem: ToolbarContent {
         }
     }
 }
+
+extension View {
+    func pageModalPresentation() -> some View {
+        presentationDetents([.large])
+            .presentationSizing(.page)
+    }
+
+    func formModalPresentation() -> some View {
+        presentationSizing(.form)
+    }
+}

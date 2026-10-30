@@ -44,6 +44,7 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
@@ -51,13 +52,16 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import com.muxy.app.R
 import com.muxy.app.design.LocalAppTheme
+import com.muxy.app.design.components.LocalActiveTabId
 import com.muxy.app.design.components.PageMargin
 import com.muxy.app.design.components.SurfaceCorners
 import com.muxy.app.design.components.TabActivityBadge
@@ -70,6 +74,9 @@ import com.muxy.app.features.demo.DemoConnection
 import com.muxy.app.features.projects.rememberProjectColor
 import com.muxy.app.models.ConnectionKind
 import com.muxy.app.models.TabActivity
+
+private const val ACTIVE_TAB_ALPHA = 0.18f
+private const val ACTIVE_TAB_BORDER_ALPHA = 0.6f
 
 @Composable
 internal fun TabsDeviceHeader(
@@ -423,15 +430,18 @@ private fun TabsTabRowContent(
 ) {
     val theme = LocalAppTheme.current
     val status = tab.activity.statusLabel.takeIf { tab.activity.state != TabActivity.State.IDLE }
+    val isActive = tab.id == LocalActiveTabId.current
     Row(
         modifier =
             Modifier
                 .fillMaxWidth()
                 .heightIn(min = 48.dp)
                 .clip(shape)
-                .background(theme.tertiaryGroupedBackground)
+                .background(if (isActive) theme.accent.copy(alpha = ACTIVE_TAB_ALPHA) else theme.tertiaryGroupedBackground)
+                .border(1.dp, if (isActive) theme.accent.copy(alpha = ACTIVE_TAB_BORDER_ALPHA) else Color.Transparent, shape)
                 .clickable(enabled = enabled, role = Role.Button, onClick = onSelect)
                 .semantics {
+                    selected = isActive
                     if (status != null) stateDescription = status
                     if (closable) {
                         customActions =
@@ -447,25 +457,51 @@ private fun TabsTabRowContent(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         TabKindIcon(kind = tab.tile, activity = tab.activity)
-        Text(
-            tab.title,
+        TitleFirstRow(
             modifier = Modifier.weight(1f),
-            color = theme.foreground,
-            style = MaterialTheme.typography.bodyLarge,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
+            title = {
+                Text(
+                    tab.title,
+                    color = theme.foreground,
+                    style = MaterialTheme.typography.bodyLarge,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            },
+            trailing = {
+                if (status != null) {
+                    TabActivityBadge(tab.activity)
+                } else if (tab.detail.isNotEmpty()) {
+                    Text(
+                        tab.detail,
+                        modifier = Modifier.widthIn(max = 160.dp),
+                        color = theme.secondaryForeground,
+                        style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                        maxLines = 1,
+                        overflow = TextOverflow.StartEllipsis,
+                    )
+                }
+            },
         )
-        if (status != null) {
-            TabActivityBadge(tab.activity)
-        } else if (tab.detail.isNotEmpty()) {
-            Text(
-                tab.detail,
-                modifier = Modifier.widthIn(max = 160.dp),
-                color = theme.secondaryForeground,
-                style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                maxLines = 1,
-                overflow = TextOverflow.StartEllipsis,
-            )
+    }
+}
+
+@Composable
+private fun TitleFirstRow(
+    title: @Composable () -> Unit,
+    trailing: @Composable () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Layout(contents = listOf(title, trailing), modifier = modifier) { (titleMeasurables, trailingMeasurables), constraints ->
+        val gap = 8.dp.roundToPx()
+        val titlePlaceable = titleMeasurables.firstOrNull()?.measure(constraints.copy(minWidth = 0))
+        val titleWidth = titlePlaceable?.width ?: 0
+        val trailingMaxWidth = (constraints.maxWidth - titleWidth - gap).coerceAtLeast(0)
+        val trailingPlaceable = trailingMeasurables.firstOrNull()?.measure(Constraints(maxWidth = trailingMaxWidth))
+        val height = maxOf(titlePlaceable?.height ?: 0, trailingPlaceable?.height ?: 0)
+        layout(constraints.maxWidth, height) {
+            titlePlaceable?.placeRelative(0, (height - titlePlaceable.height) / 2)
+            trailingPlaceable?.placeRelative(constraints.maxWidth - trailingPlaceable.width, (height - trailingPlaceable.height) / 2)
         }
     }
 }
@@ -535,6 +571,7 @@ internal fun FloatingHomeBar(
                             color = theme.secondaryForeground,
                             style = MaterialTheme.typography.bodyLarge,
                             maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
                     }
                     BasicTextField(

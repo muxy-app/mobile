@@ -96,6 +96,11 @@ struct TabsHomeTabRow: View {
     let onOpen: () -> Void
 
     @Environment(\.appTheme) private var theme
+    @Environment(\.activeTabID) private var activeTabID
+
+    private var isActive: Bool {
+        tab.id == activeTabID
+    }
 
     var body: some View {
         Button(action: onOpen) {
@@ -111,12 +116,23 @@ struct TabsHomeTabRow: View {
             .padding(.leading, 12)
             .padding(.trailing, 14)
             .frame(minHeight: 48)
-            .background(theme.foreground.opacity(0.06), in: .rect(cornerRadius: SurfaceCorner.row, style: .continuous))
+            .background(rowBackground, in: .rect(cornerRadius: SurfaceCorner.row, style: .continuous))
+            .overlay {
+                if isActive {
+                    RoundedRectangle(cornerRadius: SurfaceCorner.row, style: .continuous)
+                        .strokeBorder(theme.accent.opacity(0.6), lineWidth: 1)
+                }
+            }
             .contentShape(.rect(cornerRadius: SurfaceCorner.row, style: .continuous))
         }
         .buttonStyle(.plain)
+        .accessibilityAddTraits(isActive ? .isSelected : [])
         .accessibilityValue(tab.activity.state == .idle ? tab.detail : tab.activity.statusLabel ?? "")
         .accessibilityHint("Opens this tab")
+    }
+
+    private var rowBackground: Color {
+        isActive ? theme.accent.opacity(0.18) : theme.foreground.opacity(0.06)
     }
 
     @ViewBuilder

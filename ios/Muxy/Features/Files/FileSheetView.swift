@@ -58,7 +58,7 @@ struct FileSheetView: View {
             .screenTitle(title)
             .toolbar { toolbar }
         }
-        .presentationDetents([.large])
+        .pageModalPresentation()
         .presentationDragIndicator(.visible)
         .interactiveDismissDisabled(viewModel.isDirty || viewModel.isBusy)
         .task { await viewModel.run() }

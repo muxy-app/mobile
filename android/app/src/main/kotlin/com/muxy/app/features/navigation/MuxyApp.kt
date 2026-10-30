@@ -4,6 +4,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSerializable
 import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -18,6 +20,8 @@ import com.muxy.app.app.AppContainer
 import com.muxy.app.design.MuxyTheme
 import com.muxy.app.design.ThemeCatalog
 import com.muxy.app.design.ThemedWindow
+import com.muxy.app.design.components.currentWindowWidth
+import com.muxy.app.design.components.rememberSidebarState
 import com.muxy.app.features.addconnection.AddConnectionRequest
 import com.muxy.app.features.addconnection.AddConnectionScreen
 import com.muxy.app.features.billing.EntitlementFooter
@@ -73,7 +77,11 @@ private fun AppNavigation(
     container: AppContainer,
     backStack: NavBackStack<AppRoute>,
 ) {
-    ConnectionFocusBridge(container, backStack)
+    val windowWidth = currentWindowWidth()
+    val sidebar = rememberSidebarState()
+    val sceneStrategies =
+        remember(windowWidth, sidebar) { listOf(ModalSceneStrategy(windowWidth), SidebarSceneStrategy(windowWidth, sidebar)) }
+    ConnectionFocusBridge(container, backStack, isSidebarShown = windowWidth.isWide && sidebar.isVisible)
     LaunchedEffect(backStack) {
         pendingPairingRequests(
             container.addConnectionRequests.request,
@@ -85,7 +93,12 @@ private fun AppNavigation(
         }
     }
     val openConnection = { connection: Connection ->
-        backStack.openConnection(connection, container.billing.enforcement, container.billing.refreshEntitlement())
+        backStack.openConnection(
+            connection,
+            container.billing.enforcement,
+            container.billing.refreshEntitlement(),
+            inPane = windowWidth.isWide,
+        )
     }
     NavDisplay(
         backStack = backStack,
@@ -98,16 +111,24 @@ private fun AppNavigation(
                 rememberSaveableStateHolderNavEntryDecorator(),
                 rememberViewModelStoreNavEntryDecorator(),
             ),
+        sceneStrategies = sceneStrategies,
         transitionSpec = { NavigationTransitions.push() },
         popTransitionSpec = { NavigationTransitions.pop() },
         predictivePopTransitionSpec = { NavigationTransitions.pop() },
         entryProvider =
             entryProvider {
-                entry<AppRoute.Connections> {
+                entry<AppRoute.Connections>(metadata = SidebarSceneStrategy.sidebar()) {
                     val connections = viewModel { container.makeConnectionsListViewModel() }
                     TabsHomeScreen(
                         viewModel = viewModel { container.makeTabsHomeViewModel() },
-                        onSelect = { backStack.openTab(it, container.billing.enforcement, container.billing.refreshEntitlement()) },
+                        onSelect = {
+                            backStack.openTab(
+                                it,
+                                container.billing.enforcement,
+                                container.billing.refreshEntitlement(),
+                                inPane = windowWidth.isWide,
+                            )
+                        },
                         onOpenConnection = openConnection,
                         onAddDevice = { backStack.open(AppRoute.AddConnection) },
                         onSettings = { backStack.open(AppRoute.Settings) },
@@ -117,16 +138,16 @@ private fun AppNavigation(
                         footer = { EntitlementFooter(container.billing) },
                     )
                 }
-                entry<AppRoute.Paywall>(metadata = NavigationTransitions.modal) {
+                entry<AppRoute.Paywall>(metadata = ModalSceneStrategy.form()) {
                     PaywallScreen(container.billing, onClose = { backStack.close(AppRoute.Paywall) })
                 }
-                entry<AppRoute.Settings>(metadata = NavigationTransitions.modal) {
+                entry<AppRoute.Settings>(metadata = ModalSceneStrategy.form()) {
                     SettingsModal(
                         viewModel = viewModel { container.makeSettingsViewModel() },
                         onClose = { backStack.close(AppRoute.Settings) },
                     )
                 }
-                entry<AppRoute.AddConnection>(metadata = NavigationTransitions.modal) {
+                entry<AppRoute.AddConnection>(metadata = ModalSceneStrategy.form()) {
                     AddConnectionScreen(
                         viewModel = viewModel { container.makeAddConnectionViewModel() },
                         onCancel = { backStack.close(AppRoute.AddConnection) },
@@ -136,19 +157,19 @@ private fun AppNavigation(
                         },
                     )
                 }
-                entry<AppRoute.EditConnection>(metadata = NavigationTransitions.modal) { route ->
+                entry<AppRoute.EditConnection>(metadata = ModalSceneStrategy.form()) { route ->
                     EditConnectionScreen(
                         viewModel = viewModel { container.makeEditConnectionViewModel(route.connectionId) },
                         onClose = { backStack.close(route) },
                     )
                 }
-                entry<AppRoute.SshTerminal> { route ->
+                entry<AppRoute.SshTerminal>(metadata = SidebarSceneStrategy.pane()) { route ->
                     SshTerminalScreen(
                         viewModel = viewModel { container.makeSshTerminalViewModel(route.connectionId) },
                         onBack = { backStack.close(route) },
                     )
                 }
-                entry<AppRoute.Projects> { route ->
+                entry<AppRoute.Projects>(metadata = SidebarSceneStrategy.pane()) { route ->
                     ProjectsScreen(
                         viewModel = viewModel { container.makeProjectsViewModel(route.connectionId) },
                         onSelect = { project -> backStack.open(AppRoute.ProjectDetail(route.connectionId, project.id, project.name)) },
@@ -156,9 +177,13 @@ private fun AppNavigation(
                         onBack = { backStack.close(route) },
                     )
                 }
-                entry<AppRoute.ProjectDetail> { route ->
+                entry<AppRoute.ProjectDetail>(
+                    clazzContentKey = { it.destination.toString() },
+                    metadata = SidebarSceneStrategy.pane(),
+                ) { route ->
                     ProjectDetailScreen(
                         viewModel = viewModel { container.makeProjectDetailViewModel(route) },
+                        requestedTabId = route.initialTabId,
                         onBack = { backStack.close(route) },
                         onTool = { tool ->
                             backStack.open(
@@ -167,16 +192,20 @@ private fun AppNavigation(
                         },
                     )
                 }
-                entry<AppRoute.ServerProjects> { route ->
+                entry<AppRoute.ServerProjects>(metadata = SidebarSceneStrategy.pane()) { route ->
                     ServerProjectsScreen(
                         viewModel = viewModel { container.makeServerProjectsViewModel(route) },
                         onSelect = { projectId -> backStack.open(AppRoute.ServerProject(route.connectionId, route.serverId, projectId)) },
                         onBack = { backStack.close(route) },
                     )
                 }
-                entry<AppRoute.ServerProject> { route ->
+                entry<AppRoute.ServerProject>(
+                    clazzContentKey = { it.destination.toString() },
+                    metadata = SidebarSceneStrategy.pane(),
+                ) { route ->
                     ServerProjectScreen(
                         viewModel = viewModel { container.makeServerProjectViewModel(route) },
+                        requestedTabId = route.initialTabId,
                         onBack = { backStack.close(route) },
                         onTool = { tool ->
                             backStack.open(
@@ -185,7 +214,7 @@ private fun AppNavigation(
                         },
                     )
                 }
-                entry<AppRoute.ProjectTools>(metadata = NavigationTransitions.modal) { route ->
+                entry<AppRoute.ProjectTools>(metadata = ModalSceneStrategy.page()) { route ->
                     if (route.tool == ProjectTool.FILES) {
                         FilesModal(
                             viewModel = viewModel { container.projectTools.files(route.project) },
@@ -215,10 +244,12 @@ private fun AppNavigation(
 private fun ConnectionFocusBridge(
     container: AppContainer,
     backStack: NavBackStack<AppRoute>,
+    isSidebarShown: Boolean,
 ) {
+    val sidebarShown by rememberUpdatedState(isSidebarShown)
     LaunchedEffect(backStack) {
-        snapshotFlow { backStack.toList() }.collect { routes ->
-            val isHome = routes.lastOrNull() == AppRoute.Connections
+        snapshotFlow { backStack.toList() to sidebarShown }.collect { (routes, sidebarShown) ->
+            val isHome = sidebarShown || routes.lastOrNull() == AppRoute.Connections
             container.connectionLifecycle.focus(routes.connectionFocus())
             if (isHome) container.tabsCatalog.setVisible(true)
             container.serverDirectory.focus(routes.serverFocus())
