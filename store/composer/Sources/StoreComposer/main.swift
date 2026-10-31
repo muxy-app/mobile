@@ -3,9 +3,15 @@ import Foundation
 
 let usage = """
 Usage:
-  StoreComposer <iphone|ipad|android-phone|android-tablet> <captures-dir> <output-dir>
+  StoreComposer <iphone|iphone-duo|ipad|android-phone|android-tablet> <captures-dir> <output-dir>
   StoreComposer feature-graphic <captures-dir> <icon-png> <output-png>
+  StoreComposer <app-store-header|app-store-search> <iphone-captures-dir> <ipad-captures-dir> <output-png>
 """
+
+func capture(_ name: String, in captures: [String: NSImage], for target: String) throws -> NSImage {
+    guard let image = captures[name] else { throw RenderError.failed("\(target): missing \(name) capture") }
+    return image
+}
 
 func loadCaptures(from directory: URL) -> [String: NSImage] {
     let files = (try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? []
@@ -26,9 +32,20 @@ func loadImage(_ path: String) -> NSImage {
 func run(_ arguments: [String]) throws {
     if arguments.count == 4, arguments[0] == "feature-graphic" {
         let captures = loadCaptures(from: URL(fileURLWithPath: arguments[1]))
-        guard let screenshot = captures["agent"] else { throw RenderError.failed("feature graphic: missing agent capture") }
-        let graphic = FeatureGraphic(icon: loadImage(arguments[2]), screenshot: screenshot)
+        let graphic = FeatureGraphic(icon: loadImage(arguments[2]), screenshot: try capture("agent", in: captures, for: "feature graphic"))
         try Renderer.write(graphic, size: FeatureGraphic.canvas, to: URL(fileURLWithPath: arguments[3]))
+        print("rendered \(arguments[3])")
+        return
+    }
+    if arguments.count == 4, let kind = BannerKind(rawValue: arguments[0]) {
+        let phones = loadCaptures(from: URL(fileURLWithPath: arguments[1]))
+        let tablets = loadCaptures(from: URL(fileURLWithPath: arguments[2]))
+        let shots = BannerShots(
+            tablet: try capture("projects", in: tablets, for: kind.rawValue),
+            leadingPhone: try capture("editor", in: phones, for: kind.rawValue),
+            trailingPhone: try capture("git", in: phones, for: kind.rawValue)
+        )
+        try Renderer.write(Banner(kind: kind, shots: shots), size: kind.canvas, to: URL(fileURLWithPath: arguments[3]))
         print("rendered \(arguments[3])")
         return
     }

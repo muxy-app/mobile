@@ -2,6 +2,7 @@ import SwiftUI
 
 enum DeviceKind {
     case iPhone
+    case iPhoneDuo
     case pixelPhone
     case iPad
     case pixelTablet
@@ -9,6 +10,7 @@ enum DeviceKind {
     var screenSize: CGSize {
         switch self {
         case .iPhone: CGSize(width: 1320, height: 2868)
+        case .iPhoneDuo: CGSize(width: 2853, height: 2007)
         case .pixelPhone: CGSize(width: 1080, height: 2424)
         case .iPad: CGSize(width: 2064, height: 2752)
         case .pixelTablet: CGSize(width: 1600, height: 2560)
@@ -30,6 +32,19 @@ enum DeviceKind {
                     DeviceButton(edge: .leading, position: 0.325, length: 0.070),
                     DeviceButton(edge: .trailing, position: 0.265, length: 0.105),
                     DeviceButton(edge: .trailing, position: 0.545, length: 0.060)
+                ]
+            )
+        case .iPhoneDuo:
+            DeviceStyle(
+                frame: 0.011,
+                bezel: 0.024,
+                screenRadius: 0.075,
+                metal: [0.42, 0.16, 0.30, 0.12, 0.38],
+                camera: .none,
+                buttons: [
+                    DeviceButton(edge: .top, position: 0.72, length: 0.085),
+                    DeviceButton(edge: .trailing, position: 0.12, length: 0.070),
+                    DeviceButton(edge: .trailing, position: 0.20, length: 0.070)
                 ]
             )
         case .pixelPhone:
