@@ -14,7 +14,7 @@ final class AddConnectionViewModel {
         case failed(String)
     }
 
-    var kind: ConnectionKind = .device
+    var kind: ConnectionKind = .server
     var serverTransport: ServerTransport = .paired
     var name: String = ""
     var host: String = ""

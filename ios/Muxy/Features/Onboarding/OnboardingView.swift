@@ -15,9 +15,16 @@ struct OnboardingView: View {
 
             TabView(selection: $selection) {
                 ForEach(Array(slides.enumerated()), id: \.offset) { index, slide in
-                    OnboardingSlideView(slide: slide)
-                        .padding(.horizontal, PageMargin.horizontal)
-                        .tag(index)
+                    GeometryReader { geometry in
+                        ScrollView {
+                            OnboardingSlideView(slide: slide)
+                                .padding(.horizontal, PageMargin.horizontal)
+                                .padding(.vertical, 24)
+                                .frame(minHeight: geometry.size.height)
+                        }
+                        .scrollBounceBehavior(.basedOnSize)
+                    }
+                    .tag(index)
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
@@ -185,30 +192,16 @@ private struct OnboardingSlide {
             )
         ),
         OnboardingSlide(
-            title: "How it works",
-            content: .rows([
-                OnboardingRow(
-                    symbolName: "wifi",
-                    title: "Same network",
-                    body: "Your phone and desktop talk directly over your local network."
-                ),
-                OnboardingRow(
-                    symbolName: "switch.2",
-                    title: "Enable the Mobile server",
-                    body: "On your desktop: Muxy > Settings > Mobile, then toggle the server on."
-                ),
-                OnboardingRow(
-                    symbolName: "bolt",
-                    title: "Stay in sync",
-                    body: "Open projects, run commands, and review changes in real time."
-                )
-            ])
+            title: "Get your pairing code",
+            content: .rows(DesktopPairingGuide.steps.map { step in
+                OnboardingRow(symbolName: step.symbolName, title: step.title, body: step.body)
+            })
         ),
         OnboardingSlide(
-            title: "Pair your desktop",
+            title: "Scan to connect",
             content: .hero(
-                symbolName: "rectangle.grid.3x2",
-                body: "Enter your desktop's IP address and the port shown in Muxy's Mobile settings. Default port is 4865."
+                symbolName: "qrcode.viewfinder",
+                body: DesktopPairingGuide.scanInstructions
             )
         )
     ]

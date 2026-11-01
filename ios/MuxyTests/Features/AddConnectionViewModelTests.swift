@@ -6,7 +6,8 @@ import Testing
 @MainActor
 struct AddConnectionViewModelTests {
     private func makeViewModel(
-        services: [DiscoveredService] = []
+        services: [DiscoveredService] = [],
+        parsed: Result<PairingLink, MobileError> = .failure(.InvalidLink)
     ) -> AddConnectionViewModel {
         AddConnectionViewModel(
             store: InMemoryConnectionStore(),
@@ -15,17 +16,24 @@ struct AddConnectionViewModelTests {
             validator: ConnectionInputValidator(),
             tokenGenerator: TokenGenerator(),
             browser: MockBonjourBrowser(services: services),
-            serverPairing: makeServerPairing()
+            serverPairing: makeServerPairing(parsed: parsed)
         )
     }
 
-    private func makeServerPairing() -> ServerPairingModel {
+    private func makeServerPairing(parsed: Result<PairingLink, MobileError> = .failure(.InvalidLink)) -> ServerPairingModel {
         ServerPairingModel(
-            pairing: StubPairingService(parsed: .failure(.InvalidLink), paired: .failure(.InvalidLink)),
+            pairing: StubPairingService(parsed: parsed, paired: .failure(.InvalidLink)),
             credentials: InMemoryCredentialStore(),
             store: InMemoryConnectionStore(),
             deviceName: "iPhone"
         )
+    }
+
+    @Test func defaultsToMuxy2Pairing() {
+        let viewModel = makeViewModel()
+        #expect(viewModel.kind == .server)
+        #expect(viewModel.serverTransport == .paired)
+        #expect(viewModel.serverPairing.target == nil)
     }
 
     @Test func defaultsPortToDefault() {
@@ -38,15 +46,44 @@ struct AddConnectionViewModelTests {
         #expect(viewModel.canSubmit == false)
     }
 
-    @Test func canSubmitIsTrueWithValidInput() {
+    @Test func muxy1CanSubmitWithValidInput() {
         let viewModel = makeViewModel()
+        viewModel.selectKind(.device)
         viewModel.name = "Studio"
         viewModel.host = "studio.local"
         #expect(viewModel.canSubmit)
     }
 
+    @Test func muxy2RequiresAPairingCodeInsteadOfALegacyAddress() {
+        let viewModel = makeViewModel()
+        viewModel.name = "Studio"
+        viewModel.host = "studio.local"
+        #expect(!viewModel.canSubmit)
+    }
+
+    @Test func aMuxy2CodeOpensConfirmationWithoutPairing() {
+        let viewModel = makeViewModel(parsed: .success(PairingLink(hosts: ["studio.local"], port: 7419)))
+        #expect(viewModel.applyPairingCode(Fixtures.link, source: .qr))
+        #expect(viewModel.kind == .server)
+        #expect(viewModel.serverTransport == .paired)
+        #expect(viewModel.serverPairing.step == .confirm(PairingTarget(link: Fixtures.link, address: "studio.local:7419", source: .qr)))
+        #expect(viewModel.canSubmit)
+        #expect(!viewModel.isWorking)
+    }
+
+    @Test func aMuxy1CodeStillOpensTheLegacyForm() {
+        let viewModel = makeViewModel()
+        #expect(viewModel.applyPairingCode("muxy://pair?host=studio.local&port=4865&label=Studio", source: .qr))
+        #expect(viewModel.kind == .device)
+        #expect(viewModel.name == "Studio")
+        #expect(viewModel.host == "studio.local")
+        #expect(viewModel.portText == "4865")
+        #expect(viewModel.canSubmit)
+    }
+
     @Test func applyScanPopulatesFieldsAndSource() {
         let viewModel = makeViewModel()
+        viewModel.selectKind(.device)
         let uri = PairingURI(host: "studio.local", port: 5000, serviceName: "Studio", label: "My Mac")
         viewModel.applyScan(uri)
 
@@ -59,6 +96,7 @@ struct AddConnectionViewModelTests {
 
     @Test func applyDiscoveredPopulatesFieldsAndSource() {
         let viewModel = makeViewModel()
+        viewModel.selectKind(.device)
         let service = DiscoveredService(name: "Studio", host: "studio.local", port: 4865)
         viewModel.applyDiscovered(service)
 

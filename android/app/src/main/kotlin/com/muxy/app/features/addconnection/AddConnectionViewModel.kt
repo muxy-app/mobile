@@ -61,7 +61,8 @@ enum class AddConnectionAlert(
     INVALID_CODE("Invalid QR Code", "That code isn't a Muxy pairing code."),
     SCANNER_UNAVAILABLE(
         "Scanner Unavailable",
-        "The QR code scanner couldn't be installed on this phone. Enter your Mac's name, host and port instead.",
+        "The QR code scanner couldn't be installed on this phone. For Muxy 2, paste a pairing link instead. " +
+            "For Muxy 1, enter your Mac's name, host and port.",
     ),
 }
 
@@ -88,7 +89,7 @@ class AddConnectionViewModel(
     var passphrase by mutableStateOf("")
     private var sshDefaultsApplied = false
 
-    var kind by mutableStateOf(ConnectionKind.DEVICE)
+    var kind by mutableStateOf(ConnectionKind.SERVER)
         private set
 
     var serverTransport by mutableStateOf(ServerTransport.PAIRED)
