@@ -47,6 +47,7 @@ import com.muxy.app.design.components.ThemedAlertDialog
 import com.muxy.app.design.components.ThemedCell
 import com.muxy.app.design.components.ThemedDialogAction
 import com.muxy.app.design.components.ThemedList
+import com.muxy.app.design.components.ThemedListItem
 import com.muxy.app.design.components.ThemedSectionFooter
 import com.muxy.app.design.components.ThemedSectionHeader
 import com.muxy.app.design.components.ThemedSegmentedPicker
@@ -165,7 +166,7 @@ private fun KindPicker(
 private const val PAIRING_WARNING =
     "Only pair with a code shown on your own computer. A paired phone can do anything a terminal on that computer can."
 
-private val pickerKinds = mapOf(ConnectionKind.DEVICE to "Muxy 1", ConnectionKind.SERVER to "Muxy 2", ConnectionKind.SSH to "SSH")
+private val pickerKinds = mapOf(ConnectionKind.SERVER to "Muxy 2", ConnectionKind.DEVICE to "Muxy 1", ConnectionKind.SSH to "SSH")
 
 @Composable
 private fun ServerTransportPicker(
@@ -205,6 +206,9 @@ private fun LazyListScope.serverSections(
     onScan: () -> Unit,
     onPaste: () -> Unit,
 ) {
+    if (pairing.target == null) {
+        desktopPairingSection()
+    }
     item(key = "server-scan") {
         ThemedCell(RowPosition.FIRST) {
             ActionRow(icon = R.drawable.ic_qr_code_scanner, title = "Scan QR Code", enabled = enabled, onClick = onScan)
@@ -236,8 +240,24 @@ private fun LazyListScope.serverSections(
         }
     }
     item(key = "phone-footer") {
-        ThemedSectionFooter("Your computer lists this phone under this name in Settings → Mobile.")
+        ThemedSectionFooter("Your computer lists this phone under this name in Manage devices.")
     }
+}
+
+private fun LazyListScope.desktopPairingSection() {
+    themedSection(
+        items = DesktopPairingGuide.steps,
+        key = { "pairing-step:${it.title}" },
+        header = "On Your Desktop",
+    ) { step ->
+        ThemedListItem(
+            headline = { Text(step.title) },
+            supporting = { Text(step.body) },
+            leading = { RowIcon(step.icon) },
+        )
+    }
+    item(key = "pairing-instructions") { ThemedSectionFooter(DesktopPairingGuide.SCAN_INSTRUCTIONS) }
+    sectionGap(key = "server-scan-gap")
 }
 
 private fun LazyListScope.sectionGap(key: String) {

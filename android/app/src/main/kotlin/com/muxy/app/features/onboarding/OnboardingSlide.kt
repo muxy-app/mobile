@@ -2,6 +2,7 @@ package com.muxy.app.features.onboarding
 
 import androidx.annotation.DrawableRes
 import com.muxy.app.R
+import com.muxy.app.features.addconnection.DesktopPairingGuide
 
 data class OnboardingSlide(
     val title: String,
@@ -32,36 +33,20 @@ data class OnboardingSlide(
                         ),
                 ),
                 OnboardingSlide(
-                    title = "How it works",
+                    title = "Get your pairing code",
                     content =
                         Content.Rows(
-                            listOf(
-                                OnboardingRow(
-                                    icon = R.drawable.ic_wifi,
-                                    title = "Same network",
-                                    body = "Your phone and desktop talk directly over your local network.",
-                                ),
-                                OnboardingRow(
-                                    icon = R.drawable.ic_toggle_on,
-                                    title = "Enable the Mobile server",
-                                    body = "On your desktop: Muxy > Settings > Mobile, then toggle the server on.",
-                                ),
-                                OnboardingRow(
-                                    icon = R.drawable.ic_bolt,
-                                    title = "Stay in sync",
-                                    body = "Open projects, run commands, and review changes in real time.",
-                                ),
-                            ),
+                            DesktopPairingGuide.steps.map { step ->
+                                OnboardingRow(icon = step.icon, title = step.title, body = step.body)
+                            },
                         ),
                 ),
                 OnboardingSlide(
-                    title = "Pair your desktop",
+                    title = "Scan to connect",
                     content =
                         Content.Hero(
-                            icon = R.drawable.ic_grid_view,
-                            body =
-                                "Enter your desktop's IP address and the port shown in Muxy's Mobile settings. " +
-                                    "Default port is 4865.",
+                            icon = R.drawable.ic_qr_code_scanner,
+                            body = DesktopPairingGuide.SCAN_INSTRUCTIONS,
                         ),
                 ),
             )

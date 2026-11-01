@@ -11,6 +11,7 @@ import com.muxy.app.core.validation.ConnectionInputValidator
 import com.muxy.app.models.ConnectionKind
 import com.muxy.app.models.DiscoverySource
 import com.muxy.app.models.PairingState
+import com.muxy.app.models.ServerTransport
 import com.muxy.app.networking.muxy1.PairingUri
 import com.muxy.app.networking.muxy1.discovery.DiscoveredService
 import com.muxy.app.networking.muxy1.transport.TransportException
@@ -47,6 +48,15 @@ class AddConnectionViewModelTest {
     val mainDispatcher = MainDispatcherRule()
 
     @Test
+    fun defaultsToMuxy2Pairing() =
+        runTest {
+            val viewModel = Fixture(this).viewModel
+            assertEquals(ConnectionKind.SERVER, viewModel.kind)
+            assertEquals(ServerTransport.PAIRED, viewModel.serverTransport)
+            assertNull(viewModel.serverPairing.target)
+        }
+
+    @Test
     fun defaultsThePort() =
         runTest {
             assertEquals(Endpoint.DEFAULT_PORT.toString(), Fixture(this).viewModel.portText)
@@ -59,18 +69,29 @@ class AddConnectionViewModelTest {
         }
 
     @Test
-    fun canSubmitValidInput() =
+    fun muxy1CanSubmitValidInput() =
         runTest {
             val viewModel = Fixture(this).viewModel
+            viewModel.selectKind(ConnectionKind.DEVICE)
             viewModel.name = "Studio"
             viewModel.host = "studio.local"
             assertTrue(viewModel.canSubmit)
         }
 
     @Test
+    fun muxy2RequiresAPairingCodeInsteadOfALegacyAddress() =
+        runTest {
+            val viewModel = Fixture(this).viewModel
+            viewModel.name = "Studio"
+            viewModel.host = "studio.local"
+            assertFalse(viewModel.canSubmit)
+        }
+
+    @Test
     fun applyScanFillsTheFormAndSource() =
         runTest {
             val viewModel = Fixture(this).viewModel
+            viewModel.selectKind(ConnectionKind.DEVICE)
             viewModel.applyScan(PairingUri("studio.local", 5000, "Studio", "My Mac"))
             assertEquals("studio.local", viewModel.host)
             assertEquals("5000", viewModel.portText)
@@ -82,6 +103,7 @@ class AddConnectionViewModelTest {
     fun applyDiscoveredFillsTheFormAndSource() =
         runTest {
             val viewModel = Fixture(this).viewModel
+            viewModel.selectKind(ConnectionKind.DEVICE)
             viewModel.applyDiscovered(DiscoveredService("Studio", "studio.local", 4865))
             assertEquals("Studio", viewModel.name)
             assertEquals("studio.local", viewModel.host)
@@ -158,6 +180,7 @@ class AddConnectionViewModelTest {
             val fixture = Fixture(this)
             fixture.store.upsert(saved)
             fixture.tokens.setCredential(credential(saved), saved.id)
+            fixture.viewModel.selectKind(ConnectionKind.DEVICE)
             fixture.viewModel.applyDiscovered(DiscoveredService("Studio", "192.168.1.20", 4865))
             fixture.viewModel.submit()
             advanceUntilIdle()
@@ -212,6 +235,7 @@ class AddConnectionViewModelTest {
                 )
             fixture.store.upsert(saved)
             fixture.tokens.setCredential(credential(saved), saved.id)
+            fixture.viewModel.selectKind(ConnectionKind.DEVICE)
             fixture.viewModel.applyDiscovered(DiscoveredService("Studio", "192.168.1.30", 4865))
             fixture.viewModel.submit()
             advanceUntilIdle()
@@ -226,6 +250,7 @@ class AddConnectionViewModelTest {
             val fixture = Fixture(this)
             fixture.store.upsert(studio)
             fixture.tokens.setCredential(credential(studio), studio.id)
+            fixture.viewModel.selectKind(ConnectionKind.DEVICE)
             fixture.viewModel.applyDiscovered(DiscoveredService("Studio", "192.168.1.20", 4865))
             fixture.viewModel.host = "laptop.local"
             fixture.viewModel.name = "Laptop"
@@ -341,13 +366,14 @@ class AddConnectionViewModelTest {
             assertEquals(PairingTarget(PAIRING_LINK, "192.168.1.20:7419", DiscoverySource.QR), viewModel.serverPairing.target)
             assertNull(viewModel.alert)
             assertTrue(viewModel.canSubmit)
+            assertFalse(viewModel.isWorking)
+            assertNull(viewModel.addedConnection)
         }
 
     @Test
     fun aMuxy1LinkStillOpensTheMuxy1Form() =
         runTest {
             val viewModel = Fixture(this).viewModel
-            viewModel.selectKind(ConnectionKind.SERVER)
             assertTrue(viewModel.applyPairingCode("muxy://pair?host=10.0.2.2&port=4865&label=Studio"))
             assertEquals(ConnectionKind.DEVICE, viewModel.kind)
             assertEquals("10.0.2.2", viewModel.host)
@@ -382,7 +408,6 @@ class AddConnectionViewModelTest {
         runTest {
             val fixture = Fixture(this)
             fixture.viewModel.pasteServerLink(PAIRING_LINK)
-            fixture.viewModel.selectKind(ConnectionKind.SERVER)
             fixture.viewModel.submit()
             advanceUntilIdle()
             val added = fixture.viewModel.addedConnection!!
@@ -432,6 +457,7 @@ class AddConnectionViewModelTest {
             )
 
         fun fill(host: String = "studio.local") {
+            viewModel.selectKind(ConnectionKind.DEVICE)
             viewModel.name = "Studio"
             viewModel.host = host
         }
