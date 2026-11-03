@@ -88,6 +88,8 @@ BUILD_NUMBER="${2:-$(date +%s)}"
 validate_version "$VERSION"
 validate_numeric "build_number" "$BUILD_NUMBER"
 
+ios/scripts/check-xcode.sh
+
 load_env
 require_file APPLE_DISTRIBUTION_CERTIFICATE_P12_PATH
 require_var APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD

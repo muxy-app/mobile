@@ -2,11 +2,13 @@
 
 ## Requirements
 
-- Xcode with an iOS SDK and simulator runtime supporting iOS 26.2 or newer.
+- Xcode 27.1 or newer with the iOS 27.1 SDK or newer, and a simulator runtime supporting iOS 26.2 or newer.
 - Python 3, used by the runner to discover devices.
 - Internet access to download the Muxy SDK and, on the first build, to resolve Swift packages. CocoaPods and an Expo server are not required.
 
-Check the selected Xcode installation with `xcodebuild -version`. If it points to Command Line Tools instead of Xcode, select Xcode:
+The app still runs on iOS 26.2 and newer. The newer build SDK is required for [full-screen iPhone Duo support](https://developer.apple.com/iphone-duo/prepare/): builds linked against iOS 26 SDKs run in a centered compatibility window on its inner display. The runner and release scripts reject SDKs older than 27.1. CI releases use Xcode 27.1 on the `xcode-27` runner image.
+
+Check the selected Xcode installation with `xcodebuild -version` and `scripts/check-xcode.sh`. If it points to Command Line Tools or an older Xcode, select Xcode 27.1 or newer:
 
 ```sh
 sudo xcode-select -s /Applications/Xcode.app/Contents/Developer

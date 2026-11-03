@@ -6,11 +6,17 @@ on:
     paths:
       - "ios/**"
       - ".github/workflows/ios-checks.yml"
+      - ".github/workflows/ios-release.yml"
+      - "scripts/release-ios.sh"
+      - "scripts/tests/test_ios_toolchain.py"
   push:
     branches: [main]
     paths:
       - "ios/**"
       - ".github/workflows/ios-checks.yml"
+      - ".github/workflows/ios-release.yml"
+      - "scripts/release-ios.sh"
+      - "scripts/tests/test_ios_toolchain.py"
 
 concurrency:
   group: ios-checks-${{ github.workflow }}-${{ github.ref }}
@@ -24,6 +30,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Test iOS toolchain requirements
+        run: python3 -m unittest discover -s scripts/tests -p 'test_ios_toolchain.py'
 
       - name: Install SwiftLint
         run: |

@@ -58,6 +58,7 @@ if [ "$ACTION" = "devices" ]; then
 fi
 
 require_sdk() {
+  scripts/check-xcode.sh || exit 1
   scripts/sdk.sh check || exit 1
 }
 
