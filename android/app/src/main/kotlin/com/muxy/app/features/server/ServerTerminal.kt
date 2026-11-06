@@ -35,6 +35,7 @@ class ServerTerminal(
     private val server: ServerController,
     scope: CoroutineScope,
     directory: String = "",
+    name: String? = null,
 ) {
     val id: UUID = UUID.randomUUID()
 
@@ -46,7 +47,9 @@ class ServerTerminal(
 
     private val mutablePhase = MutableStateFlow<ServerTerminalPhase>(ServerTerminalPhase.Waiting)
     private val mutableDirectory = MutableStateFlow(directory)
-    private val mutableTitle = MutableStateFlow(defaultTitle(sessionId, directory))
+    private var sessionName: String? = normalizedName(name)
+    private var programTitle = ""
+    private val mutableTitle = MutableStateFlow(sessionName ?: defaultTitle(sessionId, directory))
     private val mutableHasScreen = MutableStateFlow(false)
 
     val phase: StateFlow<ServerTerminalPhase> = mutablePhase.asStateFlow()
@@ -74,7 +77,14 @@ class ServerTerminal(
 
     fun assign(sessionId: ULong) {
         this.sessionId = sessionId
-        mutableTitle.value = defaultTitle(sessionId, mutableDirectory.value)
+        refreshTitle()
+    }
+
+    fun rename(name: String?) {
+        val normalized = normalizedName(name)
+        if (normalized == sessionName) return
+        sessionName = normalized
+        refreshTitle()
     }
 
     fun markCreating() {
@@ -143,15 +153,18 @@ class ServerTerminal(
     private fun updateTitle() {
         val screen = source.screen ?: return
         if (screen.directory.isNotEmpty()) mutableDirectory.value = screen.directory
-        val programTitle = TerminalTitle.sanitized(screen.title)
-        if (programTitle.isNotEmpty()) {
-            mutableTitle.value = programTitle
-            return
-        }
-        mutableTitle.value = defaultTitle(sessionId, mutableDirectory.value)
+        programTitle = TerminalTitle.sanitized(screen.title)
+        refreshTitle()
+    }
+
+    private fun refreshTitle() {
+        mutableTitle.value = sessionName
+            ?: programTitle.ifEmpty { defaultTitle(sessionId, mutableDirectory.value) }
     }
 
     private companion object {
+        fun normalizedName(name: String?): String? = name?.let(TerminalTitle::sanitized)?.ifEmpty { null }
+
         fun defaultTitle(
             sessionId: ULong?,
             directory: String,

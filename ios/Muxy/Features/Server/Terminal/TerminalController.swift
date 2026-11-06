@@ -43,6 +43,8 @@ final class TerminalController: Identifiable, TabStripItem {
         title
     }
     private(set) var directory: String
+    private(set) var sessionName: String?
+    private var programTitle = ""
     private(set) var phase: Phase = .waiting
     private(set) var mode: Mode = .live
     private(set) var isFollowing = true
@@ -68,12 +70,14 @@ final class TerminalController: Identifiable, TabStripItem {
     @ObservationIgnored private(set) var isRetired = false
     @ObservationIgnored private var noticeTask: Task<Void, Never>?
 
-    init(projectID: String, sessionID: UInt64?, directory: String = "", server: ServerController) {
+    init(projectID: String, sessionID: UInt64?, directory: String = "", name: String? = nil, server: ServerController) {
         self.projectID = projectID
         self.sessionID = sessionID
         self.directory = directory
         self.server = server
+        sessionName = Self.normalizedName(name)
         title = Self.defaultTitle(for: sessionID, directory: directory)
+        refreshTitle()
     }
 
     var systemImage: String {
@@ -133,7 +137,14 @@ final class TerminalController: Identifiable, TabStripItem {
 
     func assign(sessionID: UInt64) {
         self.sessionID = sessionID
-        title = Self.defaultTitle(for: sessionID, directory: directory)
+        refreshTitle()
+    }
+
+    func rename(_ name: String?) {
+        let normalized = Self.normalizedName(name)
+        guard normalized != sessionName else { return }
+        sessionName = normalized
+        refreshTitle()
     }
 
     func markCreating() {
@@ -393,12 +404,26 @@ final class TerminalController: Identifiable, TabStripItem {
         if !screen.directory.isEmpty {
             directory = screen.directory
         }
-        let programTitle = TerminalTitle.sanitized(screen.title)
+        programTitle = TerminalTitle.sanitized(screen.title)
+        refreshTitle()
+    }
+
+    private func refreshTitle() {
+        if let sessionName {
+            title = sessionName
+            return
+        }
         if !programTitle.isEmpty {
             title = programTitle
             return
         }
         title = Self.defaultTitle(for: sessionID, directory: directory)
+    }
+
+    private static func normalizedName(_ name: String?) -> String? {
+        guard let name else { return nil }
+        let sanitized = TerminalTitle.sanitized(name)
+        return sanitized.isEmpty ? nil : sanitized
     }
 
     private func show(notice message: String) {

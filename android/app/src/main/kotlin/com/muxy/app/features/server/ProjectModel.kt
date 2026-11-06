@@ -158,6 +158,7 @@ class ProjectModel(
         val liveIds = sessions.map { it.id }.toSet()
         endedSessionIds.retainAll(liveIds)
         pruneEnded(knownBeforeRequest - liveIds)
+        rename(sessions)
         appendNew(sessions)
         if (selectedTab != null) return
         mutableTabs.value.firstOrNull()?.let(::select)
@@ -171,13 +172,21 @@ class ProjectModel(
         }
     }
 
+    private fun rename(sessions: List<Session>) {
+        val names = sessions.associate { it.id to it.name }
+        mutableTabs.value.forEach { tab ->
+            val sessionId = tab.sessionId ?: return@forEach
+            if (sessionId in names) tab.rename(names[sessionId])
+        }
+    }
+
     private fun appendNew(sessions: List<Session>) {
         val open = mutableTabs.value.mapNotNull { it.sessionId }.toSet()
         sessions
             .filter { it.id !in open && it.id !in endedSessionIds }
             .sortedBy { it.id }
             .forEach { session ->
-                val tab = ServerTerminal(projectId, session.id, server, scope, session.directory)
+                val tab = ServerTerminal(projectId, session.id, server, scope, session.directory, session.name)
                 server.register(tab, session.id)
                 mutableTabs.value += tab
             }

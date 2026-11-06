@@ -111,6 +111,7 @@ final class ProjectModel {
         let liveIDs = Set(sessions.map(\.id))
         endedSessionIDs.formIntersection(liveIDs)
         pruneEnded(knownBeforeRequest.subtracting(liveIDs))
+        rename(with: sessions)
         appendNew(sessions)
         guard selectedTab == nil, let first = tabs.first else { return }
         select(first)
@@ -124,6 +125,14 @@ final class ProjectModel {
         }
     }
 
+    private func rename(with sessions: [Session]) {
+        let names = Dictionary(sessions.map { ($0.id, $0.name) }, uniquingKeysWith: { first, _ in first })
+        for tab in tabs {
+            guard let sessionID = tab.sessionID, let name = names[sessionID] else { continue }
+            tab.rename(name)
+        }
+    }
+
     private func appendNew(_ sessions: [Session]) {
         guard let server else { return }
         let open = Set(tabs.compactMap(\.sessionID))
@@ -131,7 +140,13 @@ final class ProjectModel {
             .filter { !open.contains($0.id) && !endedSessionIDs.contains($0.id) }
             .sorted { $0.id < $1.id }
         for session in new {
-            let tab = TerminalController(projectID: projectID, sessionID: session.id, directory: session.directory, server: server)
+            let tab = TerminalController(
+                projectID: projectID,
+                sessionID: session.id,
+                directory: session.directory,
+                name: session.name,
+                server: server
+            )
             server.register(tab, sessionID: session.id)
             tabs.append(tab)
         }
