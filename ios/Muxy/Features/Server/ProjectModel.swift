@@ -111,7 +111,7 @@ final class ProjectModel {
         let liveIDs = Set(sessions.map(\.id))
         endedSessionIDs.formIntersection(liveIDs)
         pruneEnded(knownBeforeRequest.subtracting(liveIDs))
-        rename(with: sessions)
+        retitle(with: sessions)
         appendNew(sessions)
         guard selectedTab == nil, let first = tabs.first else { return }
         select(first)
@@ -125,11 +125,11 @@ final class ProjectModel {
         }
     }
 
-    private func rename(with sessions: [Session]) {
-        let names = Dictionary(sessions.map { ($0.id, $0.name) }, uniquingKeysWith: { first, _ in first })
+    private func retitle(with sessions: [Session]) {
+        let titles = Dictionary(sessions.map { ($0.id, $0.title) }, uniquingKeysWith: { first, _ in first })
         for tab in tabs {
-            guard let sessionID = tab.sessionID, let name = names[sessionID] else { continue }
-            tab.rename(name)
+            guard let sessionID = tab.sessionID, let title = titles[sessionID] else { continue }
+            tab.retitle(title)
         }
     }
 
@@ -144,10 +144,10 @@ final class ProjectModel {
                 projectID: projectID,
                 sessionID: session.id,
                 directory: session.directory,
-                name: session.name,
+                title: session.title,
                 server: server
             )
-            server.register(tab, sessionID: session.id)
+            server.register(tab, sessionID: session.id, title: session.title)
             tabs.append(tab)
         }
     }

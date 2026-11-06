@@ -134,7 +134,7 @@ class AttachmentCoordinator(
             endAbandoned(session.id, connection)
             return session.id
         }
-        server.register(terminal, session.id)
+        server.register(terminal, session.id, session.title)
         return session.id
     }
 
