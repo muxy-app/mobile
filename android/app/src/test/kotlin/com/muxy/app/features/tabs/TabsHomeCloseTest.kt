@@ -2,10 +2,6 @@ package com.muxy.app.features.tabs
 
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
-import com.muxy.app.features.billing.BillingEnforcement
-import com.muxy.app.features.billing.BillingRepository
-import com.muxy.app.features.billing.FakePlayBilling
-import com.muxy.app.features.billing.FakeTrialStore
 import com.muxy.app.features.server.ServerDirectory
 import com.muxy.app.models.Connection
 import com.muxy.app.models.ConnectionKind
@@ -19,7 +15,6 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Test
 import java.util.UUID
 
@@ -42,7 +37,7 @@ class TabsHomeCloseTest {
             val viewModel = home(connection)
             val (first, second) = tabs(viewModel)
 
-            assertNull(viewModel.closeTab(key, first.id))
+            viewModel.closeTab(key, first.id)
             runCurrent()
             assertEquals(listOf(1uL), connection.ended)
             assertEquals(listOf(second.id), tabs(viewModel).map { it.id })
@@ -74,13 +69,10 @@ class TabsHomeCloseTest {
             assertEquals(1, tabs(viewModel).size)
         }
 
-    private suspend fun TestScope.home(connection: FakeServerConnection): TabsHomeViewModel {
+    private fun TestScope.home(connection: FakeServerConnection): TabsHomeViewModel {
         val credentials = InMemoryCredentialStore().apply { items["server-1"] = serverCredential() }
         val directory = ServerDirectory(credentials, FakeServerConnector(listOf(Result.success(connection))), backgroundScope)
-        val billing = BillingRepository(FakePlayBilling(), FakeTrialStore(), BillingEnforcement(isDebug = true), backgroundScope)
-        billing.refresh()
-        val catalog =
-            TabsCatalog(InMemoryConnectionStore(listOf(studio)), billing, directory, { error("No Muxy 1 devices") }, backgroundScope)
+        val catalog = TabsCatalog(InMemoryConnectionStore(listOf(studio)), directory, { error("No Muxy 1 devices") }, backgroundScope)
         directory.onStart(owner)
         catalog.onStart(owner)
         catalog.setVisible(true)

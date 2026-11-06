@@ -119,33 +119,11 @@ Before uploading, inspect the AAB with `bundletool dump manifest --bundle=app/bu
 
 ## React Native upgrade check
 
-The one-time importer reads the old SQLite and SecureStore data before screens, deep links, billing refresh, or demo syncing can consume it. It preserves Muxy 1 connection IDs, approval credentials, workspace selections, the trial timestamp, and the four RN settings. Demo connections are regenerated from the setting. Invalid records are skipped; a missing or invalid token requires pairing again. Purchases restore through Play, not local migration. Old stores and obsolete Keystore aliases are removed after import; a failed cleanup can retry without importing again.
+The one-time importer reads the old SQLite and SecureStore data before screens, deep links, or demo syncing can consume it. It preserves Muxy 1 connection IDs, approval credentials, workspace selections, and the four RN settings. Demo connections are regenerated from the setting. Invalid records are skipped; a missing or invalid token requires pairing again. Old stores and obsolete Keystore aliases are removed after import; a failed cleanup can retry without importing again.
 
 Use a separate disposable emulator so the test does not overwrite your normal Muxy data. A phone is not required. See [upgrade-check.md](upgrade-check.md) for the release-APK build and install sequence. The retired RN source is available at `v2.5.2`; build it only in a separate worktree. Do not run `expo prebuild` in this checkout: it would replace the Kotlin project.
 
 JVM tests use saved JSON fixtures. Instrumented tests create SQLite and real Android Keystore fixtures, exercise cleanup, and verify the durable once-only marker. Run them on a disposable emulator: `run.sh test-device` uninstalls the tested app by default. Release helpers have offline tests, runnable from the repository root with `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts/tests -v`.
-
-## Trial and unlock
-
-The 3-day trial starts on the first app launch after installation, before adding any connections. Its timestamp is kept in encrypted, non-backed-up storage and isn't reset by restarting, updating, or pairing. Once expired, opening a real Muxy or SSH connection shows the paywall. The built-in Demo Desktop remains available without a purchase, including after trial expiry. The one-time Google Play product `muxy_unlock` restores access to real connections; pending purchases do not unlock.
-
-Billing is enforced in release builds. Debug builds bypass it unless you enable the visual-test overrides:
-
-```sh
-./gradlew :app:assembleDebug -PmuxyBillingEnforced=true -PmuxyTrialMinutes=2
-```
-
-When using the runner from the repository root, pass the same properties through the environment so its rebuild keeps them:
-
-```sh
-ORG_GRADLE_PROJECT_muxyBillingEnforced=true \
-ORG_GRADLE_PROJECT_muxyTrialMinutes=2 \
-android/scripts/run.sh
-```
-
-Install that APK and launch it yourself. A fresh installation shows “Trial: 1 day left” immediately, without pairing; after two minutes, the next minute tick or connection tap detects expiry. The footer opens trial details, Unlock, and Restore purchase. After expiry, verify that Demo Desktop still opens its sample projects and tools, while real connections show the paywall even with Demo Mode enabled. Reinstalling or clearing app data deletes the saved trial and connections. Release builds ignore both overrides and always use three days.
-
-Real purchase, cancellation, pending payment, and restore testing requires the active `muxy_unlock` product, a Play test track, and a signed-in license tester. Debug-only enforcement does not simulate Play purchases. On startup and foreground return, the app queries Play purchases; a successful refresh never re-locks an unlocked running app. Unacknowledged purchases are retried every minute and on later purchase queries.
 
 ## Google Play review access
 
@@ -157,9 +135,9 @@ For a submission containing permanent demo access, provide these English instruc
 4. Tap **Demo Desktop**.
 5. Open **Muxy** or **Web App** to explore the sample workspaces, terminal, files, worktrees, and Git tools.
 
-No username, password, PIN, QR code, external account, desktop, or server is required for Demo Mode. The local demo is available to every user, reusable offline in any location, and does not expire or require a purchase. Its terminal is explicitly simulated: commands are not executed on a real computer.
+No username, password, PIN, QR code, external account, desktop, or server is required for Demo Mode. The local demo is available to every user, reusable offline in any location, and does not expire. Its terminal is explicitly simulated: commands are not executed on a real computer.
 
-These instructions cover the sample experience, not live Muxy or SSH connections. Live functionality still requires remote credentials and an active trial or purchase; do not describe all functionality as unrestricted. If Google requires live remote access, provide a maintained, isolated review server and access instructions through Play Console. Demo instructions alone do not guarantee approval. Save the access instructions and send the updated submission for review from **Publishing overview**.
+These instructions cover the sample experience, not live Muxy or SSH connections. Live functionality still requires remote credentials; do not describe all functionality as unrestricted. If Google requires live remote access, provide a maintained, isolated review server and access instructions through Play Console. Demo instructions alone do not guarantee approval. Save the access instructions and send the updated submission for review from **Publishing overview**.
 
 ## Connect to Muxy 1
 

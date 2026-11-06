@@ -28,7 +28,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen().setKeepOnScreenCondition {
-            !container.ready.value || viewModel.settings.value == null || !container.billing.state.value.trialLoaded
+            !container.ready.value || viewModel.settings.value == null || container.connectionStore.connections.value == null
         }
         super.onCreate(savedInstanceState)
         themedWindow.apply(AppTheme.muxy)
@@ -37,11 +37,6 @@ class MainActivity : ComponentActivity() {
             val ready by container.ready.collectAsStateWithLifecycle()
             if (ready) MuxyApp(container, viewModel, themedWindow)
         }
-    }
-
-    override fun onResume() {
-        super.onResume()
-        container.billing.onActivityResumed()
     }
 
     override fun onNewIntent(intent: Intent) {

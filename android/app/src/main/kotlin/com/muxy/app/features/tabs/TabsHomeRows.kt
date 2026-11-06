@@ -122,16 +122,11 @@ private fun DeviceStatus(status: TabsDeviceStatus) {
             TabsDeviceStatus.OFFLINE -> "offline"
             TabsDeviceStatus.DEMO -> "demo"
             TabsDeviceStatus.SSH -> "SSH"
-            TabsDeviceStatus.LOCKED -> "locked"
         }
     Row(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
         when (status) {
             TabsDeviceStatus.ONLINE, TabsDeviceStatus.DEMO -> {
                 Box(modifier = Modifier.size(7.dp).background(theme.green, CircleShape))
-            }
-
-            TabsDeviceStatus.LOCKED -> {
-                Box(modifier = Modifier.size(7.dp).background(TabTileColors.waiting, CircleShape))
             }
 
             TabsDeviceStatus.OFFLINE -> {
@@ -149,7 +144,6 @@ internal fun TabsDeviceMenu(
     device: TabsDevice,
     onProjects: () -> Unit,
     onRefresh: () -> Unit,
-    onUnlock: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -165,12 +159,7 @@ internal fun TabsDeviceMenu(
             )
         }
         ThemedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            if (device.status == TabsDeviceStatus.LOCKED) {
-                DropdownMenuItem(text = { Text("Unlock") }, onClick = {
-                    expanded = false
-                    onUnlock()
-                })
-            } else if (!isSsh) {
+            if (!isSsh) {
                 DropdownMenuItem(text = { Text("Projects") }, onClick = {
                     expanded = false
                     onProjects()

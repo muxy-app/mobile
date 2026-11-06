@@ -2,7 +2,6 @@
 
 package com.muxy.app.features.legacyimport
 
-import com.muxy.app.features.billing.SecretTrialStore
 import com.muxy.app.models.ConnectionKind
 import com.muxy.app.models.PairingState
 import com.muxy.app.persistence.secrets.DeviceCredential
@@ -37,7 +36,6 @@ class LegacyImporterTest {
     private val tokens = SecretTokenStore(secrets)
     private val settings = InMemorySettingsStore(AppSettings(themeName = "Dracula"))
     private val workspaces = InMemoryWorkspaceSelectionStore()
-    private val trials = SecretTrialStore(secrets)
 
     @Test
     fun fixtureMapsOnlyValidUniqueNonDemoDevices() {
@@ -92,7 +90,7 @@ class LegacyImporterTest {
     }
 
     @Test
-    fun importsCredentialsTrialSettingsAndKnownWorkspaceBeforeCleanup() =
+    fun importsCredentialsSettingsAndKnownWorkspaceBeforeCleanup() =
         runTest {
             storage.beforeCleanup = {
                 assertEquals(2, connections.load().size)
@@ -101,7 +99,6 @@ class LegacyImporterTest {
                     tokens.credential(connectionId),
                 )
                 assertNull(tokens.credential(repairId))
-                assertEquals("1700000000000", secrets.values[SecretTrialStore.STARTED_AT_KEY])
                 assertEquals(AppSettings(true, "Dracula", false, true, true), settings.settings.value)
                 assertEquals(mapOf(connectionId to workspaceId), workspaces.selections)
                 assertEquals(LegacyImportStage.IMPORTED, storage.stage)
@@ -112,7 +109,7 @@ class LegacyImporterTest {
         }
 
     @Test
-    fun existingNativeConnectionCredentialTrialAndWorkspaceArePreserved() =
+    fun existingNativeConnectionCredentialAndWorkspaceArePreserved() =
         runTest {
             val existing =
                 requireNotNull(
@@ -123,12 +120,10 @@ class LegacyImporterTest {
             connections.upsert(existing)
             tokens.setCredential(credential, connectionId)
             workspaces.save(workspace, connectionId)
-            trials.startIfAbsent(1000)
             importer().run()
             assertEquals(existing, connections.load().first { it.id == connectionId })
             assertEquals(credential, tokens.credential(connectionId))
             assertEquals(workspace, workspaces.load(connectionId))
-            assertEquals(1000L, trials.startIfAbsent(2000))
         }
 
     @Test
@@ -159,19 +154,7 @@ class LegacyImporterTest {
             importer().run()
             assertTrue(connections.load().isEmpty())
             assertTrue(requireNotNull(settings.settings.value).hasCompletedOnboarding)
-            assertEquals(1700000000000L, trials.startIfAbsent(2000))
             assertEquals(LegacyImportStage.COMPLETE, storage.stage)
-        }
-
-    @Test
-    fun invalidTrialTimestampsDoNotStartATrial() =
-        runTest {
-            for (value in listOf("", "0", "-1", "1e20", "99999999999999999999")) {
-                storage.stage = LegacyImportStage.PENDING
-                storage.secrets["muxy.trial.startedAt"] = value
-                importer().run()
-                assertNull(secrets.values[SecretTrialStore.STARTED_AT_KEY])
-            }
         }
 
     @Test
@@ -267,8 +250,7 @@ class LegacyImporterTest {
             assertEquals(2, connections.load().size)
         }
 
-    private fun importer(settingsStore: SettingsStore = settings) =
-        LegacyImporter(storage, connections, tokens, settingsStore, workspaces, trials)
+    private fun importer(settingsStore: SettingsStore = settings) = LegacyImporter(storage, connections, tokens, settingsStore, workspaces)
 
     private fun fixture(name: String): String = requireNotNull(javaClass.getResource("/legacy/$name.json")).readText()
 
@@ -286,7 +268,7 @@ class LegacyImporterTest {
                 "muxy.settings.v1" to fixture("settings"),
                 "muxy.projects.v1" to fixture("projects"),
             )
-        val secrets = mutableMapOf("muxy.installToken" to "legacy-token", "muxy.trial.startedAt" to "1700000000000")
+        val secrets = mutableMapOf("muxy.installToken" to "legacy-token")
 
         override var stage: LegacyImportStage
             get() = currentStage

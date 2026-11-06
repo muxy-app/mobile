@@ -53,7 +53,7 @@ export DEVICE_SERIAL='<serial>'
 adb -s "$DEVICE_SERIAL" install android/.build/phase9/rn-release.apk
 ```
 
-Open Muxy yourself. Pair a Muxy 1 Mac at `10.0.2.2:4865` and approve on the Mac. Pick a workspace filter, turn Nerd Font off and Auto-Focus Terminal on, then note the trial state. Leave demo mode off for the first check. The RN trial begins on pairing; use a fresh trial so the release paywall will not block connection verification.
+Open Muxy yourself. Pair a Muxy 1 Mac at `10.0.2.2:4865` and approve on the Mac. Pick a workspace filter, and turn Nerd Font off and Auto-Focus Terminal on. Leave demo mode off for the first check.
 
 ## Upgrade without deleting data
 
@@ -69,7 +69,6 @@ Open Muxy yourself and verify:
 - The saved Mac connects without a new approval prompt.
 - The same workspace is selected.
 - Nerd Font remains off and Auto-Focus Terminal remains on.
-- The trial still has its original start, rather than resetting on upgrade.
 - After closing and reopening Muxy, the same state remains and importing does not run again.
 
 Check migration logs without dumping tokens or encrypted stores:
@@ -85,7 +84,7 @@ If Android reports an incompatible signature, stop and check that both APKs were
 ## Remaining release checks
 
 - Launch the Kotlin release on `Muxy_Phase9_API29` and `Muxy_Phase9_API37` after starting those AVDs yourself. Check startup, settings, connections and a terminal. These are separate installations, not the migration check.
-- A Play internal-track build must use the Play upload key and a timestamp version code. Sign in to a license tester account, install from Play, and check purchase restoration. A locally debug-signed APK cannot verify Play delivery or restoration of a real purchase.
+- A Play internal-track build must use the Play upload key and a timestamp version code. Install it from Play and check startup. A locally debug-signed APK cannot verify Play delivery.
 
 ## Cleanup after confirmation
 

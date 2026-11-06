@@ -2,7 +2,6 @@ package com.muxy.app.features.legacyimport
 
 import com.muxy.app.core.concurrency.attempt
 import com.muxy.app.core.logging.Log
-import com.muxy.app.features.billing.TrialStore
 import com.muxy.app.persistence.connections.ConnectionStore
 import com.muxy.app.persistence.secrets.DeviceCredential
 import com.muxy.app.persistence.secrets.TokenStore
@@ -20,7 +19,6 @@ class LegacyImporter(
     private val tokens: TokenStore,
     private val settings: SettingsStore,
     private val workspaces: WorkspaceSelectionStore,
-    private val trials: TrialStore,
 ) {
     private val mutex = Mutex()
 
@@ -50,10 +48,6 @@ class LegacyImporter(
                 if (credential != null && !device.needsRepair) tokens.setCredential(credential, connection.id)
                 connections.upsert(connection)
             }
-        }
-        importing("trial") {
-            val startedAt = storage.secret("muxy.trial.startedAt")?.toLongOrNull()?.takeIf { it > 0 } ?: return@importing
-            trials.startIfAbsent(startedAt)
         }
         importing("settings") {
             val state = LegacyRecords.state(storage.value("muxy.settings.v1")) ?: return@importing

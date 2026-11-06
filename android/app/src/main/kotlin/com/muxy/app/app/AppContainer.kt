@@ -4,7 +4,6 @@ import android.content.Context
 import android.net.nsd.NsdManager
 import androidx.datastore.preferences.preferencesDataStoreFile
 import androidx.lifecycle.Lifecycle
-import com.muxy.app.BuildConfig
 import com.muxy.app.core.device.SystemPhoneName
 import com.muxy.app.core.security.TokenGenerator
 import com.muxy.app.core.validation.ConnectionInputValidator
@@ -12,11 +11,6 @@ import com.muxy.app.features.addconnection.AddConnectionInbox
 import com.muxy.app.features.addconnection.AddConnectionViewModel
 import com.muxy.app.features.addconnection.ServerPairingModel
 import com.muxy.app.features.addconnection.SshConnectionAdder
-import com.muxy.app.features.billing.BillingEnforcement
-import com.muxy.app.features.billing.BillingLifecycle
-import com.muxy.app.features.billing.BillingRepository
-import com.muxy.app.features.billing.GooglePlayBilling
-import com.muxy.app.features.billing.SecretTrialStore
 import com.muxy.app.features.connections.ConnectionsListViewModel
 import com.muxy.app.features.demo.DemoBackend
 import com.muxy.app.features.demo.syncDemoMode
@@ -107,16 +101,6 @@ class AppContainer(
             cipher = KeystoreSecretCipher(),
         )
 
-    val billing =
-        BillingRepository(
-            play = GooglePlayBilling(context),
-            trials = SecretTrialStore(secretStore),
-            enforcement = BillingEnforcement(BuildConfig.DEBUG, BuildConfig.BILLING_ENFORCED, BuildConfig.TRIAL_MINUTES),
-            scope = mainScope,
-        )
-
-    private val billingLifecycle = BillingLifecycle(billing, settingsStore, connectionStore, mainScope)
-
     val tokenStore: TokenStore = SecretTokenStore(secretStore)
 
     private val sshClients = SshClientFactory { SshjClient() }
@@ -149,7 +133,7 @@ class AppContainer(
             RemoteServerConnectionProvider(connectionId, connectionStore, remoteConnector)
         }
 
-    val tabsCatalog = TabsCatalog(connectionStore, billing, serverDirectory, ::makeDeviceConnectionManager, mainScope)
+    val tabsCatalog = TabsCatalog(connectionStore, serverDirectory, ::makeDeviceConnectionManager, mainScope)
 
     val projectTools =
         ProjectToolsFactory(
@@ -170,12 +154,10 @@ class AppContainer(
                     tokenStore,
                     settingsStore,
                     workspaceSelectionStore,
-                    SecretTrialStore(secretStore),
                 ).run()
             }
             lifecycle.addObserver(connectionLifecycle)
             lifecycle.addObserver(serverDirectory)
-            lifecycle.addObserver(billingLifecycle)
             lifecycle.addObserver(tabsCatalog)
             ioScope.syncDemoMode(settingsStore.settings, connectionStore, tokenStore)
             mutableReady.value = true

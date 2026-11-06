@@ -11,7 +11,6 @@ import androidx.core.content.edit
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.muxy.app.app.MuxyApplication
-import com.muxy.app.features.billing.SecretTrialStore
 import com.muxy.app.features.legacyimport.AndroidLegacyStorage
 import com.muxy.app.features.legacyimport.LegacyImportStage
 import com.muxy.app.features.legacyimport.LegacyImporter
@@ -172,7 +171,6 @@ class LegacyImportTest {
             writeRecord("muxy.settings.v1", """{"state":{"useNerdFont":false,"hasOnboarded":true},"version":0}""")
             writeRecord("muxy.projects.v1", """{"state":{"selectedWorkspaceIDs":{"$connectionId":"$workspaceId"}},"version":0}""")
             writeSecret("muxy.installToken", "approved-token", AndroidLegacyStorage.SECURE_ALIAS)
-            writeSecret("muxy.trial.startedAt", "1700000000000", AndroidLegacyStorage.SECURE_ALIAS)
             val dataStore = preferencesDataStore("Import test", scope) { File(directory, "native.preferences_pb") }
             val secretDataStore = preferencesDataStore("Import secrets", scope) { File(directory, "secrets.preferences_pb") }
             val connections = DataStoreConnectionStore(dataStore, scope)
@@ -180,19 +178,17 @@ class LegacyImportTest {
             val workspaces = DataStoreWorkspaceSelectionStore(dataStore)
             val secrets = EncryptedSecretStore(secretDataStore, KeystoreSecretCipher(namespace))
             val tokens = SecretTokenStore(secrets)
-            val trials = SecretTrialStore(secrets)
-            withTimeout(10_000) { LegacyImporter(storage, connections, tokens, settings, workspaces, trials).run() }
+            withTimeout(10_000) { LegacyImporter(storage, connections, tokens, settings, workspaces).run() }
             assertEquals("Mac", connections.load().single().name)
             assertEquals(DeviceCredential(installId, "approved-token"), tokens.credential(connectionId))
             assertEquals(workspaceId, workspaces.load(connectionId))
-            assertEquals(1700000000000L, trials.startIfAbsent(1800000000000))
             assertFalse(requireNotNull(settings.settings.value).useNerdFont)
             assertTrue(requireNotNull(settings.settings.value).hasCompletedOnboarding)
             assertEquals(LegacyImportStage.COMPLETE, storage.stage)
             assertFalse(context.getDatabasePath(AndroidLegacyStorage.DATABASE).exists())
             connections.delete(connectionId)
             writeRecord("muxy.devices.v1", "broken")
-            withTimeout(10_000) { LegacyImporter(AndroidLegacyStorage(context), connections, tokens, settings, workspaces, trials).run() }
+            withTimeout(10_000) { LegacyImporter(AndroidLegacyStorage(context), connections, tokens, settings, workspaces).run() }
             assertTrue(connections.load().isEmpty())
             assertEquals("broken", storage.value("muxy.devices.v1"))
         }

@@ -46,7 +46,6 @@ internal fun NewTabPicker(
     creating: TabsProjectKey?,
     onCreate: (TabsProjectKey) -> Unit,
     onRetry: (UUID) -> Unit,
-    onUnlock: () -> Unit,
     onOpenSsh: (Connection) -> Unit,
     onAddDevice: () -> Unit,
     onClose: () -> Unit,
@@ -77,16 +76,8 @@ internal fun NewTabPicker(
                     val connection = device.connection
                     item(key = "device:${connection.id}") {
                         TabsDeviceHeader(device) {
-                            when (device.status) {
-                                TabsDeviceStatus.OFFLINE -> {
-                                    TextButton(onClick = { onRetry(connection.id) }, enabled = !busy) { Text("Reconnect") }
-                                }
-
-                                TabsDeviceStatus.LOCKED -> {
-                                    TextButton(onClick = onUnlock, enabled = !busy) { Text("Unlock") }
-                                }
-
-                                else -> {}
+                            if (device.status == TabsDeviceStatus.OFFLINE) {
+                                TextButton(onClick = { onRetry(connection.id) }, enabled = !busy) { Text("Reconnect") }
                             }
                         }
                     }
@@ -110,7 +101,7 @@ internal fun NewTabPicker(
                         ) {
                             NewTabProjectRow(
                                 project = project,
-                                enabled = !busy && (device.canCreate(project) || device.status == TabsDeviceStatus.LOCKED),
+                                enabled = !busy && device.canCreate(project),
                                 creating = creating == key,
                                 onCreate = { onCreate(key) },
                             )

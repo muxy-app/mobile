@@ -3,23 +3,14 @@ package com.muxy.app.features.navigation
 import androidx.navigation3.runtime.NavBackStack
 import com.muxy.app.core.logging.Log
 import com.muxy.app.core.serialization.parseUuid
-import com.muxy.app.features.billing.BillingEnforcement
-import com.muxy.app.features.billing.Entitlement
-import com.muxy.app.features.demo.DemoConnection
 import com.muxy.app.features.tabs.TabsSelection
 import com.muxy.app.models.Connection
 import com.muxy.app.models.ConnectionKind
 
 internal fun NavBackStack<AppRoute>.openConnection(
     connection: Connection,
-    enforcement: BillingEnforcement,
-    entitlement: Entitlement,
     inPane: Boolean = false,
 ) {
-    if (connection.requiresUnlock(enforcement, entitlement)) {
-        open(AppRoute.Paywall)
-        return
-    }
     when (connection.kind) {
         ConnectionKind.DEVICE -> {
             show(AppRoute.Projects(connection.id), inPane)
@@ -42,15 +33,9 @@ internal fun NavBackStack<AppRoute>.openConnection(
 
 internal fun NavBackStack<AppRoute>.openTab(
     selection: TabsSelection,
-    enforcement: BillingEnforcement,
-    entitlement: Entitlement,
     inPane: Boolean = false,
 ) {
     val connection = selection.connection
-    if (connection.requiresUnlock(enforcement, entitlement)) {
-        open(AppRoute.Paywall)
-        return
-    }
     val project = selection.project
     val route =
         when (connection.kind) {
@@ -79,8 +64,3 @@ private fun NavBackStack<AppRoute>.show(
     }
     open(route)
 }
-
-private fun Connection.requiresUnlock(
-    enforcement: BillingEnforcement,
-    entitlement: Entitlement,
-): Boolean = (id != DemoConnection.id || kind != ConnectionKind.DEVICE) && enforcement.gates(entitlement)

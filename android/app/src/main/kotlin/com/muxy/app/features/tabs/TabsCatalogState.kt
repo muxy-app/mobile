@@ -12,7 +12,6 @@ enum class TabsDeviceStatus {
     OFFLINE,
     DEMO,
     SSH,
-    LOCKED,
 }
 
 data class TabsTab(
