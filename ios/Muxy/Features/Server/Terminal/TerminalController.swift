@@ -68,12 +68,12 @@ final class TerminalController: Identifiable, TabStripItem {
     @ObservationIgnored private(set) var isRetired = false
     @ObservationIgnored private var noticeTask: Task<Void, Never>?
 
-    init(projectID: String, sessionID: UInt64?, directory: String = "", server: ServerController) {
+    init(projectID: String, sessionID: UInt64?, directory: String = "", title: String? = nil, server: ServerController) {
         self.projectID = projectID
         self.sessionID = sessionID
         self.directory = directory
         self.server = server
-        title = Self.defaultTitle(for: sessionID, directory: directory)
+        self.title = Self.shownTitle(title, sessionID: sessionID, directory: directory)
     }
 
     var systemImage: String {
@@ -108,7 +108,7 @@ final class TerminalController: Identifiable, TabStripItem {
     func metadataDidChange() {
         guard let channel else { return }
         let screen = channel.screen()
-        updateTitle(from: screen)
+        updateDirectory(from: screen)
         guard mode == .history, screen.readsScrolling else {
             display?.screenNeedsRefresh()
             return
@@ -131,9 +131,13 @@ final class TerminalController: Identifiable, TabStripItem {
         scheduleFit()
     }
 
-    func assign(sessionID: UInt64) {
+    func assign(sessionID: UInt64, title: String) {
         self.sessionID = sessionID
-        title = Self.defaultTitle(for: sessionID, directory: directory)
+        retitle(title)
+    }
+
+    func retitle(_ title: String) {
+        self.title = Self.shownTitle(title, sessionID: sessionID, directory: directory)
     }
 
     func markCreating() {
@@ -149,7 +153,7 @@ final class TerminalController: Identifiable, TabStripItem {
         phase = .live
         let screen = channel.screen()
         cachedScreen = screen
-        updateTitle(from: screen)
+        updateDirectory(from: screen)
         display?.screenNeedsRefresh()
         fitToViewport()
     }
@@ -389,16 +393,14 @@ final class TerminalController: Identifiable, TabStripItem {
         onModifierStateChange?(modifier, armed)
     }
 
-    private func updateTitle(from screen: Screen) {
-        if !screen.directory.isEmpty {
-            directory = screen.directory
-        }
-        let programTitle = TerminalTitle.sanitized(screen.title)
-        if !programTitle.isEmpty {
-            title = programTitle
-            return
-        }
-        title = Self.defaultTitle(for: sessionID, directory: directory)
+    private func updateDirectory(from screen: Screen) {
+        guard !screen.directory.isEmpty else { return }
+        directory = screen.directory
+    }
+
+    private static func shownTitle(_ title: String?, sessionID: UInt64?, directory: String) -> String {
+        guard let title, !title.isEmpty else { return defaultTitle(for: sessionID, directory: directory) }
+        return title
     }
 
     private func show(notice message: String) {

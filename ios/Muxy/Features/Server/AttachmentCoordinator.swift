@@ -118,7 +118,7 @@ final class AttachmentCoordinator {
             await endAbandoned(session.id, on: connection)
             return session.id
         }
-        server?.register(terminal, sessionID: session.id)
+        server?.register(terminal, sessionID: session.id, title: session.title)
         return session.id
     }
 

@@ -132,8 +132,9 @@ class ServerController(
     fun register(
         terminal: ServerTerminal,
         sessionId: ULong,
+        title: String,
     ) {
-        terminal.assign(sessionId)
+        terminal.assign(sessionId, title)
         terminalsBySession[sessionId] = terminal
         projectModels[terminal.projectId]?.didRegister(terminal)
     }
@@ -245,6 +246,7 @@ class ServerController(
         when (event) {
             is ConnectionEvent.ScreenChanged -> terminalsBySession[event.sessionId]?.screenDidChange()
             is ConnectionEvent.MetadataChanged -> terminalsBySession[event.sessionId]?.metadataDidChange()
+            is ConnectionEvent.TitleChanged -> terminalsBySession[event.sessionId]?.retitle(event.title)
             is ConnectionEvent.SessionEnded -> sessionDidEnd(event.sessionId)
             ConnectionEvent.CatalogChanged -> reloadProjects()
             ConnectionEvent.SessionsChanged -> reloadSessions()

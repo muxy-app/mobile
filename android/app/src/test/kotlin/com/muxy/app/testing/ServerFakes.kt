@@ -74,7 +74,8 @@ fun session(
     id: ULong,
     project: String = "muxy",
     status: SessionStatus = SessionStatus.LIVE,
-): Session = Session(id, project, "/Users/demo/muxy", status, ClientKind.DESKTOP, attached = false)
+    title: String = "muxy",
+): Session = Session(id, project, "/Users/demo/muxy", status, ClientKind.DESKTOP, attached = false, title = title)
 
 fun sdkStyle(
     foreground: TerminalColor = TerminalColor.Default,

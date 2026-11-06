@@ -26,8 +26,8 @@ extension Fixtures {
         )
     }
 
-    static func session(_ id: UInt64, project: String = "muxy", status: SessionStatus = .live) -> Session {
-        Session(id: id, projectId: project, directory: "/Users/demo/muxy", status: status, owner: .desktop, attached: false)
+    static func session(_ id: UInt64, project: String = "muxy", status: SessionStatus = .live, title: String = "muxy") -> Session {
+        Session(id: id, projectId: project, directory: "/Users/demo/muxy", status: status, owner: .desktop, attached: false, title: title)
     }
 }
 

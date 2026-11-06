@@ -185,8 +185,8 @@ final class ServerController {
         projectsRefresh.request { [weak self] in await self?.loadProjects() }
     }
 
-    func register(_ terminal: TerminalController, sessionID: UInt64) {
-        terminal.assign(sessionID: sessionID)
+    func register(_ terminal: TerminalController, sessionID: UInt64, title: String) {
+        terminal.assign(sessionID: sessionID, title: title)
         terminalsBySession[sessionID] = terminal
         projectModels[terminal.projectID]?.didRegister(terminal)
     }
@@ -318,6 +318,8 @@ final class ServerController {
             terminalsBySession[sessionId]?.screenDidChange()
         case let .metadataChanged(sessionId):
             terminalsBySession[sessionId]?.metadataDidChange()
+        case let .titleChanged(sessionId, title):
+            terminalsBySession[sessionId]?.retitle(title)
         case let .sessionEnded(sessionId):
             sessionDidEnd(sessionId)
         case .catalogChanged:
