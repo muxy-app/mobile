@@ -295,7 +295,7 @@ class TerminalAttachmentTest {
         }
 
     @Test
-    fun theTitleFollowsTheProgramThenTheFolder() =
+    fun theTitleFollowsTheServerThenTheFolder() =
         runTest {
             val connection = FakeServerConnection(sessions = listOf(session(1u)))
             val (controller, connector) = connected(connection)
@@ -307,12 +307,15 @@ class TerminalAttachmentTest {
                     .tabs.value
                     .single()
             assertEquals("muxy", tab.title.value)
+            connector.emit(ConnectionEvent.TitleChanged(1u, "lazygit"))
+            runCurrent()
+            assertEquals("lazygit", tab.title.value)
             tab.controller.viewportDidChange(size)
             runCurrent()
-            assertEquals("shell 1", tab.title.value)
             val channel = connection.channel(1u)!!
             channel.currentScreen = channel.currentScreen.copy(title = " ", directory = "/Users/demo/api/")
             connector.emit(ConnectionEvent.MetadataChanged(1u))
+            connector.emit(ConnectionEvent.TitleChanged(1u, ""))
             runCurrent()
             assertEquals("api", tab.title.value)
         }
