@@ -26,7 +26,7 @@ class SdkTerminalSourceTest {
     private var viewportChanges = 0
 
     private fun TestScope.attached(channel: FakeTerminalChannel = FakeTerminalChannel(1u)): Pair<SdkTerminalSource, TerminalController> {
-        val source = SdkTerminalSource(backgroundScope) { viewportChanges += 1 }
+        val source = SdkTerminalSource(backgroundScope, serverName = { "Studio" }) { viewportChanges += 1 }
         val controller = TerminalController(source, backgroundScope)
         source.attach(channel)
         controller.currentFrame()
@@ -108,7 +108,7 @@ class SdkTerminalSourceTest {
     @Test
     fun theViewportIsKnownBeforeAttaching() =
         runTest {
-            val source = SdkTerminalSource(backgroundScope) { viewportChanges += 1 }
+            val source = SdkTerminalSource(backgroundScope, serverName = { "Studio" }) { viewportChanges += 1 }
             TerminalController(source, backgroundScope).viewportDidChange(size)
             assertEquals(size, source.viewportSize)
             assertEquals(1, viewportChanges)

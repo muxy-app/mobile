@@ -3,10 +3,12 @@ package com.muxy.app.features.terminal
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.net.Uri
 import android.os.Build
 import android.os.SystemClock
 import android.view.ActionMode
 import android.view.Choreographer
+import android.view.DragEvent
 import android.view.HapticFeedbackConstants
 import android.view.KeyEvent
 import android.view.Menu
@@ -26,6 +28,7 @@ import androidx.core.graphics.withClip
 import com.muxy.app.core.text.Graphemes
 import com.muxy.app.design.ThemeCatalog
 import com.muxy.app.design.ThemePalette
+import com.muxy.app.features.terminal.images.TerminalImageIntake
 import com.muxy.app.features.terminal.input.CompositionPolicy
 import com.muxy.app.features.terminal.input.HardwareKeyAction
 import com.muxy.app.features.terminal.input.HardwareKeyMapper
@@ -66,6 +69,7 @@ class TerminalSurfaceView(
     private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
     private val inputMethods = context.getSystemService(InputMethodManager::class.java)
     private val clipboard = SystemTerminalClipboard(context)
+    private val images = TerminalImageIntake(context, clipboard)
     private val sizeLock = TerminalSizeLock(SystemClock::uptimeMillis)
     private val viewport = TerminalViewportState()
     private val momentum = TerminalMomentum.scaled(density)
@@ -171,10 +175,21 @@ class TerminalSurfaceView(
         controller?.sendText(text)
     }
 
+    fun sendImages(uris: List<Uri>) {
+        val current = controller ?: return
+        prepareForKeyInput()
+        images.send(uris, current)
+    }
+
     override fun pasteFromClipboard() {
+        val current = controller ?: return
+        if (images.pasteClipboard(current)) {
+            prepareForKeyInput()
+            return
+        }
         val text = clipboard.text()?.takeIf { it.isNotEmpty() } ?: return
         prepareForKeyInput()
-        controller?.paste(text)
+        current.paste(text)
     }
 
     override fun copySelection() {
@@ -244,9 +259,18 @@ class TerminalSurfaceView(
     override fun onCheckIsTextEditor(): Boolean = true
 
     override fun onCreateInputConnection(outAttrs: EditorInfo): InputConnection {
-        TerminalInputConnection.configure(outAttrs, input.state)
-        return TerminalInputConnection(this, input)
+        val target = controller?.takeIf { it.acceptsImages }
+        TerminalInputConnection.configure(outAttrs, input.state, target?.let { TerminalImageIntake.IMAGE_MIME_TYPES })
+        if (target == null) return TerminalInputConnection(this, input)
+        return TerminalInputConnection(this, input) { content, flags -> images.receiveKeyboardImage(content, flags, target) }
     }
+
+    override fun onDragEvent(event: DragEvent): Boolean =
+        when (event.action) {
+            DragEvent.ACTION_DRAG_STARTED -> images.acceptsDrag(event.clipDescription, controller)
+            DragEvent.ACTION_DROP -> images.drop(event, controller)
+            else -> true
+        }
 
     override fun onKeyDown(
         keyCode: Int,

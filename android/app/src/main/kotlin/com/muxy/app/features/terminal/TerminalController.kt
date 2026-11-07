@@ -2,6 +2,7 @@ package com.muxy.app.features.terminal
 
 import com.muxy.app.core.concurrency.attempt
 import com.muxy.app.core.logging.Log
+import com.muxy.app.features.terminal.images.TerminalImage
 import com.muxy.app.features.terminalkit.StickyModifier
 import com.muxy.app.features.terminalkit.TerminalKeyStroke
 import com.muxy.app.features.terminalkit.TerminalModifier
@@ -37,12 +38,17 @@ class TerminalController(
     private val mutableHistoryStart = MutableStateFlow(false)
     private val mutableNotice = MutableStateFlow<String?>(null)
     private val mutableSticky = MutableStateFlow(StickyModifier())
+    private val mutableSendingImagesNotice = MutableStateFlow<String?>(null)
 
     val mode: StateFlow<TerminalMode> = mutableMode.asStateFlow()
     val isFollowing: StateFlow<Boolean> = mutableFollowing.asStateFlow()
     val showsHistoryStart: StateFlow<Boolean> = mutableHistoryStart.asStateFlow()
     val notice: StateFlow<String?> = mutableNotice.asStateFlow()
     val sticky: StateFlow<StickyModifier> = mutableSticky.asStateFlow()
+    val sendingImagesNotice: StateFlow<String?> = mutableSendingImagesNotice.asStateFlow()
+
+    val acceptsImages: Boolean
+        get() = source.imageTarget != null
 
     private var history: HistoryDocument? = null
     private var historyPrefetch: ScrollbackRequest? = null
@@ -54,6 +60,7 @@ class TerminalController(
     private var viewportSize: TerminalGridSize? = null
     private var screenRows = 0
     private var noticeJob: Job? = null
+    private var imageJob: Job? = null
 
     init {
         source.listener = this
@@ -114,6 +121,20 @@ class TerminalController(
         }
         returnToLive()
         source.paste(text)
+    }
+
+    fun sendImages(read: suspend () -> List<TerminalImage>) {
+        val target = source.imageTarget ?: return
+        if (imageJob?.isActive == true) return
+        imageJob =
+            scope.launch {
+                val images = read()
+                when {
+                    images.isEmpty() -> show(IMAGE_UNREADABLE)
+                    images.any { it.isTooLarge } -> show(IMAGE_TOO_LARGE)
+                    else -> upload(images, target)
+                }
+            }
     }
 
     fun scroll(
@@ -217,6 +238,20 @@ class TerminalController(
         mutableHistoryStart.value = mutableMode.value == TerminalMode.HISTORY && historyReachedStart && isAtHistoryTop
     }
 
+    private suspend fun upload(
+        images: List<TerminalImage>,
+        target: TerminalImageTarget,
+    ) {
+        mutableSendingImagesNotice.value = sendingNotice(images.size)
+        attempt { target.send(images) }
+            .onSuccess { returnToLive() }
+            .onFailure { error ->
+                Log.terminal.error("Image upload failed", error)
+                show(target.failureMessage(error))
+            }
+        mutableSendingImagesNotice.value = null
+    }
+
     private fun disarm() {
         mutableSticky.update { it.copy(armed = false) }
     }
@@ -271,6 +306,10 @@ class TerminalController(
         const val HISTORY_PAGE_ROWS = 200
         const val OLDER_PAGE_ROWS = 500
         const val PASTE_TOO_LARGE = "That text is too large to paste. The limit is 1 MB."
+        const val IMAGE_UNREADABLE = "That image can't be sent."
+        const val IMAGE_TOO_LARGE = "That image is too large to send. The limit is 100 MB."
         private val NOTICE_DURATION = 4.seconds
+
+        fun sendingNotice(count: Int): String = if (count == 1) "Sending image…" else "Sending $count images…"
     }
 }

@@ -36,6 +36,18 @@ nonisolated final class SDKTerminalChannel: ServerTerminalChannel {
         }
     }
 
+    func upload(name: String, bytes: Data) async throws -> String {
+        try await lanes.fileRequest { [terminal] in
+            try terminal.upload(name: name, bytes: bytes)
+        }
+    }
+
+    func pastePaths(_ paths: [String]) {
+        lanes.send { [terminal] in
+            try terminal.pastePaths(paths: paths)
+        }
+    }
+
     func click(button: MouseButton, row: UInt16, column: UInt16, modifiers: Modifiers) {
         lanes.send { [terminal] in
             try terminal.click(button: button, row: row, column: column, modifiers: modifiers)

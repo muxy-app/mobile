@@ -1,3 +1,4 @@
+import PhotosUI
 import SwiftUI
 
 struct TerminalScreenView: View {
@@ -8,6 +9,8 @@ struct TerminalScreenView: View {
     @Environment(\.appTheme) private var theme
     @Environment(\.isActiveTabPage) private var isActive
     @State private var keyboardOffset: CGFloat = 0
+    @State private var isPickingImages = false
+    @State private var pickedImages: [PhotosPickerItem] = []
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
@@ -17,7 +20,8 @@ struct TerminalScreenView: View {
                 useNerdFont: settings.useNerdFont,
                 autoFocus: settings.autoFocusTerminal,
                 isActive: isActive,
-                onKeyboardOffsetChange: { keyboardOffset = $0 }
+                onKeyboardOffsetChange: { keyboardOffset = $0 },
+                onPickImages: { isPickingImages = true }
             )
             .padding(TerminalViewportState.contentInset)
 
@@ -34,6 +38,9 @@ struct TerminalScreenView: View {
                 if controller.showsHistoryStart {
                     noticeView("Start of history")
                 }
+                if let notice = controller.sendingImagesNotice {
+                    noticeView(notice)
+                }
                 if let notice = controller.notice {
                     noticeView(notice)
                 }
@@ -41,6 +48,24 @@ struct TerminalScreenView: View {
             .allowsHitTesting(false)
         }
         .keyboardIsland(bottomInset: keyboardOffset, background: ThemeColor(rgb: theme.terminalPalette.background).color)
+        .photosPicker(
+            isPresented: $isPickingImages,
+            selection: $pickedImages,
+            maxSelectionCount: TerminalImageLoader.pickerSelectionLimit,
+            matching: .images
+        )
+        .onChange(of: pickedImages) { _, items in
+            guard !items.isEmpty else { return }
+            pickedImages = []
+            sendPickedImages(items)
+        }
+    }
+
+    private func sendPickedImages(_ items: [PhotosPickerItem]) {
+        Task {
+            let images = await TerminalImageLoader.images(from: items)
+            controller.send(images: images)
+        }
     }
 
     @ViewBuilder
@@ -96,16 +121,19 @@ private struct TerminalSurfaceRepresentable: UIViewRepresentable {
     let autoFocus: Bool
     let isActive: Bool
     let onKeyboardOffsetChange: (CGFloat) -> Void
+    let onPickImages: () -> Void
 
     func makeUIView(context: Context) -> TerminalSurfaceView {
         let view = TerminalSurfaceView(controller: controller, theme: palette, useNerdFont: useNerdFont)
         view.onKeyboardOffsetChange = onKeyboardOffsetChange
+        view.onPickImages = onPickImages
         view.update(theme: palette, useNerdFont: useNerdFont, autoFocus: autoFocus, isActive: isActive)
         return view
     }
 
     func updateUIView(_ view: TerminalSurfaceView, context: Context) {
         view.onKeyboardOffsetChange = onKeyboardOffsetChange
+        view.onPickImages = onPickImages
         view.update(theme: palette, useNerdFont: useNerdFont, autoFocus: autoFocus, isActive: isActive)
     }
 

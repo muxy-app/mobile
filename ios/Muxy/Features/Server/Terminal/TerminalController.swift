@@ -49,6 +49,7 @@ final class TerminalController: Identifiable, TabStripItem {
     private(set) var notice: String?
     private(set) var historyReachedStart = false
     private(set) var isAtHistoryTop = false
+    private(set) var sendingImageCount = 0
 
     @ObservationIgnored weak var server: ServerController?
     @ObservationIgnored weak var display: (any TerminalDisplay)?
@@ -94,6 +95,17 @@ final class TerminalController: Identifiable, TabStripItem {
 
     var canAttach: Bool {
         phase == .waiting
+    }
+
+    var sendingImagesNotice: String? {
+        switch sendingImageCount {
+        case 0:
+            return nil
+        case 1:
+            return "Sending image…"
+        default:
+            return "Sending \(sendingImageCount) images…"
+        }
     }
 
     var showsHistoryStart: Bool {
@@ -251,6 +263,30 @@ final class TerminalController: Identifiable, TabStripItem {
         channel.paste(text)
     }
 
+    func send(images: [TerminalImage]) {
+        guard let channel, sendingImageCount == 0 else { return }
+        guard !images.isEmpty else {
+            show(notice: "That image can't be sent.")
+            return
+        }
+        guard images.allSatisfy({ $0.data.count <= TerminalImage.maximumBytes }) else {
+            show(notice: "That image is too large to send. The limit is 100 MB.")
+            return
+        }
+        sendingImageCount = images.count
+        Task { [weak self] in
+            do {
+                var paths: [String] = []
+                for image in images {
+                    paths.append(try await channel.upload(name: image.fileName, bytes: image.data))
+                }
+                self?.didUpload(paths, through: channel)
+            } catch {
+                self?.uploadDidFail(ServerFailure(error), through: channel)
+            }
+        }
+    }
+
     func scroll(_ direction: ScrollDirection, at cell: TerminalCellPosition) {
         channel?.scroll(direction: direction, row: UInt16(clamping: cell.row), column: UInt16(clamping: cell.column))
     }
@@ -318,6 +354,20 @@ final class TerminalController: Identifiable, TabStripItem {
         setFollowing(true)
         display?.prepareForLiveOutput()
         display?.screenNeedsRefresh()
+    }
+
+    private func didUpload(_ paths: [String], through uploadChannel: any ServerTerminalChannel) {
+        sendingImageCount = 0
+        guard channel === uploadChannel else { return }
+        returnToLive()
+        uploadChannel.pastePaths(paths)
+    }
+
+    private func uploadDidFail(_ failure: ServerFailure, through uploadChannel: any ServerTerminalChannel) {
+        sendingImageCount = 0
+        Log.terminal.error("Image upload failed: \(String(describing: failure), privacy: .public)")
+        guard channel === uploadChannel else { return }
+        show(notice: failure.message(context: .request, serverName: server?.serverName ?? "the computer"))
     }
 
     private func scheduleFit() {

@@ -5,11 +5,13 @@ import com.muxy.app.core.logging.Log
 import com.muxy.app.features.terminal.TerminalCellPosition
 import com.muxy.app.features.terminal.TerminalFrame
 import com.muxy.app.features.terminal.TerminalGridSize
+import com.muxy.app.features.terminal.TerminalImageTarget
 import com.muxy.app.features.terminal.TerminalLine
 import com.muxy.app.features.terminal.TerminalScrollDirection
 import com.muxy.app.features.terminal.TerminalScrollback
 import com.muxy.app.features.terminal.TerminalSource
 import com.muxy.app.features.terminal.TerminalSourceListener
+import com.muxy.app.features.terminal.images.TerminalImage
 import com.muxy.app.features.terminalkit.TerminalKey
 import com.muxy.app.features.terminalkit.TerminalKeyStroke
 import com.muxy.app.networking.server.ScrollbackSnapshot
@@ -25,9 +27,14 @@ import kotlin.time.Duration.Companion.milliseconds
 
 class SdkTerminalSource(
     private val scope: CoroutineScope,
+    private val serverName: () -> String,
     private val onViewportChange: () -> Unit,
-) : TerminalSource {
+) : TerminalSource,
+    TerminalImageTarget {
     override var listener: TerminalSourceListener? = null
+
+    override val imageTarget: TerminalImageTarget
+        get() = this
 
     var viewportSize: TerminalGridSize? = null
         private set
@@ -87,6 +94,15 @@ class SdkTerminalSource(
     override fun paste(text: String) {
         channel?.paste(text)
     }
+
+    override suspend fun send(images: List<TerminalImage>) {
+        val current = channel ?: return
+        val paths = images.map { current.upload(it.fileName, it.bytes) }
+        if (channel !== current) return
+        current.pastePaths(paths)
+    }
+
+    override fun failureMessage(error: Throwable): String = ServerFailure.from(error).message(ServerFailure.Context.REQUEST, serverName())
 
     override fun resize(size: TerminalGridSize) {
         if (viewportSize == size) return

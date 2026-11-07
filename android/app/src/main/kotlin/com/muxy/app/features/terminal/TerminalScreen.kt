@@ -1,5 +1,8 @@
 package com.muxy.app.features.terminal
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -72,6 +75,12 @@ fun TerminalScreen(
     val sticky by controller.sticky.collectAsStateWithLifecycle()
     val notice by controller.notice.collectAsStateWithLifecycle()
     val historyStart by controller.showsHistoryStart.collectAsStateWithLifecycle()
+    val sendingImages by controller.sendingImagesNotice.collectAsStateWithLifecycle()
+    val imagePicker =
+        rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(PICKER_SELECTION_LIMIT)) { uris ->
+            if (uris.isNotEmpty()) handle.sendImages(uris)
+        }
+    SideEffect { handle.onPickImages = { imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) } }
 
     val density = LocalDensity.current
     var islandTop by remember { mutableFloatStateOf(0f) }
@@ -117,6 +126,7 @@ fun TerminalScreen(
             TerminalAccessoryBar(
                 sticky = sticky,
                 canCopy = handle.canCopy,
+                canAttachImages = controller.acceptsImages,
                 keyboardVisible = imeVisible,
                 background = theme.groupedBackground,
                 foreground = theme.foreground,
@@ -129,7 +139,11 @@ fun TerminalScreen(
                     },
             )
         }
-        TerminalNotices(historyStart, notice, Modifier.align(Alignment.TopCenter).padding(top = TerminalIsland.margin))
+        TerminalNotices(
+            historyStart = historyStart,
+            notices = listOfNotNull(sendingImages, notice),
+            modifier = Modifier.align(Alignment.TopCenter).padding(top = TerminalIsland.margin),
+        )
     }
 
     LaunchedEffect(isActive, handle) {
@@ -185,7 +199,7 @@ private fun BackToLiveButton(
 @Composable
 private fun TerminalNotices(
     historyStart: Boolean,
-    notice: String?,
+    notices: List<String>,
     modifier: Modifier,
 ) {
     Column(
@@ -194,7 +208,7 @@ private fun TerminalNotices(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         if (historyStart) NoticeCapsule(START_OF_HISTORY)
-        notice?.let { NoticeCapsule(it) }
+        notices.forEach { NoticeCapsule(it) }
     }
 }
 
@@ -216,3 +230,4 @@ private const val BACK_TO_LIVE = "Back to Live Output"
 private const val START_OF_HISTORY = "Start of history"
 private const val BORDER_ALPHA = 0.18f
 private val BUTTON_SIZE = 48.dp
+private const val PICKER_SELECTION_LIMIT = 10
