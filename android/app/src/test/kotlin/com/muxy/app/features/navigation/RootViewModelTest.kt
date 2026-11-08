@@ -6,6 +6,7 @@ import com.muxy.app.features.addconnection.AddConnectionRequest
 import com.muxy.app.persistence.settings.AppSettings
 import com.muxy.app.persistence.settings.InMemorySettingsStore
 import com.muxy.app.testing.MainDispatcherRule
+import com.muxy.app.testing.fakePushCenter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -22,11 +23,12 @@ class RootViewModelTest {
     val mainDispatcher = MainDispatcherRule()
 
     private val startupReady = MutableStateFlow(true)
+    private val push = fakePushCenter(CoroutineScope(SupervisorJob()))
 
     @Test
     fun settingsStayUnloadedUntilTheStoreLoads() {
         val store = InMemorySettingsStore(initial = null)
-        val viewModel = RootViewModel(store, AddConnectionInbox(), startupReady)
+        val viewModel = RootViewModel(store, AddConnectionInbox(), push, startupReady)
         assertNull(viewModel.settings.value)
         store.load(AppSettings(themeName = "Nord"))
         assertEquals(AppSettings(themeName = "Nord"), viewModel.settings.value)
@@ -35,7 +37,7 @@ class RootViewModelTest {
     @Test
     fun completingOnboardingIsSaved() {
         val store = InMemorySettingsStore()
-        RootViewModel(store, AddConnectionInbox(), startupReady).completeOnboarding()
+        RootViewModel(store, AddConnectionInbox(), push, startupReady).completeOnboarding()
         assertEquals(true, store.settings.value?.hasCompletedOnboarding)
     }
 
@@ -43,7 +45,7 @@ class RootViewModelTest {
     fun aPairingLinkCompletesOnboardingAndReachesAddConnection() {
         val store = InMemorySettingsStore()
         val inbox = AddConnectionInbox()
-        RootViewModel(store, inbox, startupReady).openPairingLink("muxy://pair?host=studio.local")
+        RootViewModel(store, inbox, push, startupReady).openPairingLink("muxy://pair?host=studio.local")
         assertEquals(true, store.settings.value?.hasCompletedOnboarding)
         assertEquals(AddConnectionRequest.PairingCode("muxy://pair?host=studio.local"), inbox.request.value)
     }
@@ -52,7 +54,7 @@ class RootViewModelTest {
     fun otherLinksAreIgnored() {
         val store = InMemorySettingsStore()
         val inbox = AddConnectionInbox()
-        RootViewModel(store, inbox, startupReady).openPairingLink("muxy://open?project=1")
+        RootViewModel(store, inbox, push, startupReady).openPairingLink("muxy://open?project=1")
         assertEquals(false, store.settings.value?.hasCompletedOnboarding)
         assertNull(inbox.request.value)
     }
@@ -62,7 +64,7 @@ class RootViewModelTest {
         startupReady.value = false
         val store = InMemorySettingsStore(initial = null)
         val inbox = AddConnectionInbox()
-        val viewModel = RootViewModel(store, inbox, startupReady)
+        val viewModel = RootViewModel(store, inbox, push, startupReady)
         viewModel.openPairingLink("muxy://pair?host=studio.local")
         assertNull(store.settings.value)
         assertNull(inbox.request.value)
@@ -78,7 +80,7 @@ class RootViewModelTest {
         startupReady.value = false
         val store = InMemorySettingsStore()
         val inbox = AddConnectionInbox()
-        val viewModel = RootViewModel(store, inbox, startupReady)
+        val viewModel = RootViewModel(store, inbox, push, startupReady)
         val activityScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
         activityScope.launch { viewModel.openPairingLink("muxy://pair?host=studio.local") }
         assertNull(inbox.request.value)
@@ -94,7 +96,7 @@ class RootViewModelTest {
         startupReady.value = false
         val store = InMemorySettingsStore()
         val inbox = AddConnectionInbox()
-        RootViewModel(store, inbox, startupReady).openPairingLink("muxy://pair?host=studio.local")
+        RootViewModel(store, inbox, push, startupReady).openPairingLink("muxy://pair?host=studio.local")
         startupReady.value = true
         assertEquals(AddConnectionRequest.PairingCode("muxy://pair?host=studio.local"), inbox.take())
         startupReady.value = false
@@ -107,7 +109,7 @@ class RootViewModelTest {
         startupReady.value = false
         val store = InMemorySettingsStore()
         val inbox = AddConnectionInbox()
-        val viewModel = RootViewModel(store, inbox, startupReady)
+        val viewModel = RootViewModel(store, inbox, push, startupReady)
         val owner = ViewModelStore().apply { put("root", viewModel) }
         viewModel.openPairingLink("muxy://pair?host=studio.local")
         owner.clear()

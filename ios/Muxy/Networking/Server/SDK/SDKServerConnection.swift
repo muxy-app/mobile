@@ -37,6 +37,28 @@ nonisolated final class SDKServerConnection: ServerConnection {
         }
     }
 
+    var supportsPushNotifications: Bool {
+        connection.supportsPushNotifications()
+    }
+
+    func findSession(_ sessionId: UInt64) async throws -> Session? {
+        try await lanes.request { [connection] in
+            try connection.findSession(sessionId: sessionId)
+        }
+    }
+
+    func registerPush(token: String, environment: PushEnvironment) async throws -> PushRegistration {
+        try await lanes.pushRequest { [connection] in
+            try connection.registerPush(platform: .apns, token: token, environment: environment)
+        }
+    }
+
+    func unregisterPush() async throws {
+        try await lanes.pushRequest { [connection] in
+            try connection.unregisterPush()
+        }
+    }
+
     func createSession(projectId: String, size: TerminalGridSize) async throws -> Session {
         try await lanes.request { [connection] in
             try connection.createSession(projectId: projectId, columns: size.columns, rows: size.rows)

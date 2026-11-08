@@ -98,12 +98,14 @@ require_file APP_STORE_CONNECT_API_KEY_PATH
 require_var APP_STORE_CONNECT_KEY_ID
 require_var APP_STORE_CONNECT_ISSUER_ID
 require_file APP_STORE_PROVISIONING_PROFILE_PATH
+require_file APP_STORE_EXTENSION_PROVISIONING_PROFILE_PATH
 require_var KEYCHAIN_PASSWORD
 
 APP_SCHEME="Muxy"
 APP_PROJECT="ios/Muxy.xcodeproj"
 APP_ARCHIVE_PATH="ios/build/Muxy.xcarchive"
 BUNDLE_ID="com.muxy.app"
+EXTENSION_BUNDLE_ID="com.muxy.app.NotificationService"
 KEYCHAIN_PATH="$HOME/Library/Keychains/muxy-build.keychain-db"
 
 cleanup() {
@@ -136,25 +138,33 @@ security set-key-partition-list \
   -S apple-tool:,apple:,codesign: \
   -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
 
-step "Validating provisioning profile"
-PROFILE_PLIST="$(mktemp)"
-security cms -D -i "$APP_STORE_PROVISIONING_PROFILE_PATH" > "$PROFILE_PLIST"
-PROFILE_UUID=$(/usr/libexec/PlistBuddy -c "Print :UUID" "$PROFILE_PLIST")
-PROFILE_NAME=$(/usr/libexec/PlistBuddy -c "Print :Name" "$PROFILE_PLIST")
-PROFILE_APP_ID=$(/usr/libexec/PlistBuddy -c "Print :Entitlements:application-identifier" "$PROFILE_PLIST")
-PROFILE_GET_TASK_ALLOW=$(/usr/libexec/PlistBuddy -c "Print :Entitlements:get-task-allow" "$PROFILE_PLIST")
+install_profile() {
+  local profile_path="$1" bundle_id="$2" profile_plist profile_uuid profile_name profile_app_id profile_get_task_allow
+  profile_plist="$(mktemp)"
+  security cms -D -i "$profile_path" > "$profile_plist"
+  profile_uuid=$(/usr/libexec/PlistBuddy -c "Print :UUID" "$profile_plist")
+  profile_name=$(/usr/libexec/PlistBuddy -c "Print :Name" "$profile_plist")
+  profile_app_id=$(/usr/libexec/PlistBuddy -c "Print :Entitlements:application-identifier" "$profile_plist")
+  profile_get_task_allow=$(/usr/libexec/PlistBuddy -c "Print :Entitlements:get-task-allow" "$profile_plist")
+  rm -f "$profile_plist"
 
-if [[ "$PROFILE_GET_TASK_ALLOW" == "true" ]]; then
-  die "Profile '$PROFILE_NAME' is a development profile. Use an App Store profile for $BUNDLE_ID."
-fi
-if [[ "$PROFILE_APP_ID" != *.$BUNDLE_ID ]]; then
-  die "Profile app id '$PROFILE_APP_ID' does not match $BUNDLE_ID"
-fi
+  if [[ "$profile_get_task_allow" == "true" ]]; then
+    die "Profile '$profile_name' is a development profile. Use an App Store profile for $bundle_id."
+  fi
+  if [[ "$profile_app_id" != *.$bundle_id ]]; then
+    die "Profile app id '$profile_app_id' does not match $bundle_id"
+  fi
 
-mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
-cp "$APP_STORE_PROVISIONING_PROFILE_PATH" \
-  "$HOME/Library/MobileDevice/Provisioning Profiles/$PROFILE_UUID.mobileprovision"
-rm -f "$PROFILE_PLIST"
+  mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+  cp "$profile_path" "$HOME/Library/MobileDevice/Provisioning Profiles/$profile_uuid.mobileprovision"
+  INSTALLED_PROFILE_UUID="$profile_uuid"
+}
+
+step "Validating provisioning profiles"
+install_profile "$APP_STORE_PROVISIONING_PROFILE_PATH" "$BUNDLE_ID"
+PROFILE_UUID="$INSTALLED_PROFILE_UUID"
+install_profile "$APP_STORE_EXTENSION_PROVISIONING_PROFILE_PATH" "$EXTENSION_BUNDLE_ID"
+EXTENSION_PROFILE_UUID="$INSTALLED_PROFILE_UUID"
 
 step "Archiving"
 xcodebuild \
@@ -166,6 +176,7 @@ xcodebuild \
   -disableAutomaticPackageResolution \
   DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
   MUXY_PROVISIONING_PROFILE_SPECIFIER="$PROFILE_UUID" \
+  MUXY_EXTENSION_PROVISIONING_PROFILE_SPECIFIER="$EXTENSION_PROFILE_UUID" \
   MARKETING_VERSION="$VERSION" \
   CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
   OTHER_CODE_SIGN_FLAGS="--keychain $KEYCHAIN_PATH" \
@@ -190,6 +201,8 @@ cat > "$EXPORT_OPTIONS" <<EOF
   <dict>
     <key>$BUNDLE_ID</key>
     <string>$PROFILE_UUID</string>
+    <key>$EXTENSION_BUNDLE_ID</key>
+    <string>$EXTENSION_PROFILE_UUID</string>
   </dict>
   <key>manageAppVersionAndBuildNumber</key>
   <false/>

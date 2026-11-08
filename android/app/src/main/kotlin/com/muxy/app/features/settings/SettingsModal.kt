@@ -19,6 +19,8 @@ fun SettingsModal(
     onClose: () -> Unit,
 ) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
+    val notificationAuthorization by viewModel.notificationAuthorization.collectAsStateWithLifecycle()
+    val notificationServers by viewModel.notificationServers.collectAsStateWithLifecycle()
     val selectedTheme = ThemeCatalog.named(settings.themeName).name
     val backStack =
         rememberSerializable(serializer = NavBackStackSerializer(SettingsRoute.serializer())) {
@@ -40,6 +42,13 @@ fun SettingsModal(
                         onUseNerdFontChange = viewModel::setUseNerdFont,
                         onAutoFocusTerminalChange = viewModel::setAutoFocusTerminal,
                         onDemoModeChange = viewModel::setDemoMode,
+                        notifications =
+                            NotificationSettings(
+                                authorization = notificationAuthorization,
+                                servers = notificationServers,
+                                onAllow = viewModel::allowNotifications,
+                                onToggle = viewModel::setNotificationsEnabled,
+                            ),
                         onClose = onClose,
                     )
                 }

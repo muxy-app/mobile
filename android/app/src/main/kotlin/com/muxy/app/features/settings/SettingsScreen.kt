@@ -22,6 +22,7 @@ fun SettingsScreen(
     onUseNerdFontChange: (Boolean) -> Unit,
     onAutoFocusTerminalChange: (Boolean) -> Unit,
     onDemoModeChange: (Boolean) -> Unit,
+    notifications: NotificationSettings,
     onClose: () -> Unit,
 ) {
     Scaffold(
@@ -40,6 +41,7 @@ fun SettingsScreen(
                 }
             }
             item(key = "appearance-footer") { ThemedSectionFooter("App appearance follows your system.") }
+            notificationSettings(notifications)
             item(key = "terminal") { ThemedSectionHeader("Terminal") }
             item(key = "nerd-font") {
                 ThemedCell(RowPosition.FIRST) {

@@ -49,6 +49,10 @@ final class TabsHomeViewModel {
         }
     }
 
+    var supportsPushNotifications: Bool {
+        servers.values.contains(where: \.supportsPushNotifications)
+    }
+
     func load() {
         let saved = store.load()
         for (id, catalog) in deviceCatalogs where !saved.contains(catalog.connection) {

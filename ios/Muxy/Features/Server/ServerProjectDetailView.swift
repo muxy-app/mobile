@@ -1,4 +1,5 @@
 import MuxyMobile
+import MuxyPush
 import SwiftUI
 
 struct ServerProjectDetailView: View {
@@ -7,6 +8,7 @@ struct ServerProjectDetailView: View {
     let projectID: String
     let initialTabID: UUID?
     let settings: AppSettings
+    var notice: String?
     let onOpenProject: (String) -> Void
 
     var body: some View {
@@ -19,6 +21,7 @@ struct ServerProjectDetailView: View {
                 settings: settings,
                 onOpenProject: onOpenProject
             )
+            .transientNotice(notice)
         } else {
             ProjectTabsScreen(
                 title: connection.name,
@@ -32,6 +35,43 @@ struct ServerProjectDetailView: View {
                 page: { _ in EmptyView() }
             )
         }
+    }
+}
+
+struct ServerSessionDetailView: View {
+    static let endedNotice = "This terminal has ended."
+
+    let connection: Connection
+    let server: ServerController?
+    let target: PushTarget
+    let settings: AppSettings
+    let onOpenProject: (String) -> Void
+
+    @State private var opening: SessionOpening?
+
+    var body: some View {
+        ServerProjectDetailView(
+            connection: connection,
+            server: server,
+            projectID: projectID,
+            initialTabID: opening?.tabID,
+            settings: settings,
+            notice: notice,
+            onOpenProject: onOpenProject
+        )
+        .id(projectID)
+        .task(id: target) {
+            opening = await server?.openSession(target)
+        }
+    }
+
+    private var projectID: String {
+        opening?.projectID ?? target.projectId
+    }
+
+    private var notice: String? {
+        guard case .ended = opening else { return nil }
+        return Self.endedNotice
     }
 }
 

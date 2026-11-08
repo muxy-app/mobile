@@ -2,6 +2,8 @@ import SwiftUI
 
 struct TabsHomeView: View {
     let viewModel: TabsHomeViewModel
+    let push: PushCenter
+    let resetID: UUID
     let onOpen: (AppRoute) -> Void
     let onOpenDevice: (Connection) -> Void
     let onEdit: (Connection) -> Void
@@ -19,6 +21,10 @@ struct TabsHomeView: View {
         TabsHomeContent(
             devices: viewModel.devices,
             isCreating: viewModel.isCreating,
+            resetID: resetID,
+            showsNotificationPrompt: showsNotificationPrompt,
+            onEnableNotifications: { Task { await push.requestPermission() } },
+            onDismissNotificationPrompt: push.dismissPrompt,
             onOpenTab: openTab,
             onCloseTab: viewModel.closeTab,
             onCreateTab: createTab,
@@ -74,10 +80,20 @@ struct TabsHomeView: View {
             viewModel.setVisible(true)
         }
         .onDisappear { viewModel.setVisible(false) }
+        .onChange(of: resetID) {
+            isChoosingProject = false
+            pendingRoute = nil
+            pendingAddDevice = false
+            removingDevice = nil
+        }
         .onChange(of: scenePhase) { _, phase in
             guard phase != .inactive else { return }
             viewModel.setForeground(phase == .active)
         }
+    }
+
+    private var showsNotificationPrompt: Bool {
+        push.authorization == .notDetermined && !push.isPromptDismissed && viewModel.supportsPushNotifications
     }
 
     private func openTab(deviceID: UUID, projectID: String, tabID: UUID) {

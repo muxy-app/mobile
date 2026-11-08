@@ -93,6 +93,17 @@ class ProjectModel(
         }
     }
 
+    fun openTab(session: Session): ServerTerminal {
+        mutableTabs.value.firstOrNull { it.sessionId == session.id && !it.isRetired }?.let { existing ->
+            select(existing)
+            return existing
+        }
+        endedSessionIds -= session.id
+        val tab = makeTab(session)
+        select(tab)
+        return tab
+    }
+
     fun sessionDidEnd(sessionId: ULong) {
         endedSessionIds += sessionId
         val tab = mutableTabs.value.firstOrNull { it.sessionId == sessionId } ?: return
@@ -185,11 +196,14 @@ class ProjectModel(
         sessions
             .filter { it.id !in open && it.id !in endedSessionIds }
             .sortedBy { it.id }
-            .forEach { session ->
-                val tab = ServerTerminal(projectId, session.id, server, scope, session.directory, session.title)
-                server.register(tab, session.id, session.title)
-                mutableTabs.value += tab
-            }
+            .forEach(::makeTab)
+    }
+
+    private fun makeTab(session: Session): ServerTerminal {
+        val tab = ServerTerminal(projectId, session.id, server, scope, session.directory, session.title)
+        server.register(tab, session.id, session.title)
+        mutableTabs.value += tab
+        return tab
     }
 
     private fun remove(tab: ServerTerminal) {

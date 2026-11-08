@@ -47,6 +47,7 @@ fun TabsHomeScreen(
     val devices by viewModel.devices.collectAsStateWithLifecycle()
     val creating by viewModel.creating.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
+    val showsNotificationPrompt by viewModel.showsNotificationPrompt.collectAsStateWithLifecycle()
     var showNewTab by rememberSaveable { mutableStateOf(false) }
     var showNotifications by rememberSaveable { mutableStateOf(false) }
     var deletingId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -80,6 +81,14 @@ fun TabsHomeScreen(
                         bottom = padding.calculateBottomPadding() + 120.dp,
                     ),
             ) {
+                if (showsNotificationPrompt && !searching) {
+                    item(key = "notification-prompt") {
+                        NotificationPromptCard(
+                            onEnable = viewModel::enableNotifications,
+                            onDismiss = viewModel::dismissNotificationPrompt,
+                        )
+                    }
+                }
                 if (loaded == null) {
                     item(key = "loading") { TabsHomeMessage("Loading devices…") }
                 }

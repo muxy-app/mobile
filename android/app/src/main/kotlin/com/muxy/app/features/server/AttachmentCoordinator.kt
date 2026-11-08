@@ -99,6 +99,7 @@ class AttachmentCoordinator(
             }
             terminal.didAttach(channel)
             attached = terminal
+            server.terminalDidAttach(terminal)
         }.onFailure { error ->
             if (connection !== server.connection) {
                 terminal.attachWasInterrupted()

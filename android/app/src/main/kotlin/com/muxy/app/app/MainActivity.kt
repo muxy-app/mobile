@@ -15,6 +15,7 @@ import com.muxy.app.design.ThemedWindow
 import com.muxy.app.features.navigation.DeepLink
 import com.muxy.app.features.navigation.MuxyApp
 import com.muxy.app.features.navigation.RootViewModel
+import com.muxy.app.features.push.PushIntents
 
 class MainActivity : ComponentActivity() {
     private val container: AppContainer
@@ -32,7 +33,7 @@ class MainActivity : ComponentActivity() {
         }
         super.onCreate(savedInstanceState)
         themedWindow.apply(AppTheme.muxy)
-        if (savedInstanceState == null) openLink(intent)
+        if (savedInstanceState == null) openIntent(intent)
         setContent {
             val ready by container.ready.collectAsStateWithLifecycle()
             if (ready) MuxyApp(container, viewModel, themedWindow)
@@ -42,15 +43,20 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         container.billing.onActivityResumed()
+        container.push.refreshAuthorization()
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        openLink(intent)
+        openIntent(intent)
     }
 
-    private fun openLink(intent: Intent) {
+    private fun openIntent(intent: Intent) {
+        PushIntents.request(intent.action, intent.flags, intent::getStringExtra)?.let {
+            viewModel.openPush(it)
+            return
+        }
         val link = DeepLink.linkToOpen(intent.action, intent.flags, intent.dataString) ?: return
         viewModel.openPairingLink(link)
     }

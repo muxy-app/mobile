@@ -1,5 +1,6 @@
 import Foundation
 import MuxyMobile
+import MuxyPush
 import Observation
 import OSLog
 
@@ -26,6 +27,7 @@ final class ServerController {
     private(set) var hasLoadedProjects = false
     private(set) var projectsLoadFailed = false
     private(set) var sessionActivity: [UInt64: TabActivity] = [:]
+    private(set) var supportsPushNotifications = false
 
     @ObservationIgnored private(set) var connection: (any ServerConnection)?
     @ObservationIgnored private let nameProvider: () -> String?
@@ -33,6 +35,9 @@ final class ServerController {
     @ObservationIgnored private var connectionTask: Task<Void, Never>?
     @ObservationIgnored private let attachment = AttachmentCoordinator()
     @ObservationIgnored private let fileWatches = FileWatches()
+    @ObservationIgnored private let pushRegistrar = PushRegistrar()
+    @ObservationIgnored private let sessionOpener = SessionOpener()
+    @ObservationIgnored private var pushAcknowledgements: [UInt64: Set<UInt64>] = [:]
     @ObservationIgnored private var connectionContinuations: [UUID: AsyncStream<Bool>.Continuation] = [:]
     @ObservationIgnored private var projectModels: [String: ProjectModel] = [:]
     @ObservationIgnored private var terminalsBySession: [UInt64: TerminalController] = [:]
@@ -53,6 +58,7 @@ final class ServerController {
         serverName: String,
         connector: ServerConnector,
         credentialProvider: @escaping () -> ServerCredential?,
+        pushContext: (any ServerPushContext)? = nil,
         schedule: ReconnectSchedule = ReconnectSchedule()
     ) {
         self.serverID = serverID
@@ -63,8 +69,7 @@ final class ServerController {
             return try await connector.connect(to: credential, events: events)
         }
         self.schedule = schedule
-        attachment.server = self
-        fileWatches.server = self
+        attachHelpers(pushContext: pushContext)
     }
 
     init(
@@ -72,6 +77,7 @@ final class ServerController {
         serverName: String,
         nameProvider: @escaping () -> String?,
         openConnection: @escaping (@escaping @Sendable (ConnectionEvent) -> Void) async throws -> any ServerConnection,
+        pushContext: (any ServerPushContext)? = nil,
         schedule: ReconnectSchedule = ReconnectSchedule()
     ) {
         self.serverID = serverID
@@ -79,8 +85,15 @@ final class ServerController {
         self.nameProvider = nameProvider
         self.openConnection = openConnection
         self.schedule = schedule
+        attachHelpers(pushContext: pushContext)
+    }
+
+    private func attachHelpers(pushContext: (any ServerPushContext)?) {
         attachment.server = self
         fileWatches.server = self
+        pushRegistrar.server = self
+        pushRegistrar.context = pushContext
+        sessionOpener.server = self
     }
 
     var projectRows: [ProjectRow] {
@@ -200,11 +213,56 @@ final class ServerController {
     }
 
     func updateVisibleTerminal() {
-        let visible = projectModels.values.first(where: \.isVisible)?.selectedTab
+        let visible = visibleTerminal
         attachment.show(visible)
         if let sessionID = visible?.sessionID {
             acknowledgeActivity(forSession: sessionID)
         }
+        acknowledgePushEventsIfShown()
+    }
+
+    func terminalDidAttach(_ terminal: TerminalController) {
+        guard terminal === visibleTerminal else { return }
+        acknowledgePushEventsIfShown()
+    }
+
+    func syncPushRegistration() {
+        pushRegistrar.sync()
+    }
+
+    func unregisterPush() async {
+        await pushRegistrar.unregister()
+    }
+
+    func openSession(_ target: PushTarget) async -> SessionOpening? {
+        await sessionOpener.open(target)
+    }
+
+    func acknowledgeWhenShown(eventID: UInt64, sessionID: UInt64) {
+        pushAcknowledgements[sessionID, default: []].insert(eventID)
+        acknowledgePushEventsIfShown()
+    }
+
+    func acknowledgePushEvent(_ eventID: UInt64, sessionID: UInt64) {
+        pushRegistrar.context?.removeDeliveredNotifications(forSession: sessionID, serverID: serverID)
+        guard let connection else { return }
+        Task {
+            do {
+                try await connection.acknowledgeActivity(eventIds: [eventID])
+            } catch {
+                Log.push.error("Acknowledging a notification failed: \(String(describing: ServerFailure(error)), privacy: .public)")
+            }
+        }
+    }
+
+    private var visibleTerminal: TerminalController? {
+        projectModels.values.first(where: \.isVisible)?.selectedTab
+    }
+
+    private func acknowledgePushEventsIfShown() {
+        guard let terminal = visibleTerminal, terminal.isLive, let sessionID = terminal.sessionID,
+              let eventIDs = pushAcknowledgements.removeValue(forKey: sessionID) else { return }
+        eventIDs.forEach { acknowledgePushEvent($0, sessionID: sessionID) }
     }
 
     func viewportDidChange(of terminal: TerminalController) {
@@ -297,6 +355,8 @@ final class ServerController {
         refreshEverything()
         attachment.connectionDidOpen()
         fileWatches.connectionDidOpen()
+        supportsPushNotifications = connection.supportsPushNotifications
+        pushRegistrar.connectionDidOpen()
         announceConnection(true)
     }
 
@@ -367,6 +427,8 @@ final class ServerController {
         let closing = connection
         connection = nil
         attachment.connectionDidClose()
+        pushRegistrar.connectionDidClose()
+        supportsPushNotifications = false
         projectModels.values.flatMap(\.tabs).forEach { $0.connectionDidClose() }
         projectsRefresh.cancel()
         sessionsRefresh.cancel()

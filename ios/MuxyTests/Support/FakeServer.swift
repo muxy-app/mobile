@@ -150,6 +150,11 @@ final class FakeServerConnection: ServerConnection {
         var files: [String: FakeProjectFiles] = [:]
         var activity = Activity(agents: [], events: [])
         var acknowledged: [UInt64] = []
+        var supportsPush = true
+        var pushRegistration = PushRegistration(status: .active, key: Data(repeating: 7, count: 32))
+        var registeredTokens: [String] = []
+        var unregisterCount = 0
+        var findFailures: [MobileError] = []
     }
 
     init(
@@ -181,6 +186,58 @@ final class FakeServerConnection: ServerConnection {
 
     var acknowledged: [UInt64] {
         state.withLock { $0.acknowledged }
+    }
+
+    var registeredTokens: [String] {
+        state.withLock { $0.registeredTokens }
+    }
+
+    var unregisterCount: Int {
+        state.withLock { $0.unregisterCount }
+    }
+
+    func setPushSupport(_ supported: Bool) {
+        state.withLock { $0.supportsPush = supported }
+    }
+
+    func setPushRegistration(_ registration: PushRegistration) {
+        state.withLock { $0.pushRegistration = registration }
+    }
+
+    func failNextFind(with error: MobileError) {
+        state.withLock { $0.findFailures.append(error) }
+    }
+
+    func moveSession(_ sessionId: UInt64, to projectId: String) {
+        state.withLock { state in
+            guard let index = state.sessions.firstIndex(where: { $0.id == sessionId }) else { return }
+            state.sessions[index] = Fixtures.session(sessionId, project: projectId, title: state.sessions[index].title)
+        }
+    }
+
+    var supportsPushNotifications: Bool {
+        state.withLock { $0.supportsPush }
+    }
+
+    func findSession(_ sessionId: UInt64) async throws -> Session? {
+        try checkOpen()
+        return try state.withLock { state in
+            if !state.findFailures.isEmpty { throw state.findFailures.removeFirst() }
+            return state.sessions.first { $0.id == sessionId }
+        }
+    }
+
+    func registerPush(token: String, environment: PushEnvironment) async throws -> PushRegistration {
+        try checkOpen()
+        return state.withLock { state in
+            state.registeredTokens.append(token)
+            return state.pushRegistration
+        }
+    }
+
+    func unregisterPush() async throws {
+        try checkOpen()
+        state.withLock { $0.unregisterCount += 1 }
     }
 
     func setActivity(_ activity: Activity) {

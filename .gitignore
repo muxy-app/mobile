@@ -26,6 +26,8 @@ ios/build
 ios/MuxyMobileSDK/Build
 ios/MuxyMobileSDK/.build
 ios/MuxyMobileSDK/.swiftpm
+ios/MuxyPush/.build
+ios/MuxyPush/.swiftpm
 xcuserdata/
 
 android/.gradle/

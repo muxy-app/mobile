@@ -86,6 +86,7 @@ final class AttachmentCoordinator {
             }
             terminal.didAttach(channel)
             attached = terminal
+            server?.terminalDidAttach(terminal)
         } catch {
             guard connection === server?.connection else {
                 terminal.attachWasInterrupted()
