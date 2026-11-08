@@ -664,7 +664,8 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate, UIGestureRecogniz
         if pasteboard.hasImages {
             selection = nil
             input.resetBuffer()
-            controller.send(images: TerminalImageLoader.images(in: pasteboard))
+            let providers = pasteboard.itemProviders
+            controller.sendImages { await TerminalImageLoader.images(from: providers) }
             return
         }
         guard let text = pasteboard.string, !text.isEmpty else { return }
@@ -807,10 +808,7 @@ extension TerminalSurfaceView: UIDropInteractionDelegate {
 
     func dropInteraction(_ interaction: UIDropInteraction, performDrop session: UIDropSession) {
         let providers = session.items.map(\.itemProvider)
-        Task { [weak self] in
-            let images = await TerminalImageLoader.images(from: providers)
-            self?.controller.send(images: images)
-        }
+        controller.sendImages { await TerminalImageLoader.images(from: providers) }
     }
 }
 

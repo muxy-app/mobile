@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.net.Uri
+import com.muxy.app.features.terminal.images.TerminalImage
 
 fun interface TerminalClipboard {
     fun copy(text: String)
@@ -25,7 +26,7 @@ class SystemTerminalClipboard(
         return clip.getItemAt(0).coerceToText(context)?.toString()
     }
 
-    fun hasImages(): Boolean = manager.primaryClipDescription?.hasMimeType(IMAGE_MIME_TYPES) == true
+    fun hasImages(): Boolean = manager.primaryClipDescription?.hasMimeType(TerminalImage.MIME_TYPE) == true
 
     fun imageUris(): List<Uri> {
         if (!hasImages()) return emptyList()
@@ -35,6 +36,5 @@ class SystemTerminalClipboard(
 
     private companion object {
         const val LABEL = "Terminal"
-        const val IMAGE_MIME_TYPES = "image/*"
     }
 }

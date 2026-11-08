@@ -18,23 +18,27 @@ class TerminalImageReader(
 ) {
     private val resolver: ContentResolver = context.applicationContext.contentResolver
 
-    suspend fun read(uris: List<Uri>): List<TerminalImage> = withContext(Dispatchers.IO) { uris.mapNotNull(::read) }
+    suspend fun read(uris: List<Uri>): List<TerminalImageRead> = withContext(Dispatchers.IO) { uris.map(::read) }
 
-    private fun read(uri: Uri): TerminalImage? {
-        val bytes = readBytes(uri) ?: return null
-        return TerminalImage.sentAsIs(bytes) ?: convertedToJpeg(bytes)
-    }
-
-    private fun readBytes(uri: Uri): ByteArray? =
-        try {
-            resolver.openInputStream(uri)?.use { it.readAtMost(TerminalImage.MAXIMUM_BYTES) }
-        } catch (error: IOException) {
-            Log.terminal.error("Reading an image failed", error)
-            null
-        } catch (error: SecurityException) {
-            Log.terminal.error("Reading an image was not allowed", error)
-            null
+    private fun read(uri: Uri): TerminalImageRead {
+        if (uri.scheme != ContentResolver.SCHEME_CONTENT) {
+            Log.terminal.error("Ignored an image that isn't shared content")
+            return TerminalImageRead.Unreadable
         }
+        val bytes =
+            try {
+                val stream = resolver.openInputStream(uri) ?: return TerminalImageRead.Unreadable
+                stream.use { it.readAtMost(TerminalImage.MAXIMUM_BYTES) } ?: return TerminalImageRead.TooLarge
+            } catch (error: IOException) {
+                Log.terminal.error("Reading an image failed", error)
+                return TerminalImageRead.Unreadable
+            } catch (error: SecurityException) {
+                Log.terminal.error("Reading an image was not allowed", error)
+                return TerminalImageRead.Unreadable
+            }
+        val image = TerminalImage.sentAsIs(bytes) ?: convertedToJpeg(bytes) ?: return TerminalImageRead.Unreadable
+        return TerminalImageRead.Loaded(image)
+    }
 
     private fun convertedToJpeg(bytes: ByteArray): TerminalImage? =
         try {
@@ -43,30 +47,28 @@ class TerminalImageReader(
                     decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
                 }
             val output = ByteArrayOutputStream()
-            bitmap.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, output)
+            val compressed = bitmap.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, output)
             bitmap.recycle()
-            TerminalImage.jpeg(output.toByteArray())
+            output.toByteArray().takeIf { compressed && it.isNotEmpty() }?.let(TerminalImage::jpeg)
         } catch (error: IOException) {
             Log.terminal.error("Converting an image failed", error)
             null
         }
 
-    private fun InputStream.readAtMost(limit: Int): ByteArray? {
-        val output = ByteArrayOutputStream()
-        val buffer = ByteArray(BUFFER_BYTES)
-        while (true) {
-            val count = read(buffer)
-            if (count < 0) return output.toByteArray()
-            if (output.size() + count > limit) {
-                Log.terminal.error("An image was larger than ${TerminalImage.MAXIMUM_BYTES} bytes")
-                return null
-            }
-            output.write(buffer, 0, count)
-        }
-    }
-
     private companion object {
         const val JPEG_QUALITY = 90
-        const val BUFFER_BYTES = 64 * 1024
     }
 }
+
+internal fun InputStream.readAtMost(limit: Int): ByteArray? {
+    val output = ByteArrayOutputStream()
+    val buffer = ByteArray(READ_BUFFER_BYTES)
+    while (true) {
+        val count = read(buffer)
+        if (count < 0) return output.toByteArray()
+        if (output.size() + count > limit) return null
+        output.write(buffer, 0, count)
+    }
+}
+
+private const val READ_BUFFER_BYTES = 64 * 1024

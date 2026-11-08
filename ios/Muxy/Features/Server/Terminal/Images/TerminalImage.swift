@@ -26,25 +26,10 @@ nonisolated struct TerminalImage: Equatable, Sendable {
             self.init(data: data, fileExtension: fileExtension)
             return
         }
-        guard let image = UIImage(data: data) else { return nil }
-        self.init(image: image)
-    }
-
-    init?(image: UIImage) {
-        guard let jpeg = image.jpegData(compressionQuality: Self.jpegQuality) else { return nil }
+        guard let image = UIImage(data: data),
+              let jpeg = image.jpegData(compressionQuality: Self.jpegQuality)
+        else { return nil }
         self.init(data: jpeg, fileExtension: "jpg")
-    }
-
-    init?(pasteboardItem item: [String: Any]) {
-        guard let type = Self.preferredType(among: item.keys.compactMap { UTType($0) }) else { return nil }
-        switch item[type.identifier] {
-        case let data as Data:
-            self.init(data: data)
-        case let image as UIImage:
-            self.init(image: image)
-        default:
-            return nil
-        }
     }
 
     private init(data: Data, fileExtension: String) {

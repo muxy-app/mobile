@@ -28,6 +28,7 @@ import androidx.core.graphics.withClip
 import com.muxy.app.core.text.Graphemes
 import com.muxy.app.design.ThemeCatalog
 import com.muxy.app.design.ThemePalette
+import com.muxy.app.features.terminal.images.TerminalImage
 import com.muxy.app.features.terminal.images.TerminalImageIntake
 import com.muxy.app.features.terminal.input.CompositionPolicy
 import com.muxy.app.features.terminal.input.HardwareKeyAction
@@ -260,7 +261,7 @@ class TerminalSurfaceView(
 
     override fun onCreateInputConnection(outAttrs: EditorInfo): InputConnection {
         val target = controller?.takeIf { it.acceptsImages }
-        TerminalInputConnection.configure(outAttrs, input.state, target?.let { TerminalImageIntake.IMAGE_MIME_TYPES })
+        TerminalInputConnection.configure(outAttrs, input.state, target?.let { arrayOf(TerminalImage.MIME_TYPE) })
         if (target == null) return TerminalInputConnection(this, input)
         return TerminalInputConnection(this, input) { content, flags -> images.receiveKeyboardImage(content, flags, target) }
     }

@@ -23,14 +23,17 @@ class TerminalImageIntake(
         uris: List<Uri>,
         controller: TerminalController,
         afterReading: () -> Unit = {},
-    ) {
-        controller.sendImages {
-            try {
-                reader.read(uris)
-            } finally {
-                afterReading()
+    ): Boolean {
+        val accepted =
+            controller.sendImages {
+                try {
+                    reader.read(uris)
+                } finally {
+                    afterReading()
+                }
             }
-        }
+        if (!accepted) afterReading()
+        return accepted
     }
 
     fun pasteClipboard(controller: TerminalController): Boolean {
@@ -42,7 +45,7 @@ class TerminalImageIntake(
     fun acceptsDrag(
         description: ClipDescription?,
         controller: TerminalController?,
-    ): Boolean = controller?.acceptsImages == true && description?.hasMimeType(IMAGE_MIME_TYPE) == true
+    ): Boolean = controller?.acceptsImages == true && description?.hasMimeType(TerminalImage.MIME_TYPE) == true
 
     fun drop(
         event: DragEvent,
@@ -52,8 +55,7 @@ class TerminalImageIntake(
         val uris = event.clipData?.uris().orEmpty()
         if (uris.isEmpty()) return false
         val permissions = context.activity()?.requestDragAndDropPermissions(event)
-        send(uris, controller) { permissions?.release() }
-        return true
+        return send(uris, controller) { permissions?.release() }
     }
 
     fun receiveKeyboardImage(
@@ -61,7 +63,7 @@ class TerminalImageIntake(
         flags: Int,
         controller: TerminalController,
     ): Boolean {
-        if (!content.description.hasMimeType(IMAGE_MIME_TYPE)) return false
+        if (!content.description.hasMimeType(TerminalImage.MIME_TYPE)) return false
         if (flags and InputConnection.INPUT_CONTENT_GRANT_READ_URI_PERMISSION != 0) {
             try {
                 content.requestPermission()
@@ -70,8 +72,7 @@ class TerminalImageIntake(
                 return false
             }
         }
-        send(listOf(content.contentUri), controller) { content.releasePermission() }
-        return true
+        return send(listOf(content.contentUri), controller) { content.releasePermission() }
     }
 
     private fun ClipData.uris(): List<Uri> = (0 until itemCount).mapNotNull { getItemAt(it).uri }
@@ -82,9 +83,4 @@ class TerminalImageIntake(
             is ContextWrapper -> baseContext.activity()
             else -> null
         }
-
-    companion object {
-        private const val IMAGE_MIME_TYPE = "image/*"
-        val IMAGE_MIME_TYPES = arrayOf(IMAGE_MIME_TYPE)
-    }
 }

@@ -5,6 +5,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.ByteArrayInputStream
 
 class TerminalImageTest {
     @Test
@@ -38,5 +39,13 @@ class TerminalImageTest {
     fun imagesOverTheUploadLimitAreTooLarge() {
         assertFalse(TerminalImage.jpeg(ByteArray(TerminalImage.MAXIMUM_BYTES)).isTooLarge)
         assertTrue(TerminalImage.jpeg(ByteArray(TerminalImage.MAXIMUM_BYTES + 1)).isTooLarge)
+    }
+
+    @Test
+    fun readingStopsPastTheLimit() {
+        val bytes = ByteArray(200_000) { it.toByte() }
+        assertTrue(ByteArrayInputStream(bytes).readAtMost(200_000).contentEquals(bytes))
+        assertNull(ByteArrayInputStream(bytes).readAtMost(199_999))
+        assertEquals(0, ByteArrayInputStream(ByteArray(0)).readAtMost(10)?.size)
     }
 }

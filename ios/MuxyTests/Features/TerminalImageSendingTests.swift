@@ -50,10 +50,10 @@ struct TerminalImageSendingTests {
 
     @Test func everyImageIsUploadedThenAllPathsArePastedOnce() async throws {
         let live = try await liveTerminal()
-        let photo = try #require(UIImage(systemName: "photo"))
-        let jpeg = try #require(TerminalImage(image: photo))
-        live.terminal.send(images: [png, jpeg])
-        #expect(live.terminal.sendingImagesNotice == "Sending 2 images…")
+        let heic = try #require(UIImage(data: png.data)?.heicData())
+        let jpeg = try #require(TerminalImage(data: heic))
+        live.terminal.sendImages { [png, jpeg] }
+        #expect(live.terminal.sendingImagesNotice == TerminalController.preparingImagesNotice)
         await settle { !live.channel.pastedPaths.isEmpty }
         #expect(live.channel.uploads == ["pasted-image.png", "pasted-image.jpg"])
         #expect(live.channel.pastedPaths == [["/tmp/muxy-uploads/1/1-pasted-image.png", "/tmp/muxy-uploads/1/2-pasted-image.jpg"]])
@@ -64,7 +64,7 @@ struct TerminalImageSendingTests {
     @Test func aFailedUploadExplainsWhyAndPastesNothing() async throws {
         let live = try await liveTerminal()
         live.channel.failUploads(with: .Unsupported)
-        live.terminal.send(images: [png])
+        live.terminal.sendImages { [png] }
         await settle { live.terminal.notice != nil }
         #expect(live.terminal.notice == "Update Muxy on your phone and computer to use this.")
         #expect(live.channel.pastedPaths.isEmpty)
@@ -73,16 +73,19 @@ struct TerminalImageSendingTests {
 
     @Test func unreadableImagesAreNotSent() async throws {
         let live = try await liveTerminal()
-        live.terminal.send(images: [])
-        #expect(live.terminal.notice == "That image can't be sent.")
+        live.terminal.sendImages { [] }
+        await settle { live.terminal.notice != nil }
+        #expect(live.terminal.notice == TerminalController.unreadableImageNotice)
+        #expect(live.terminal.sendingImagesNotice == nil)
         #expect(live.channel.uploads.isEmpty)
     }
 
     @Test func imagesOverTheLimitAreNotSent() async throws {
         let live = try await liveTerminal()
         let oversized = try #require(TerminalImage(data: png.data + Data(count: TerminalImage.maximumBytes)))
-        live.terminal.send(images: [png, oversized])
-        #expect(live.terminal.notice == "That image is too large to send. The limit is 100 MB.")
+        live.terminal.sendImages { [png, oversized] }
+        await settle { live.terminal.notice != nil }
+        #expect(live.terminal.notice == TerminalController.imageTooLargeNotice)
         #expect(live.terminal.sendingImagesNotice == nil)
         #expect(live.channel.uploads.isEmpty)
     }
@@ -90,8 +93,22 @@ struct TerminalImageSendingTests {
     @Test func aTerminalThatIsNotLiveSendsNothing() async throws {
         let live = try await liveTerminal()
         _ = live.terminal.releaseChannel()
-        live.terminal.send(images: [png])
+        live.terminal.sendImages { [png] }
         #expect(live.terminal.sendingImagesNotice == nil)
         #expect(live.channel.uploads.isEmpty)
+    }
+
+    @Test func imagesSentWhileOthersAreSendingAreRefused() async throws {
+        let live = try await liveTerminal()
+        live.terminal.sendImages { [png] }
+        live.terminal.sendImages { [png] }
+        #expect(live.terminal.notice == TerminalController.busySendingImagesNotice)
+        await settle { !live.channel.pastedPaths.isEmpty }
+        #expect(live.channel.uploads == ["pasted-image.png"])
+    }
+
+    @Test func theSendingNoticeCountsImages() {
+        #expect(TerminalController.sendingNotice(forImageCount: 1) == "Sending image…")
+        #expect(TerminalController.sendingNotice(forImageCount: 3) == "Sending 3 images…")
     }
 }

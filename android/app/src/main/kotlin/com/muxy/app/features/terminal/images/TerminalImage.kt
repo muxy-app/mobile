@@ -12,6 +12,7 @@ class TerminalImage private constructor(
 
     companion object {
         const val MAXIMUM_BYTES = 100 * 1024 * 1024
+        const val MIME_TYPE = "image/*"
 
         fun sentAsIs(bytes: ByteArray): TerminalImage? = SentFormat.detect(bytes)?.let { TerminalImage(bytes, it.fileExtension) }
 

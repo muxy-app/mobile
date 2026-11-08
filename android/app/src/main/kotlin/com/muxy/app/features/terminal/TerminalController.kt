@@ -2,7 +2,7 @@ package com.muxy.app.features.terminal
 
 import com.muxy.app.core.concurrency.attempt
 import com.muxy.app.core.logging.Log
-import com.muxy.app.features.terminal.images.TerminalImage
+import com.muxy.app.features.terminal.images.TerminalImageRead
 import com.muxy.app.features.terminalkit.StickyModifier
 import com.muxy.app.features.terminalkit.TerminalKeyStroke
 import com.muxy.app.features.terminalkit.TerminalModifier
@@ -123,18 +123,22 @@ class TerminalController(
         source.paste(text)
     }
 
-    fun sendImages(read: suspend () -> List<TerminalImage>) {
-        val target = source.imageTarget ?: return
-        if (imageJob?.isActive == true) return
+    fun sendImages(read: suspend () -> List<TerminalImageRead>): Boolean {
+        val target = source.imageTarget ?: return false
+        if (imageJob?.isActive == true) {
+            show(IMAGES_BUSY)
+            return false
+        }
+        mutableSendingImagesNotice.value = PREPARING_IMAGES
         imageJob =
             scope.launch {
-                val images = read()
-                when {
-                    images.isEmpty() -> show(IMAGE_UNREADABLE)
-                    images.any { it.isTooLarge } -> show(IMAGE_TOO_LARGE)
-                    else -> upload(images, target)
+                try {
+                    send(read(), target)
+                } finally {
+                    mutableSendingImagesNotice.value = null
                 }
             }
+        return true
     }
 
     fun scroll(
@@ -238,10 +242,19 @@ class TerminalController(
         mutableHistoryStart.value = mutableMode.value == TerminalMode.HISTORY && historyReachedStart && isAtHistoryTop
     }
 
-    private suspend fun upload(
-        images: List<TerminalImage>,
+    private suspend fun send(
+        reads: List<TerminalImageRead>,
         target: TerminalImageTarget,
     ) {
+        val images = reads.filterIsInstance<TerminalImageRead.Loaded>().map { it.image }
+        if (reads.any { it is TerminalImageRead.TooLarge } || images.any { it.isTooLarge }) {
+            show(IMAGE_TOO_LARGE)
+            return
+        }
+        if (images.isEmpty()) {
+            show(IMAGE_UNREADABLE)
+            return
+        }
         mutableSendingImagesNotice.value = sendingNotice(images.size)
         attempt { target.send(images) }
             .onSuccess { returnToLive() }
@@ -249,7 +262,6 @@ class TerminalController(
                 Log.terminal.error("Image upload failed", error)
                 show(target.failureMessage(error))
             }
-        mutableSendingImagesNotice.value = null
     }
 
     private fun disarm() {
@@ -307,6 +319,8 @@ class TerminalController(
         const val OLDER_PAGE_ROWS = 500
         const val PASTE_TOO_LARGE = "That text is too large to paste. The limit is 1 MB."
         const val IMAGE_UNREADABLE = "That image can't be sent."
+        const val PREPARING_IMAGES = "Preparing…"
+        const val IMAGES_BUSY = "Still sending the previous images."
         const val IMAGE_TOO_LARGE = "That image is too large to send. The limit is 100 MB."
         private val NOTICE_DURATION = 4.seconds
 

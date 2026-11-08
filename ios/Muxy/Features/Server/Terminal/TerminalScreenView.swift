@@ -62,10 +62,7 @@ struct TerminalScreenView: View {
     }
 
     private func sendPickedImages(_ items: [PhotosPickerItem]) {
-        Task {
-            let images = await TerminalImageLoader.images(from: items)
-            controller.send(images: images)
-        }
+        controller.sendImages { await TerminalImageLoader.images(from: items) }
     }
 
     @ViewBuilder

@@ -49,7 +49,7 @@ final class TerminalController: Identifiable, TabStripItem {
     private(set) var notice: String?
     private(set) var historyReachedStart = false
     private(set) var isAtHistoryTop = false
-    private(set) var sendingImageCount = 0
+    private(set) var sendingImagesNotice: String?
 
     @ObservationIgnored weak var server: ServerController?
     @ObservationIgnored weak var display: (any TerminalDisplay)?
@@ -95,17 +95,6 @@ final class TerminalController: Identifiable, TabStripItem {
 
     var canAttach: Bool {
         phase == .waiting
-    }
-
-    var sendingImagesNotice: String? {
-        switch sendingImageCount {
-        case 0:
-            return nil
-        case 1:
-            return "Sending image…"
-        default:
-            return "Sending \(sendingImageCount) images…"
-        }
     }
 
     var showsHistoryStart: Bool {
@@ -263,28 +252,21 @@ final class TerminalController: Identifiable, TabStripItem {
         channel.paste(text)
     }
 
-    func send(images: [TerminalImage]) {
-        guard let channel, sendingImageCount == 0 else { return }
-        guard !images.isEmpty else {
-            show(notice: "That image can't be sent.")
+    func sendImages(loadedBy load: @escaping () async -> [TerminalImage]) {
+        guard let channel else { return }
+        guard sendingImagesNotice == nil else {
+            show(notice: Self.busySendingImagesNotice)
             return
         }
-        guard images.allSatisfy({ $0.data.count <= TerminalImage.maximumBytes }) else {
-            show(notice: "That image is too large to send. The limit is 100 MB.")
-            return
-        }
-        sendingImageCount = images.count
+        sendingImagesNotice = Self.preparingImagesNotice
         Task { [weak self] in
-            do {
-                var paths: [String] = []
-                for image in images {
-                    paths.append(try await channel.upload(name: image.fileName, bytes: image.data))
-                }
-                self?.didUpload(paths, through: channel)
-            } catch {
-                self?.uploadDidFail(ServerFailure(error), through: channel)
-            }
+            let images = await load()
+            await self?.upload(images, through: channel)
         }
+    }
+
+    static func sendingNotice(forImageCount count: Int) -> String {
+        count == 1 ? "Sending image…" : "Sending \(count) images…"
     }
 
     func scroll(_ direction: ScrollDirection, at cell: TerminalCellPosition) {
@@ -356,18 +338,31 @@ final class TerminalController: Identifiable, TabStripItem {
         display?.screenNeedsRefresh()
     }
 
-    private func didUpload(_ paths: [String], through uploadChannel: any ServerTerminalChannel) {
-        sendingImageCount = 0
-        guard channel === uploadChannel else { return }
-        returnToLive()
-        uploadChannel.pastePaths(paths)
-    }
-
-    private func uploadDidFail(_ failure: ServerFailure, through uploadChannel: any ServerTerminalChannel) {
-        sendingImageCount = 0
-        Log.terminal.error("Image upload failed: \(String(describing: failure), privacy: .public)")
-        guard channel === uploadChannel else { return }
-        show(notice: failure.message(context: .request, serverName: server?.serverName ?? "the computer"))
+    private func upload(_ images: [TerminalImage], through uploadChannel: any ServerTerminalChannel) async {
+        defer { sendingImagesNotice = nil }
+        guard !images.isEmpty else {
+            show(notice: Self.unreadableImageNotice)
+            return
+        }
+        guard images.allSatisfy({ $0.data.count <= TerminalImage.maximumBytes }) else {
+            show(notice: Self.imageTooLargeNotice)
+            return
+        }
+        sendingImagesNotice = Self.sendingNotice(forImageCount: images.count)
+        do {
+            var paths: [String] = []
+            for image in images {
+                paths.append(try await uploadChannel.upload(name: image.fileName, bytes: image.data))
+            }
+            guard channel === uploadChannel else { return }
+            returnToLive()
+            uploadChannel.pastePaths(paths)
+        } catch {
+            let failure = ServerFailure(error)
+            Log.terminal.error("Image upload failed: \(String(describing: failure), privacy: .public)")
+            guard channel === uploadChannel else { return }
+            show(notice: failure.message(context: .request, serverName: server?.serverName ?? "the computer"))
+        }
     }
 
     private func scheduleFit() {
@@ -464,6 +459,10 @@ final class TerminalController: Identifiable, TabStripItem {
     }
 
     private static let noModifiers = Modifiers(shift: false, alt: false, control: false)
+    static let preparingImagesNotice = "Preparing…"
+    static let busySendingImagesNotice = "Still sending the previous images."
+    static let unreadableImageNotice = "That image can't be sent."
+    static let imageTooLargeNotice = "That image is too large to send. The limit is 100 MB."
 
     private static func defaultTitle(for sessionID: UInt64?, directory: String) -> String {
         let folder = DisplayPath.folderName(directory)

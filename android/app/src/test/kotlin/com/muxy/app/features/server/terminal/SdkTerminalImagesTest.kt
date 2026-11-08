@@ -2,6 +2,7 @@ package com.muxy.app.features.server.terminal
 
 import com.muxy.app.features.terminal.TerminalController
 import com.muxy.app.features.terminal.images.TerminalImage
+import com.muxy.app.features.terminal.images.TerminalImageRead
 import com.muxy.app.testing.FakeTerminalChannel
 import com.muxy.app.testing.FakeTerminalSource
 import kotlinx.coroutines.test.TestScope
@@ -18,6 +19,8 @@ class SdkTerminalImagesTest {
     private val png = TerminalImage.sentAsIs(byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A))!!
     private val jpeg = TerminalImage.jpeg(byteArrayOf(1, 2, 3))
 
+    private fun loaded(vararg images: TerminalImage): List<TerminalImageRead> = images.map { TerminalImageRead.Loaded(it) }
+
     private fun TestScope.attached(channel: FakeTerminalChannel): TerminalController {
         val source = SdkTerminalSource(backgroundScope, serverName = { "Studio" }) {}
         val controller = TerminalController(source, backgroundScope)
@@ -30,7 +33,8 @@ class SdkTerminalImagesTest {
         runTest {
             val channel = FakeTerminalChannel(1u)
             val controller = attached(channel)
-            controller.sendImages { listOf(png, jpeg) }
+            assertTrue(controller.sendImages { loaded(png, jpeg) })
+            assertEquals(TerminalController.PREPARING_IMAGES, controller.sendingImagesNotice.value)
             runCurrent()
             assertEquals(listOf("pasted-image.png", "pasted-image.jpg"), channel.uploads)
             assertEquals(
@@ -47,7 +51,7 @@ class SdkTerminalImagesTest {
         runTest {
             val channel = FakeTerminalChannel(1u).apply { uploadFailure = MobileException.Unsupported() }
             val controller = attached(channel)
-            controller.sendImages { listOf(png) }
+            controller.sendImages { loaded(png) }
             runCurrent()
             assertTrue(channel.pastedPaths.isEmpty())
             assertEquals("Update Muxy on your phone and computer to use this.", controller.notice.value)
@@ -59,10 +63,21 @@ class SdkTerminalImagesTest {
         runTest {
             val channel = FakeTerminalChannel(1u)
             val controller = attached(channel)
-            controller.sendImages { emptyList() }
+            controller.sendImages { listOf(TerminalImageRead.Unreadable) }
             runCurrent()
             assertTrue(channel.uploads.isEmpty())
             assertEquals(TerminalController.IMAGE_UNREADABLE, controller.notice.value)
+            assertNull(controller.sendingImagesNotice.value)
+        }
+
+    @Test
+    fun readableImagesAreSentWhenOthersCannotBeRead() =
+        runTest {
+            val channel = FakeTerminalChannel(1u)
+            val controller = attached(channel)
+            controller.sendImages { listOf(TerminalImageRead.Unreadable, TerminalImageRead.Loaded(png)) }
+            runCurrent()
+            assertEquals(listOf("pasted-image.png"), channel.uploads)
         }
 
     @Test
@@ -70,10 +85,25 @@ class SdkTerminalImagesTest {
         runTest {
             val channel = FakeTerminalChannel(1u)
             val controller = attached(channel)
-            controller.sendImages { listOf(png, TerminalImage.jpeg(ByteArray(TerminalImage.MAXIMUM_BYTES + 1))) }
+            controller.sendImages { loaded(png) + TerminalImageRead.TooLarge }
             runCurrent()
             assertTrue(channel.uploads.isEmpty())
             assertEquals(TerminalController.IMAGE_TOO_LARGE, controller.notice.value)
+            controller.sendImages { loaded(TerminalImage.jpeg(ByteArray(TerminalImage.MAXIMUM_BYTES + 1))) }
+            runCurrent()
+            assertTrue(channel.uploads.isEmpty())
+        }
+
+    @Test
+    fun imagesSentWhileOthersAreSendingAreRefused() =
+        runTest {
+            val channel = FakeTerminalChannel(1u)
+            val controller = attached(channel)
+            assertTrue(controller.sendImages { loaded(png) })
+            assertFalse(controller.sendImages { loaded(jpeg) })
+            assertEquals(TerminalController.IMAGES_BUSY, controller.notice.value)
+            runCurrent()
+            assertEquals(listOf("pasted-image.png"), channel.uploads)
         }
 
     @Test
@@ -84,7 +114,7 @@ class SdkTerminalImagesTest {
             val controller = TerminalController(source, backgroundScope)
             source.attach(channel)
             source.release()
-            controller.sendImages { listOf(png) }
+            controller.sendImages { loaded(png) }
             runCurrent()
             assertTrue(channel.uploads.isEmpty())
             assertTrue(channel.pastedPaths.isEmpty())
@@ -94,7 +124,9 @@ class SdkTerminalImagesTest {
     fun onlyServerTerminalsAcceptImages() =
         runTest {
             assertTrue(attached(FakeTerminalChannel(1u)).acceptsImages)
-            assertFalse(TerminalController(FakeTerminalSource(), backgroundScope).acceptsImages)
+            val terminal = TerminalController(FakeTerminalSource(), backgroundScope)
+            assertFalse(terminal.acceptsImages)
+            assertFalse(terminal.sendImages { loaded(png) })
         }
 
     @Test
