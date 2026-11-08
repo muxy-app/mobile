@@ -54,7 +54,7 @@ class ServerTerminal(
     val directory: StateFlow<String> = mutableDirectory.asStateFlow()
     val hasScreen: StateFlow<Boolean> = mutableHasScreen.asStateFlow()
 
-    val source = SdkTerminalSource(scope) { server.viewportDidChange(this) }
+    val source = SdkTerminalSource(scope, serverName = { server.serverName }) { server.viewportDidChange(this) }
     val controller = TerminalController(source, scope)
 
     val viewportSize: TerminalGridSize?

@@ -67,6 +67,13 @@ interface ServerTerminalChannel : AutoCloseable {
 
     fun paste(text: String)
 
+    suspend fun upload(
+        name: String,
+        bytes: ByteArray,
+    ): String
+
+    fun pastePaths(paths: List<String>)
+
     fun click(
         button: MouseButton,
         row: Int,

@@ -129,6 +129,9 @@ class FakeTerminalChannel(
 ) : ServerTerminalChannel {
     val sent = mutableListOf<String>()
     val pastes = mutableListOf<String>()
+    val uploads = mutableListOf<String>()
+    val pastedPaths = mutableListOf<List<String>>()
+    var uploadFailure: MobileException? = null
     val resizes = mutableListOf<Pair<Int, Int>>()
     val clicks = mutableListOf<String>()
     val scrolls = mutableListOf<String>()
@@ -155,6 +158,19 @@ class FakeTerminalChannel(
 
     override fun paste(text: String) {
         pastes += text
+    }
+
+    override suspend fun upload(
+        name: String,
+        bytes: ByteArray,
+    ): String {
+        uploadFailure?.let { throw it }
+        uploads += name
+        return "/tmp/muxy-uploads/$sessionId/${uploads.size}-$name"
+    }
+
+    override fun pastePaths(paths: List<String>) {
+        pastedPaths += paths
     }
 
     override fun click(

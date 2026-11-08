@@ -2,9 +2,11 @@ import MuxyMobile
 import OSLog
 import QuartzCore
 import UIKit
+import UniformTypeIdentifiers
 
 final class TerminalSurfaceView: UIView, UIScrollViewDelegate, UIGestureRecognizerDelegate {
     var onKeyboardOffsetChange: ((CGFloat) -> Void)?
+    var onPickImages: (() -> Void)?
 
     private let controller: TerminalController
     private let scrollView = UIScrollView()
@@ -406,6 +408,8 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate, UIGestureRecogniz
         accessoryBar.onText = { [weak self] text in self?.sendFromAccessory(text) }
         accessoryBar.onPaste = { [weak self] in self?.pasteFromClipboard() }
         accessoryBar.onCopy = { [weak self] in self?.copySelection() }
+        accessoryBar.onAttachImages = { [weak self] in self?.onPickImages?() }
+        accessoryBar.setCanAttachImages(true)
         accessoryBar.onModifierToggle = { [weak self] armed in self?.controller.setModifierArmed(armed) }
         accessoryBar.onModifierChange = { [weak self] modifier in self?.controller.selectModifier(modifier) }
         accessoryBar.onKeyboardToggle = { [weak self] in self?.toggleSoftKeyboard() }
@@ -431,6 +435,8 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate, UIGestureRecogniz
         let menu = UIEditMenuInteraction(delegate: self)
         addInteraction(menu)
         editMenu = menu
+
+        addInteraction(UIDropInteraction(delegate: self))
     }
 
     private func applyTheme() {
@@ -654,7 +660,15 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate, UIGestureRecogniz
     }
 
     private func pasteFromClipboard() {
-        guard let text = UIPasteboard.general.string, !text.isEmpty else { return }
+        let pasteboard = UIPasteboard.general
+        if pasteboard.hasImages {
+            selection = nil
+            input.resetBuffer()
+            let providers = pasteboard.itemProviders
+            controller.sendImages { await TerminalImageLoader.images(from: providers) }
+            return
+        }
+        guard let text = pasteboard.string, !text.isEmpty else { return }
         selection = nil
         input.resetBuffer()
         controller.paste(text)
@@ -780,6 +794,21 @@ extension TerminalSurfaceView: UIEditMenuInteractionDelegate {
             self?.copySelection()
         }
         return UIMenu(children: [copy])
+    }
+}
+
+extension TerminalSurfaceView: UIDropInteractionDelegate {
+    func dropInteraction(_ interaction: UIDropInteraction, canHandle session: UIDropSession) -> Bool {
+        controller.isLive && session.hasItemsConforming(toTypeIdentifiers: [UTType.image.identifier])
+    }
+
+    func dropInteraction(_ interaction: UIDropInteraction, sessionDidUpdate session: UIDropSession) -> UIDropProposal {
+        UIDropProposal(operation: .copy)
+    }
+
+    func dropInteraction(_ interaction: UIDropInteraction, performDrop session: UIDropSession) {
+        let providers = session.items.map(\.itemProvider)
+        controller.sendImages { await TerminalImageLoader.images(from: providers) }
     }
 }
 

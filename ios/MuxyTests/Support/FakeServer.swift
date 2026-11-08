@@ -40,6 +40,9 @@ final class FakeTerminalChannel: ServerTerminalChannel {
         var screen: Screen
         var sent: [String] = []
         var pastes: [String] = []
+        var uploads: [String] = []
+        var pastedPaths: [[String]] = []
+        var uploadFailure: MobileError?
         var resizes: [TerminalGridSize] = []
         var detachCount = 0
     }
@@ -57,8 +60,20 @@ final class FakeTerminalChannel: ServerTerminalChannel {
         state.withLock { $0.pastes }
     }
 
+    var uploads: [String] {
+        state.withLock { $0.uploads }
+    }
+
+    var pastedPaths: [[String]] {
+        state.withLock { $0.pastedPaths }
+    }
+
     var resizes: [TerminalGridSize] {
         state.withLock { $0.resizes }
+    }
+
+    func failUploads(with error: MobileError) {
+        state.withLock { $0.uploadFailure = error }
     }
 
     var detachCount: Int {
@@ -84,6 +99,18 @@ final class FakeTerminalChannel: ServerTerminalChannel {
 
     func paste(_ text: String) {
         state.withLock { $0.pastes.append(text) }
+    }
+
+    func upload(name: String, bytes: Data) async throws -> String {
+        try state.withLock { state in
+            if let failure = state.uploadFailure { throw failure }
+            state.uploads.append(name)
+            return "/tmp/muxy-uploads/\(sessionId)/\(state.uploads.count)-\(name)"
+        }
+    }
+
+    func pastePaths(_ paths: [String]) {
+        state.withLock { $0.pastedPaths.append(paths) }
     }
 
     func click(button: MouseButton, row: UInt16, column: UInt16, modifiers: Modifiers) {
