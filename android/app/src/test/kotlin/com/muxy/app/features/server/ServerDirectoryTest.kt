@@ -2,6 +2,7 @@ package com.muxy.app.features.server
 
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
+import com.muxy.app.testing.FakePushContext
 import com.muxy.app.testing.FakeServerConnection
 import com.muxy.app.testing.FakeServerConnector
 import com.muxy.app.testing.InMemoryCredentialStore
@@ -136,5 +137,23 @@ class ServerDirectoryTest {
             runCurrent()
             assertTrue(unknown.phase.value is ServerPhase.Failed)
             assertEquals(0, connector.connectCount)
+        }
+
+    @Test
+    fun forgettingAServerUnregistersItsNotificationsBeforeDisconnecting() =
+        runTest {
+            val connection = FakeServerConnection()
+            val context = FakePushContext()
+            val directory =
+                ServerDirectory(credentials, FakeServerConnector(listOf(Result.success(connection))), backgroundScope, push = context)
+            directory.onStart(owner)
+            directory.focus(ServerFocus("server-1"))
+            directory.controller("server-1")
+            runCurrent()
+            directory.forget("server-1")
+            runCurrent()
+            assertEquals(1, connection.unregisterCount)
+            assertTrue(connection.isDisconnected)
+            assertTrue(context.registered.isEmpty())
         }
 }

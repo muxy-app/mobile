@@ -2,11 +2,11 @@ import SwiftUI
 
 @main
 struct MuxyApp: App {
-    @State private var container = AppContainer.live()
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var delegate
 
     var body: some Scene {
         WindowGroup {
-            RootView(container: container)
+            RootView(container: delegate.container)
         }
     }
 }

@@ -34,4 +34,5 @@ object Log {
     val ssh = LogCategory("ssh")
     val files = LogCategory("files")
     val billing = LogCategory("billing")
+    val push = LogCategory("push")
 }

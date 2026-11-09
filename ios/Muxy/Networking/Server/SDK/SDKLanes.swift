@@ -6,12 +6,14 @@ nonisolated final class SDKLanes: Sendable {
     private let input: DispatchQueue
     private let files: DispatchQueue
     private let git: DispatchQueue
+    private let push: DispatchQueue
 
     init(label: String) {
         requests = DispatchQueue(label: "\(label).requests", qos: .userInitiated)
         input = DispatchQueue(label: "\(label).input", qos: .userInteractive)
         files = DispatchQueue(label: "\(label).files", qos: .userInitiated)
         git = DispatchQueue(label: "\(label).git", qos: .userInitiated)
+        push = DispatchQueue(label: "\(label).push", qos: .utility)
     }
 
     func request<Value: Sendable>(_ work: @escaping @Sendable () throws -> Value) async throws -> Value {
@@ -24,6 +26,10 @@ nonisolated final class SDKLanes: Sendable {
 
     func gitRequest<Value: Sendable>(_ work: @escaping @Sendable () throws -> Value) async throws -> Value {
         try await perform(work, on: git)
+    }
+
+    func pushRequest<Value: Sendable>(_ work: @escaping @Sendable () throws -> Value) async throws -> Value {
+        try await perform(work, on: push)
     }
 
     func send(_ work: @escaping @Sendable () throws -> Void) {

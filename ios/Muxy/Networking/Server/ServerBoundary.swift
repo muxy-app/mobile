@@ -18,11 +18,15 @@ nonisolated protocol ServerConnector: Sendable {
 nonisolated protocol ServerConnection: AnyObject, Sendable {
     var serverVersion: String { get }
     func projects() async throws -> [ServerProject]
+    var supportsPushNotifications: Bool { get }
     func sessions(projectId: String) async throws -> [Session]
+    func findSession(_ sessionId: UInt64) async throws -> Session?
     func createSession(projectId: String, size: TerminalGridSize) async throws -> Session
     func endSession(_ sessionId: UInt64) async throws
     func activity() async throws -> Activity
     func acknowledgeActivity(eventIds: [UInt64]) async throws
+    func registerPush(token: String, environment: PushEnvironment) async throws -> PushRegistration
+    func unregisterPush() async throws
     func attach(sessionId: UInt64, size: TerminalGridSize) async throws -> any ServerTerminalChannel
     func files(projectId: String) throws -> any ServerProjectFiles
     func git(projectId: String) throws -> any ServerGitRepository

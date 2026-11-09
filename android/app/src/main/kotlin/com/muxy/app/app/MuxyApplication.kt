@@ -8,6 +8,7 @@ class MuxyApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        container.pushNotifier.createChannels()
         container.start(ProcessLifecycleOwner.get().lifecycle)
     }
 }

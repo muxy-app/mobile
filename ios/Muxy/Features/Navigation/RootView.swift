@@ -13,6 +13,7 @@ struct RootView: View {
     @State private var addRequest: AddConnectionRequest?
     @State private var editingConnection: Connection?
     @State private var isShowingSettings = false
+    @State private var homeResetID = UUID()
 
     init(container: AppContainer) {
         self.container = container
@@ -28,6 +29,7 @@ struct RootView: View {
             .themedWindow(theme)
             .onOpenURL(perform: open)
             .onChange(of: scenePhase) { _, phase in sceneDidChange(phase) }
+            .onChange(of: container.push.openRequest, initial: true) { _, request in openPush(request) }
     }
 
     private var themedContent: some View {
@@ -74,7 +76,7 @@ struct RootView: View {
             .formModalPresentation()
         }
         .sheet(isPresented: $isShowingSettings) {
-            SettingsView(settings: container.settings) {
+            SettingsView(settings: container.settings, push: container.push) {
                 isShowingSettings = false
             }
             .formModalPresentation()
@@ -84,6 +86,8 @@ struct RootView: View {
     private var home: some View {
         TabsHomeView(
             viewModel: tabsViewModel,
+            push: container.push,
+            resetID: homeResetID,
             onOpen: show(_:),
             onOpenDevice: navigate(to:),
             onEdit: { editingConnection = $0 },
@@ -134,6 +138,16 @@ struct RootView: View {
                     path = path.opening(.serverProject(connection: connection, projectID: openedProjectID))
                 }
             )
+        case let .serverSession(connection, target):
+            ServerSessionDetailView(
+                connection: connection,
+                server: serverController(for: connection),
+                target: target,
+                settings: container.settings,
+                onOpenProject: { openedProjectID in
+                    path = path.opening(.serverProject(connection: connection, projectID: openedProjectID))
+                }
+            )
         case let .sshTerminal(connection):
             SSHTerminalView(viewModel: container.makeSSHTerminalViewModel(for: connection))
         }
@@ -171,6 +185,8 @@ struct RootView: View {
             }
             path.removeAll()
             reloadConnections()
+            guard connection.kind == .server, connection.serverTransport != .ssh else { return }
+            await container.push.requestPermissionIfUndetermined()
         }
     }
 
@@ -184,6 +200,7 @@ struct RootView: View {
         switch phase {
         case .active:
             container.directory.setForeground(true)
+            Task { await container.push.refreshAuthorization() }
         case .background:
             container.directory.setForeground(false)
         case .inactive:
@@ -198,6 +215,22 @@ struct RootView: View {
         hasCompletedOnboarding = true
         isShowingSettings = false
         addRequest = AddConnectionRequest(pairingCode: url.absoluteString)
+    }
+
+    private func openPush(_ request: PushOpenRequest?) {
+        guard let request else { return }
+        container.push.consume(request)
+        hasCompletedOnboarding = true
+        isShowingSettings = false
+        editingConnection = nil
+        addRequest = nil
+        homeResetID = UUID()
+        guard case let .session(target) = request.destination,
+              let route = AppRoute.opening(target, among: container.connectionStore.load()) else {
+            path = []
+            return
+        }
+        path = [route]
     }
 
     private func completeOnboarding() {
@@ -217,6 +250,7 @@ struct RootView: View {
     private func reloadConnections() {
         connectionsViewModel.load()
         tabsViewModel.load()
+        container.syncPushServers()
     }
 }
 

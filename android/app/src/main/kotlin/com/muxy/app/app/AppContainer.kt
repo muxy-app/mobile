@@ -29,6 +29,12 @@ import com.muxy.app.features.navigation.RootViewModel
 import com.muxy.app.features.projectdetail.ProjectDetailViewModel
 import com.muxy.app.features.projectdetail.ProjectToolsFactory
 import com.muxy.app.features.projects.ProjectsViewModel
+import com.muxy.app.features.push.DataStorePushStateStore
+import com.muxy.app.features.push.FirebasePushTokenSource
+import com.muxy.app.features.push.PushCenter
+import com.muxy.app.features.push.PushNotifier
+import com.muxy.app.features.push.SecretPushKeyStore
+import com.muxy.app.features.push.SystemNotificationPermission
 import com.muxy.app.features.server.RemoteServerConnectionProvider
 import com.muxy.app.features.server.ServerDirectory
 import com.muxy.app.features.server.ServerProjectViewModel
@@ -144,10 +150,31 @@ class AppContainer(
 
     val connectionLifecycle = ConnectionLifecycle(connectionManager, connectionStore, mainScope)
 
+    val pushNotifier = PushNotifier(context)
+
+    val push =
+        PushCenter(
+            store =
+                DataStorePushStateStore(
+                    preferencesDataStore("Notifications", ioScope) { context.preferencesDataStoreFile(PUSH_FILE) },
+                    ioScope,
+                ),
+            keys = SecretPushKeyStore(secretStore),
+            connections = connectionStore,
+            permission = SystemNotificationPermission(context),
+            tokens = FirebasePushTokenSource(),
+            notifications = pushNotifier,
+            scope = mainScope,
+        )
+
     val serverDirectory =
-        ServerDirectory(credentialStore, SdkServerConnector(), mainScope) { connectionId ->
-            RemoteServerConnectionProvider(connectionId, connectionStore, remoteConnector)
-        }
+        ServerDirectory(
+            credentialStore,
+            SdkServerConnector(),
+            mainScope,
+            remoteProvider = { connectionId -> RemoteServerConnectionProvider(connectionId, connectionStore, remoteConnector) },
+            push = push,
+        )
 
     val tabsCatalog = TabsCatalog(connectionStore, billing, serverDirectory, ::makeDeviceConnectionManager, mainScope)
 
@@ -177,19 +204,22 @@ class AppContainer(
             lifecycle.addObserver(serverDirectory)
             lifecycle.addObserver(billingLifecycle)
             lifecycle.addObserver(tabsCatalog)
+            push.contextDidChange = serverDirectory::pushContextDidChange
+            push.isConnectedInForeground = serverDirectory::isConnected
+            push.start()
             ioScope.syncDemoMode(settingsStore.settings, connectionStore, tokenStore)
             mutableReady.value = true
         }
     }
 
-    fun makeRootViewModel(): RootViewModel = RootViewModel(settingsStore, addConnectionRequests, ready)
+    fun makeRootViewModel(): RootViewModel = RootViewModel(settingsStore, addConnectionRequests, push, ready)
 
-    fun makeSettingsViewModel(): SettingsViewModel = SettingsViewModel(settingsStore)
+    fun makeSettingsViewModel(): SettingsViewModel = SettingsViewModel(settingsStore, push)
 
     fun makeConnectionsListViewModel(): ConnectionsListViewModel =
         ConnectionsListViewModel(connectionStore, tokenStore, credentialStore, serverDirectory)
 
-    fun makeTabsHomeViewModel(): TabsHomeViewModel = TabsHomeViewModel(tabsCatalog)
+    fun makeTabsHomeViewModel(): TabsHomeViewModel = TabsHomeViewModel(tabsCatalog, push, serverDirectory.supportsPushNotifications)
 
     fun makeEditConnectionViewModel(connectionId: UUID): EditConnectionViewModel =
         EditConnectionViewModel(
@@ -251,13 +281,21 @@ class AppContainer(
         ServerProjectsViewModel(route.connectionId, serverDirectory.controller(route.serverId), connectionStore)
 
     fun makeServerProjectViewModel(route: AppRoute.ServerProject): ServerProjectViewModel =
+        makeServerProjectViewModel(route.connectionId, route.serverId, route.projectId, route.initialTabId)
+
+    fun makeServerProjectViewModel(
+        connectionId: UUID,
+        serverId: String,
+        projectId: String,
+        initialTabId: UUID?,
+    ): ServerProjectViewModel =
         ServerProjectViewModel(
-            connectionId = route.connectionId,
-            projectId = route.projectId,
-            server = serverDirectory.controller(route.serverId),
+            connectionId = connectionId,
+            projectId = projectId,
+            server = serverDirectory.controller(serverId),
             connectionStore = connectionStore,
             settingsStore = settingsStore,
-            initialTabId = route.initialTabId,
+            initialTabId = initialTabId,
         )
 
     private fun makeDeviceConnectionManager(): ConnectionManager =
@@ -273,6 +311,7 @@ class AppContainer(
         const val CONNECTIONS_FILE = "connections"
         const val WORKSPACES_FILE = "workspace_selections"
         const val WORKTREES_FILE = "worktrees"
+        const val PUSH_FILE = "notifications"
         const val SECRETS_FILE = "secrets.preferences_pb"
         const val HANDSHAKE_TIMEOUT_SECONDS = 8L
     }

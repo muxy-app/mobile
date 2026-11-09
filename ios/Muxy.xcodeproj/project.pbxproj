@@ -7,12 +7,22 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		574700012FD7000000000004 /* MuxyPush in Frameworks */ = {isa = PBXBuildFile; productRef = 574700002FD7000000000004 /* MuxyPush */; };
+		574700012FD7000000000005 /* MuxyPush in Frameworks */ = {isa = PBXBuildFile; productRef = 574700002FD7000000000005 /* MuxyPush */; };
+		574700012FD7000000000006 /* MuxyNotificationService.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 574700032FD7000000000001 /* MuxyNotificationService.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		574700012FD7000000000001 /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = 574700002FD7000000000001 /* SwiftTerm */; };
 		574700012FD7000000000002 /* Citadel in Frameworks */ = {isa = PBXBuildFile; productRef = 574700002FD7000000000002 /* Citadel */; };
 		574700012FD7000000000003 /* MuxyMobile in Frameworks */ = {isa = PBXBuildFile; productRef = 574700002FD7000000000003 /* MuxyMobile */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		574700032FD7000000000009 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 30F745E12FD6C28A003FC767 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 574700032FD7000000000004;
+			remoteInfo = MuxyNotificationService;
+		};
 		30F745F92FD6C28B003FC767 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 30F745E12FD6C28A003FC767 /* Project object */;
@@ -29,23 +39,55 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		574700032FD7000000000008 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				574700012FD7000000000006 /* MuxyNotificationService.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		574700032FD7000000000001 /* MuxyNotificationService.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = MuxyNotificationService.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		30F745E92FD6C28A003FC767 /* Muxy.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Muxy.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		30F745F82FD6C28B003FC767 /* MuxyTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MuxyTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		30F748012FD6C28B003FC767 /* MuxyStoreScreenshots.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MuxyStoreScreenshots.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		574700032FD7000000000003 /* Exceptions for "MuxyNotificationService" folder in "MuxyNotificationService" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+				MuxyNotificationService.entitlements,
+			);
+			target = 574700032FD7000000000004 /* MuxyNotificationService */;
+		};
 		30F747002FD6C28A003FC767 /* Exceptions for "Muxy" folder in "Muxy" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
+				Muxy.entitlements,
 			);
 			target = 30F745E82FD6C28A003FC767 /* Muxy */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		574700032FD7000000000002 /* MuxyNotificationService */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				574700032FD7000000000003 /* Exceptions for "MuxyNotificationService" folder in "MuxyNotificationService" target */,
+			);
+			path = MuxyNotificationService;
+			sourceTree = "<group>";
+		};
 		30F745EB2FD6C28A003FC767 /* Muxy */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -74,6 +116,7 @@
 				574700012FD7000000000001 /* SwiftTerm in Frameworks */,
 				574700012FD7000000000002 /* Citadel in Frameworks */,
 				574700012FD7000000000003 /* MuxyMobile in Frameworks */,
+				574700012FD7000000000004 /* MuxyPush in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -91,6 +134,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		574700032FD7000000000006 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				574700012FD7000000000005 /* MuxyPush in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -100,6 +151,7 @@
 				30F745EB2FD6C28A003FC767 /* Muxy */,
 				30F745FB2FD6C28B003FC767 /* MuxyTests */,
 				30F748022FD6C28B003FC767 /* MuxyStoreScreenshots */,
+				574700032FD7000000000002 /* MuxyNotificationService */,
 				30F745EA2FD6C28A003FC767 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -110,6 +162,7 @@
 				30F745E92FD6C28A003FC767 /* Muxy.app */,
 				30F745F82FD6C28B003FC767 /* MuxyTests.xctest */,
 				30F748012FD6C28B003FC767 /* MuxyStoreScreenshots.xctest */,
+				574700032FD7000000000001 /* MuxyNotificationService.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -124,10 +177,12 @@
 				30F745E52FD6C28A003FC767 /* Sources */,
 				30F745E62FD6C28A003FC767 /* Frameworks */,
 				30F745E72FD6C28A003FC767 /* Resources */,
+				574700032FD7000000000008 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				574700032FD700000000000A /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				30F745EB2FD6C28A003FC767 /* Muxy */,
@@ -137,6 +192,7 @@
 				574700002FD7000000000001 /* SwiftTerm */,
 				574700002FD7000000000002 /* Citadel */,
 				574700002FD7000000000003 /* MuxyMobile */,
+				574700002FD7000000000004 /* MuxyPush */,
 			);
 			productName = Muxy;
 			productReference = 30F745E92FD6C28A003FC767 /* Muxy.app */;
@@ -188,6 +244,29 @@
 			productReference = 30F748012FD6C28B003FC767 /* MuxyStoreScreenshots.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		574700032FD7000000000004 /* MuxyNotificationService */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 574700032FD700000000000D /* Build configuration list for PBXNativeTarget "MuxyNotificationService" */;
+			buildPhases = (
+				574700032FD7000000000005 /* Sources */,
+				574700032FD7000000000006 /* Frameworks */,
+				574700032FD7000000000007 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				574700032FD7000000000002 /* MuxyNotificationService */,
+			);
+			name = MuxyNotificationService;
+			packageProductDependencies = (
+				574700002FD7000000000005 /* MuxyPush */,
+			);
+			productName = MuxyNotificationService;
+			productReference = 574700032FD7000000000001 /* MuxyNotificationService.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -209,6 +288,9 @@
 						CreatedOnToolsVersion = 27.2;
 						TestTargetID = 30F745E82FD6C28A003FC767;
 					};
+					574700032FD7000000000004 = {
+						CreatedOnToolsVersion = 27.2;
+					};
 				};
 			};
 			buildConfigurationList = 30F745E42FD6C28A003FC767 /* Build configuration list for PBXProject "Muxy" */;
@@ -224,6 +306,7 @@
 				574700022FD7000000000001 /* XCRemoteSwiftPackageReference "SwiftTerm" */,
 				574700022FD7000000000002 /* XCRemoteSwiftPackageReference "Citadel" */,
 				574700022FD7000000000003 /* XCLocalSwiftPackageReference "MuxyMobileSDK" */,
+				574700022FD7000000000004 /* XCLocalSwiftPackageReference "MuxyPush" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 30F745EA2FD6C28A003FC767 /* Products */;
@@ -233,6 +316,7 @@
 				30F745E82FD6C28A003FC767 /* Muxy */,
 				30F745F72FD6C28B003FC767 /* MuxyTests */,
 				30F748062FD6C28B003FC767 /* MuxyStoreScreenshots */,
+				574700032FD7000000000004 /* MuxyNotificationService */,
 			);
 		};
 /* End PBXProject section */
@@ -253,6 +337,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		30F748052FD6C28B003FC767 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		574700032FD7000000000007 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -283,6 +374,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		574700032FD7000000000005 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -295,6 +393,11 @@
 			isa = PBXTargetDependency;
 			target = 30F745E82FD6C28A003FC767 /* Muxy */;
 			targetProxy = 30F748072FD6C28B003FC767 /* PBXContainerItemProxy */;
+		};
+		574700032FD700000000000A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 574700032FD7000000000004 /* MuxyNotificationService */;
+			targetProxy = 574700032FD7000000000009 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -356,6 +459,8 @@
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
+				MUXY_APP_GROUP = group.com.muxy.app;
+				MUXY_PUSH_KEYCHAIN_GROUP = "$(AppIdentifierPrefix)com.muxy.app.push";
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
@@ -414,6 +519,8 @@
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
+				MUXY_APP_GROUP = group.com.muxy.app;
+				MUXY_PUSH_KEYCHAIN_GROUP = "$(AppIdentifierPrefix)com.muxy.app.push";
 				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				VALIDATE_PRODUCT = YES;
@@ -425,6 +532,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Muxy/Muxy.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = NYSXATY4AA;
@@ -442,6 +550,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
+				MUXY_APS_ENVIRONMENT = development;
 				PRODUCT_BUNDLE_IDENTIFIER = com.muxy.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -459,6 +568,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Muxy/Muxy.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Distribution";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
 				CODE_SIGN_STYLE = Manual;
@@ -479,6 +589,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
+				MUXY_APS_ENVIRONMENT = production;
 				PRODUCT_BUNDLE_IDENTIFIER = com.muxy.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "$(MUXY_PROVISIONING_PROFILE_SPECIFIER)";
@@ -579,6 +690,69 @@
 			};
 			name = Release;
 		};
+		574700032FD700000000000B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = MuxyNotificationService/MuxyNotificationService.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = NYSXATY4AA;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = MuxyNotificationService/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Muxy;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.muxy.app.NotificationService;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		574700032FD700000000000C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = MuxyNotificationService/MuxyNotificationService.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Distribution";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
+				CODE_SIGN_STYLE = Manual;
+				DEVELOPMENT_TEAM = NYSXATY4AA;
+				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = NYSXATY4AA;
+				PROVISIONING_PROFILE_SPECIFIER = "$(MUXY_EXTENSION_PROVISIONING_PROFILE_SPECIFIER)";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "Muxy Notification Service App Store";
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = MuxyNotificationService/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Muxy;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.muxy.app.NotificationService;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -618,12 +792,25 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		574700032FD700000000000D /* Build configuration list for PBXNativeTarget "MuxyNotificationService" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				574700032FD700000000000B /* Debug */,
+				574700032FD700000000000C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
 		574700022FD7000000000003 /* XCLocalSwiftPackageReference "MuxyMobileSDK" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = MuxyMobileSDK;
+		};
+		574700022FD7000000000004 /* XCLocalSwiftPackageReference "MuxyPush" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = MuxyPush;
 		};
 /* End XCLocalSwiftPackageReference section */
 
@@ -660,6 +847,14 @@
 		574700002FD7000000000003 /* MuxyMobile */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = MuxyMobile;
+		};
+		574700002FD7000000000004 /* MuxyPush */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = MuxyPush;
+		};
+		574700002FD7000000000005 /* MuxyPush */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = MuxyPush;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

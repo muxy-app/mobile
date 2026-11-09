@@ -2,6 +2,7 @@ package com.muxy.app.features.server
 
 import com.muxy.app.core.concurrency.attempt
 import com.muxy.app.core.logging.Log
+import com.muxy.app.features.push.PushTarget
 import com.muxy.app.models.TabActivity
 import com.muxy.app.networking.server.ReconnectSchedule
 import com.muxy.app.networking.server.ServerConnection
@@ -26,6 +27,7 @@ class ServerController(
     private val provider: ServerConnectionProvider,
     private val scope: CoroutineScope,
     private val schedule: ReconnectSchedule = ReconnectSchedule(),
+    pushContext: ServerPushContext? = null,
 ) {
     constructor(
         serverId: String,
@@ -33,25 +35,40 @@ class ServerController(
         credentialProvider: suspend () -> ServerCredential?,
         scope: CoroutineScope,
         schedule: ReconnectSchedule = ReconnectSchedule(),
-    ) : this(serverId, PairedServerConnectionProvider(connector, credentialProvider), scope, schedule)
+        pushContext: ServerPushContext? = null,
+    ) : this(serverId, PairedServerConnectionProvider(connector, credentialProvider), scope, schedule, pushContext)
 
     private val mutablePhase = MutableStateFlow<ServerPhase>(ServerPhase.Idle)
     private val mutableCatalog = MutableStateFlow(ProjectCatalog())
     private val mutableActivity = MutableStateFlow<Map<ULong, TabActivity>>(emptyMap())
+    private val mutableConnection = MutableStateFlow<ServerConnection?>(null)
+    private val mutableSupportsPush = MutableStateFlow(false)
+    private val mutableSessionFocus = MutableStateFlow<SessionFocus?>(null)
 
     val phase: StateFlow<ServerPhase> = mutablePhase.asStateFlow()
     val catalog: StateFlow<ProjectCatalog> = mutableCatalog.asStateFlow()
     val activity: StateFlow<Map<ULong, TabActivity>> = mutableActivity.asStateFlow()
+    val connectionState: StateFlow<ServerConnection?> = mutableConnection.asStateFlow()
+    val supportsPushNotifications: StateFlow<Boolean> = mutableSupportsPush.asStateFlow()
+    val sessionFocus: StateFlow<SessionFocus?> = mutableSessionFocus.asStateFlow()
 
     val serverName: String
         get() = provider.serverName
 
-    var connection: ServerConnection? = null
-        private set
+    var connection: ServerConnection?
+        get() = mutableConnection.value
+        private set(value) {
+            mutableConnection.value = value
+        }
 
     val fileWatches = FileWatches(scope)
 
     private val attachment = AttachmentCoordinator(this, scope)
+    private val pushRegistrar = PushRegistrar(this, pushContext, scope)
+    private val pushContext = pushContext
+    private val sessionOpener = SessionOpener(this)
+    private val pushAcknowledgements = mutableMapOf<ULong, MutableSet<ULong>>()
+    private var sessionJob: Job? = null
     private val projectModels = mutableMapOf<String, ProjectModel>()
     private val terminalsBySession = mutableMapOf<ULong, ServerTerminal>()
     private val projectsRefresh = CoalescedRefresh(scope)
@@ -83,6 +100,58 @@ class ServerController(
         isBrowsing = browsing
         updateBrowsingProjects()
         if (browsing) reloadSessions()
+    }
+
+    fun requestRetrySchedule(): ReconnectSchedule = schedule.fresh()
+
+    fun showSession(target: PushTarget?) {
+        if (mutableSessionFocus.value?.target == target) return
+        sessionJob?.cancel()
+        sessionJob = null
+        mutableSessionFocus.value = target?.let(::SessionFocus)
+        if (target == null) return
+        showProject(target.projectId)
+        sessionJob =
+            scope.launch {
+                val opening = sessionOpener.open(target) ?: return@launch
+                if (mutableSessionFocus.value?.target != target) return@launch
+                mutableSessionFocus.value = SessionFocus(target, opening)
+                showProject(opening.projectId)
+            }
+    }
+
+    fun syncPushRegistration() {
+        pushRegistrar.sync()
+    }
+
+    suspend fun unregisterPush() {
+        pushRegistrar.unregister()
+    }
+
+    fun acknowledgeWhenShown(
+        eventId: ULong,
+        sessionId: ULong,
+    ) {
+        pushAcknowledgements.getOrPut(sessionId) { mutableSetOf() } += eventId
+        acknowledgePushEventsIfShown()
+    }
+
+    fun acknowledgePushEvent(
+        eventId: ULong,
+        sessionId: ULong,
+    ) {
+        val current = connection
+        scope.launch {
+            pushContext?.removeDeliveredNotifications(sessionId, serverId)
+            current ?: return@launch
+            attempt { current.acknowledgeActivity(listOf(eventId)) }
+                .onFailure { Log.push.error("Acknowledging a notification failed: ${ServerFailure.from(it)}") }
+        }
+    }
+
+    fun terminalDidAttach(terminal: ServerTerminal) {
+        if (terminal !== visibleTerminal) return
+        acknowledgePushEventsIfShown()
     }
 
     fun showProject(projectId: String?) {
@@ -147,9 +216,21 @@ class ServerController(
     }
 
     fun updateVisibleTerminal() {
-        val visible = projectModels.values.firstOrNull { it.isVisible }?.selectedTab
+        val visible = visibleTerminal
         attachment.show(visible)
         visible?.sessionId?.let(::acknowledgeActivity)
+        acknowledgePushEventsIfShown()
+    }
+
+    private val visibleTerminal: ServerTerminal?
+        get() = projectModels.values.firstOrNull { it.isVisible }?.selectedTab
+
+    private fun acknowledgePushEventsIfShown() {
+        val terminal = visibleTerminal ?: return
+        if (terminal.phase.value != ServerTerminalPhase.Live) return
+        val sessionId = terminal.sessionId ?: return
+        val eventIds = pushAcknowledgements.remove(sessionId) ?: return
+        eventIds.forEach { acknowledgePushEvent(it, sessionId) }
     }
 
     fun acknowledgeActivity(sessionId: ULong) {
@@ -221,6 +302,8 @@ class ServerController(
         sessionsRefresh.request(::loadSessions)
         reloadActivity()
         attachment.connectionDidOpen()
+        mutableSupportsPush.value = opened.supportsPushNotifications
+        pushRegistrar.connectionDidOpen()
     }
 
     private fun didFailToConnect(
@@ -290,6 +373,8 @@ class ServerController(
         connection = null
         fileWatches.connectionChanged(null)
         attachment.connectionDidClose()
+        pushRegistrar.connectionDidClose()
+        mutableSupportsPush.value = false
         projectModels.values.forEach(ProjectModel::connectionDidClose)
         projectsRefresh.cancel()
         sessionsRefresh.cancel()
