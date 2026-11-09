@@ -459,7 +459,7 @@
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
-				MUXY_APP_GROUP = group.com.muxy.app;
+				MUXY_APP_GROUP = group.com.muxy.app.shared;
 				MUXY_PUSH_KEYCHAIN_GROUP = "$(AppIdentifierPrefix)com.muxy.app.push";
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
@@ -519,7 +519,7 @@
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
-				MUXY_APP_GROUP = group.com.muxy.app;
+				MUXY_APP_GROUP = group.com.muxy.app.shared;
 				MUXY_PUSH_KEYCHAIN_GROUP = "$(AppIdentifierPrefix)com.muxy.app.push";
 				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
