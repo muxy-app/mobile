@@ -109,29 +109,55 @@ struct PushCenterTests {
         #expect(client.removedIdentifiers == ["usZ3J1QStv6L6omf"])
     }
 
-    @Test func registrationsStoreTheKeyAndDisabledServersDropIt() async {
+    @Test func aPausedServerKeepsItsKeyAndANewKeyReplacesIt() async throws {
         let push = center()
-        await push.refreshAuthorization()
-        let replacement = Data(repeating: 4, count: 32)
-        push.record(PushRegistration(status: .pending, key: replacement), for: PushVectors.serverID)
-        #expect(push.hasKey(for: PushVectors.serverID))
-        #expect(push.status(for: PushVectors.serverID) == .pending)
         push.record(PushRegistration(status: .disabled, key: nil), for: PushVectors.serverID)
-        #expect(!push.hasKey(for: PushVectors.serverID))
+        #expect(push.hasKey(for: PushVectors.serverID))
         #expect(push.status(for: PushVectors.serverID) == .disabled)
+        #expect(push.isRegistered(PushVectors.serverID))
+        push.open(PushVectors.userInfo())
+        #expect(push.openRequest?.destination == .session(PushVectors.target))
+
+        push.record(PushRegistration(status: .active, key: Data(repeating: 4, count: 32)), for: PushVectors.serverID)
+        push.open(PushVectors.userInfo())
+        #expect(push.openRequest?.destination == .home)
     }
 
-    @Test func notificationsNeedPermissionAndTheServerToggle() async {
+    @Test func unregisteringDropsTheKeyAndTheRegistration() {
+        let push = center()
+        push.record(PushRegistration(status: .active, key: PushVectors.keyBytes), for: PushVectors.serverID)
+        push.recordUnregistered(serverID: PushVectors.serverID)
+        #expect(!push.hasKey(for: PushVectors.serverID))
+        #expect(!push.isRegistered(PushVectors.serverID))
+    }
+
+    @Test func unsupportedServersAreNotRegistered() {
+        let push = center()
+        push.recordUnsupported(serverID: PushVectors.serverID)
+        #expect(push.status(for: PushVectors.serverID) == .unsupported)
+        #expect(!push.isRegistered(PushVectors.serverID))
+    }
+
+    @Test func nothingIsDecidedUntilPermissionIsKnown() async {
         let client = FakeNotificationClient()
         client.current = .notDetermined
         let push = center(client: client)
+        #expect(push.pushIntent(for: PushVectors.serverID) == .undecided)
         await push.refreshAuthorization()
-        #expect(!push.wantsNotifications(from: PushVectors.serverID))
+        #expect(push.pushIntent(for: PushVectors.serverID) == .undecided)
         #expect(await push.requestPermission())
-        #expect(push.wantsNotifications(from: PushVectors.serverID))
+        #expect(push.pushIntent(for: PushVectors.serverID) == .wanted)
         #expect(client.remoteRegistrations == 1)
         await push.setEnabled(false, for: PushVectors.serverID)
-        #expect(!push.wantsNotifications(from: PushVectors.serverID))
+        #expect(push.pushIntent(for: PushVectors.serverID) == .unwanted)
+    }
+
+    @Test func aDeniedPermissionIsUnwanted() async {
+        let client = FakeNotificationClient()
+        client.current = .denied
+        let push = center(client: client)
+        await push.refreshAuthorization()
+        #expect(push.pushIntent(for: PushVectors.serverID) == .unwanted)
     }
 
     @Test func pairedServersAreTrackedAndRemovedServersForgotten() {

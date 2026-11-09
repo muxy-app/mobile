@@ -155,6 +155,7 @@ final class FakeServerConnection: ServerConnection {
         var registeredTokens: [String] = []
         var unregisterCount = 0
         var findFailures: [MobileError] = []
+        var findAttempts = 0
     }
 
     init(
@@ -196,6 +197,10 @@ final class FakeServerConnection: ServerConnection {
         state.withLock { $0.unregisterCount }
     }
 
+    var findAttempts: Int {
+        state.withLock { $0.findAttempts }
+    }
+
     func setPushSupport(_ supported: Bool) {
         state.withLock { $0.supportsPush = supported }
     }
@@ -222,6 +227,7 @@ final class FakeServerConnection: ServerConnection {
     func findSession(_ sessionId: UInt64) async throws -> Session? {
         try checkOpen()
         return try state.withLock { state in
+            state.findAttempts += 1
             if !state.findFailures.isEmpty { throw state.findFailures.removeFirst() }
             return state.sessions.first { $0.id == sessionId }
         }

@@ -5,6 +5,7 @@ import com.muxy.app.core.logging.Log
 import com.muxy.app.features.push.PushTarget
 import com.muxy.app.networking.server.ServerConnection
 import com.muxy.app.networking.server.ServerFailure
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import uniffi.muxy_mobile.Session
@@ -36,6 +37,7 @@ class SessionOpener(
     private val server: ServerController,
 ) {
     suspend fun open(target: PushTarget): SessionOpening? {
+        val retries = server.requestRetrySchedule()
         var stale: ServerConnection? = null
         while (true) {
             val current = nextConnection(stale)
@@ -47,7 +49,11 @@ class SessionOpener(
             val failure = result.exceptionOrNull()?.let(ServerFailure::from) ?: return show(result.getOrNull(), target)
             Log.push.error("Finding a notification's session failed: $failure")
             if (!failure.isTransient) return SessionOpening.Unavailable(target.projectId)
-            stale = current
+            if (failure == ServerFailure.Disconnected) {
+                stale = current
+                continue
+            }
+            delay(retries.nextDelay())
         }
     }
 

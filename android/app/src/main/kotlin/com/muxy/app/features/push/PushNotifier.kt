@@ -65,7 +65,7 @@ class PushNotifier(
                 ?.notification
                 ?.group
         manager.cancel(tag, NOTIFICATION_ID)
-        group?.let(::cancelSummaryIfEmpty)
+        group?.let { cancelSummaryIfEmpty(it, cancelledTag = tag) }
     }
 
     private fun postSummary(
@@ -84,8 +84,14 @@ class PushNotifier(
         manager.notify(summaryTag(group), SUMMARY_ID, summary)
     }
 
-    private fun cancelSummaryIfEmpty(group: String) {
-        val remaining = manager.activeNotifications.any { it.id == NOTIFICATION_ID && it.notification.group == group }
+    private fun cancelSummaryIfEmpty(
+        group: String,
+        cancelledTag: String,
+    ) {
+        val remaining =
+            manager.activeNotifications.any {
+                it.id == NOTIFICATION_ID && it.tag != cancelledTag && it.notification.group == group
+            }
         if (remaining) return
         manager.cancel(summaryTag(group), SUMMARY_ID)
     }

@@ -8,10 +8,8 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
-import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import uniffi.muxy_mobile.ConnectionEvent
@@ -22,7 +20,7 @@ import kotlin.time.Duration.Companion.seconds
 class PushRegistrarTest {
     private fun TestScope.connected(
         context: FakePushContext,
-        vararg connections: FakeServerConnection,
+        connections: List<FakeServerConnection>,
     ): Pair<ServerController, FakeServerConnector> {
         val connector = FakeServerConnector(connections.map { Result.success(it) })
         val controller = ServerController("server-1", connector, { serverCredential() }, backgroundScope, pushContext = context)
@@ -32,13 +30,12 @@ class PushRegistrarTest {
     }
 
     @Test
-    fun connectingRegistersTheTokenAndKeepsTheKey() =
+    fun connectingRegistersTheTokenAndRecordsTheReply() =
         runTest {
             val context = FakePushContext()
             val connection = FakeServerConnection()
-            val (controller, _) = connected(context, connection)
+            val (controller, _) = connected(context, listOf(connection))
             assertEquals(listOf("fcm-token"), connection.registeredTokens)
-            assertArrayEquals(ByteArray(32) { 7 }, context.keys["server-1"])
             assertEquals(PushStatus.ACTIVE, context.statuses["server-1"])
             assertTrue(controller.supportsPushNotifications.value)
         }
@@ -48,7 +45,7 @@ class PushRegistrarTest {
         runTest {
             val first = FakeServerConnection()
             val second = FakeServerConnection()
-            val (_, connector) = connected(FakePushContext(), first, second)
+            val (_, connector) = connected(FakePushContext(), listOf(first, second))
             connector.emit(ConnectionEvent.Disconnected)
             runCurrent()
             advanceTimeBy(2.seconds)
@@ -58,23 +55,28 @@ class PushRegistrarTest {
         }
 
     @Test
-    fun aDisabledServerDropsTheKey() =
+    fun aPausedServerStaysRegisteredAndIsUnregisteredWhenTurnedOff() =
         runTest {
-            val context = FakePushContext().apply { keys["server-1"] = ByteArray(32) { 1 } }
+            val context = FakePushContext()
             val connection = FakeServerConnection().apply { pushRegistration = PushRegistration(PushStatus.DISABLED, null) }
-            connected(context, connection)
+            val (controller, _) = connected(context, listOf(connection))
             assertEquals(PushStatus.DISABLED, context.statuses["server-1"])
-            assertNull(context.keys["server-1"])
+            assertTrue(context.isRegistered("server-1"))
+            context.intent = PushIntent.UNWANTED
+            controller.syncPushRegistration()
+            runCurrent()
+            assertEquals(1, connection.unregisterCount)
+            assertEquals(listOf("server-1"), context.unregistered)
         }
 
     @Test
-    fun aRefusedTokenKeepsTheKeyAndAsksForAFreshToken() =
+    fun aRefusedTokenAsksForAFreshToken() =
         runTest {
             val context = FakePushContext()
             val connection = FakeServerConnection().apply { pushRegistration = PushRegistration(PushStatus.REFUSED, ByteArray(32) { 2 }) }
-            connected(context, connection)
+            connected(context, listOf(connection))
             assertEquals(1, context.freshTokenRequests)
-            assertArrayEquals(ByteArray(32) { 2 }, context.keys["server-1"])
+            assertEquals(PushStatus.REFUSED, context.statuses["server-1"])
         }
 
     @Test
@@ -82,23 +84,34 @@ class PushRegistrarTest {
         runTest {
             val context = FakePushContext()
             val connection = FakeServerConnection()
-            val (controller, _) = connected(context, connection)
-            context.wants = false
+            val (controller, _) = connected(context, listOf(connection))
+            context.intent = PushIntent.UNWANTED
             controller.syncPushRegistration()
             runCurrent()
             assertEquals(1, connection.unregisterCount)
-            assertNull(context.keys["server-1"])
+            assertFalse(context.isRegistered("server-1"))
         }
 
     @Test
     fun turningOffWhileOfflineUnregistersOnTheNextConnect() =
         runTest {
-            val context = FakePushContext(wants = false).apply { keys["server-1"] = ByteArray(32) { 1 } }
+            val context = FakePushContext(intent = PushIntent.UNWANTED).apply { registered += "server-1" }
             val connection = FakeServerConnection()
-            connected(context, connection)
+            connected(context, listOf(connection))
             assertEquals(1, connection.unregisterCount)
             assertTrue(connection.registeredTokens.isEmpty())
-            assertNull(context.keys["server-1"])
+            assertEquals(listOf("server-1"), context.unregistered)
+        }
+
+    @Test
+    fun anUndecidedPermissionNeitherRegistersNorUnregisters() =
+        runTest {
+            val context = FakePushContext(intent = PushIntent.UNDECIDED).apply { registered += "server-1" }
+            val connection = FakeServerConnection()
+            connected(context, listOf(connection))
+            assertTrue(context.syncs > 0)
+            assertTrue(connection.registeredTokens.isEmpty())
+            assertEquals(0, connection.unregisterCount)
         }
 
     @Test
@@ -106,7 +119,7 @@ class PushRegistrarTest {
         runTest {
             val context = FakePushContext()
             val connection = FakeServerConnection().apply { pushSupported = false }
-            val (controller, _) = connected(context, connection)
+            val (controller, _) = connected(context, listOf(connection))
             assertTrue("server-1" in context.unsupported)
             assertTrue(connection.registeredTokens.isEmpty())
             assertFalse(controller.supportsPushNotifications.value)
@@ -117,7 +130,8 @@ class PushRegistrarTest {
         runTest {
             val context = FakePushContext(deviceToken = null)
             val connection = FakeServerConnection()
-            val (controller, _) = connected(context, connection)
+            val (controller, _) = connected(context, listOf(connection))
+            assertTrue(context.syncs > 0)
             assertTrue(connection.registeredTokens.isEmpty())
             context.deviceToken = "fresh"
             controller.syncPushRegistration()

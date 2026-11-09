@@ -102,6 +102,8 @@ class ServerController(
         if (browsing) reloadSessions()
     }
 
+    fun requestRetrySchedule(): ReconnectSchedule = schedule.fresh()
+
     fun showSession(target: PushTarget?) {
         if (mutableSessionFocus.value?.target == target) return
         sessionJob?.cancel()

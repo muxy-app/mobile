@@ -236,6 +236,7 @@ class FakeServerConnection(
     val registeredTokens = mutableListOf<String>()
     var unregisterCount = 0
     val findFailures = ArrayDeque<MobileException>()
+    var findAttempts = 0
 
     override val serverVersion: String = "test"
 
@@ -244,6 +245,7 @@ class FakeServerConnection(
 
     override suspend fun findSession(sessionId: ULong): Session? {
         checkOpen()
+        findAttempts += 1
         findFailures.removeFirstOrNull()?.let { throw it }
         return sessions.firstOrNull { it.id == sessionId }
     }

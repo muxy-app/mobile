@@ -104,12 +104,23 @@ struct SessionOpenerTests {
         let (controller, connector) = await connected(first, second)
 
         let opening = Task { await controller.openSession(target) }
-        await PushTestSupport.settle { controller.phase == .connected }
-        try? await Task.sleep(for: .milliseconds(20))
+        await PushTestSupport.settle { first.findAttempts == 1 }
         connector.emit(.disconnected)
 
         #expect(await opening.value?.projectID == "muxy")
         #expect(connector.connectCount == 2)
+    }
+
+    @Test func aSlowServerIsRetriedOnTheSameConnection() async {
+        let connection = FakeServerConnection(sessions: [Fixtures.session(42)])
+        connection.failNextFind(with: .Timeout)
+        let (controller, connector) = await connected(connection)
+
+        let opening = await controller.openSession(target)
+
+        #expect(opening?.projectID == "muxy")
+        #expect(connection.findAttempts == 2)
+        #expect(connector.connectCount == 1)
     }
 
     @Test func openingWaitsForTheServerToConnect() async {
@@ -138,7 +149,8 @@ struct SessionOpenerTests {
             credentialProvider: { Fixtures.credential() }
         )
         let opening = Task { await controller.openSession(target) }
-        try? await Task.sleep(for: .milliseconds(20))
+        controller.setWantsConnection(true)
+        await PushTestSupport.settle { connector.connectCount == 1 }
         opening.cancel()
         #expect(await opening.value == nil)
     }

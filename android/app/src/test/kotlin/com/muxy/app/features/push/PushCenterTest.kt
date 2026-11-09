@@ -1,5 +1,6 @@
 package com.muxy.app.features.push
 
+import com.muxy.app.features.server.PushIntent
 import com.muxy.app.models.ConnectionKind
 import com.muxy.app.testing.FakeNotificationPermission
 import com.muxy.app.testing.InMemoryConnectionStore
@@ -30,7 +31,10 @@ class PushCenterTest {
         val store: InMemoryPushStateStore,
     )
 
-    private fun TestScope.setup(permission: FakeNotificationPermission = FakeNotificationPermission()): Setup {
+    private fun TestScope.setup(
+        permission: FakeNotificationPermission = FakeNotificationPermission(),
+        start: Boolean = true,
+    ): Setup {
         val keys = InMemoryPushKeyStore().apply { this.keys[PushVectors.SERVER_ID] = PushVectors.key }
         val notifications = RecordingPushNotifications()
         val store = InMemoryPushStateStore()
@@ -43,7 +47,7 @@ class PushCenterTest {
                 permission = permission,
                 notifications = notifications,
             )
-        push.start()
+        if (start) push.start()
         runCurrent()
         return Setup(push, keys, notifications, permission, store)
     }
@@ -80,25 +84,55 @@ class PushCenterTest {
         }
 
     @Test
-    fun registrationsStoreTheKeyAndDisabledServersDropIt() =
+    fun aPausedServerKeepsItsKeyAndANewKeyReplacesIt() =
         runTest {
             val setup = setup()
-            setup.push.record(PushRegistration(PushStatus.PENDING, ByteArray(32) { 4 }), PushVectors.SERVER_ID)
-            assertTrue(setup.push.hasKey(PushVectors.SERVER_ID))
-            assertEquals(
-                PushServerStatus.PENDING,
-                setup.store.state.value
-                    ?.statuses
-                    ?.get(PushVectors.SERVER_ID),
-            )
             setup.push.record(PushRegistration(PushStatus.DISABLED, null), PushVectors.SERVER_ID)
-            assertFalse(setup.push.hasKey(PushVectors.SERVER_ID))
+            assertTrue(setup.push.hasKey(PushVectors.SERVER_ID))
+            assertTrue(setup.push.isRegistered(PushVectors.SERVER_ID))
+            setup.push.deliver(PushVectors.data())
             assertEquals(
-                PushServerStatus.DISABLED,
-                setup.store.state.value
-                    ?.statuses
-                    ?.get(PushVectors.SERVER_ID),
+                PushVectors.target,
+                setup.notifications.posted
+                    .last()
+                    .target,
             )
+
+            setup.push.record(PushRegistration(PushStatus.ACTIVE, ByteArray(32) { 4 }), PushVectors.SERVER_ID)
+            setup.push.deliver(PushVectors.data())
+            assertNull(
+                setup.notifications.posted
+                    .last()
+                    .target,
+            )
+        }
+
+    @Test
+    fun unregisteringDropsTheKeyAndTheRegistration() =
+        runTest {
+            val setup = setup()
+            setup.push.record(PushRegistration(PushStatus.ACTIVE, PushVectors.keyBytes), PushVectors.SERVER_ID)
+            setup.push.recordUnregistered(PushVectors.SERVER_ID)
+            assertFalse(setup.push.hasKey(PushVectors.SERVER_ID))
+            assertFalse(setup.push.isRegistered(PushVectors.SERVER_ID))
+        }
+
+    @Test
+    fun unsupportedServersAreNotRegistered() =
+        runTest {
+            val setup = setup()
+            setup.push.recordUnsupported(PushVectors.SERVER_ID)
+            assertFalse(setup.push.isRegistered(PushVectors.SERVER_ID))
+        }
+
+    @Test
+    fun nothingIsDecidedUntilPermissionIsKnown() =
+        runTest {
+            val setup = setup(start = false)
+            assertEquals(PushIntent.UNDECIDED, setup.push.pushIntent(PushVectors.SERVER_ID))
+            setup.push.start()
+            runCurrent()
+            assertEquals(PushIntent.WANTED, setup.push.pushIntent(PushVectors.SERVER_ID))
         }
 
     @Test
@@ -115,17 +149,17 @@ class PushCenterTest {
             val permission = FakeNotificationPermission(isGranted = false, needsRuntimeRequest = true)
             val setup = setup(permission)
             assertEquals(PushAuthorization.NOT_DETERMINED, setup.push.authorization.value)
-            assertFalse(setup.push.wantsNotifications(PushVectors.SERVER_ID))
+            assertEquals(PushIntent.UNDECIDED, setup.push.pushIntent(PushVectors.SERVER_ID))
             permission.isGranted = true
             permission.needsRuntimeRequest = false
             setup.push.onPermissionResult()
             runCurrent()
             assertEquals(PushAuthorization.ALLOWED, setup.push.authorization.value)
-            assertTrue(setup.push.wantsNotifications(PushVectors.SERVER_ID))
+            assertEquals(PushIntent.WANTED, setup.push.pushIntent(PushVectors.SERVER_ID))
             assertEquals("fcm-token", setup.push.deviceToken)
             setup.push.setEnabled(PushVectors.SERVER_ID, false)
             runCurrent()
-            assertFalse(setup.push.wantsNotifications(PushVectors.SERVER_ID))
+            assertEquals(PushIntent.UNWANTED, setup.push.pushIntent(PushVectors.SERVER_ID))
         }
 
     @Test
@@ -135,6 +169,7 @@ class PushCenterTest {
             setup.push.onPermissionResult()
             runCurrent()
             assertEquals(PushAuthorization.DENIED, setup.push.authorization.value)
+            assertEquals(PushIntent.UNWANTED, setup.push.pushIntent(PushVectors.SERVER_ID))
             assertNull(setup.push.deviceToken)
         }
 

@@ -2,12 +2,18 @@ import Foundation
 import MuxyMobile
 import OSLog
 
+nonisolated enum PushIntent: Equatable, Sendable {
+    case undecided
+    case wanted
+    case unwanted
+}
+
 @MainActor
 protocol ServerPushContext: AnyObject {
     var deviceToken: String? { get }
     var environment: PushEnvironment { get }
-    func wantsNotifications(from serverID: String) -> Bool
-    func hasKey(for serverID: String) -> Bool
+    func pushIntent(for serverID: String) -> PushIntent
+    func isRegistered(_ serverID: String) -> Bool
     func record(_ registration: PushRegistration, for serverID: String)
     func recordUnregistered(serverID: String)
     func recordUnsupported(serverID: String)
@@ -41,7 +47,7 @@ final class PushRegistrar {
 
     func unregister() async {
         guard let server, let connection = server.connection, connection.supportsPushNotifications,
-              context?.hasKey(for: server.serverID) == true else { return }
+              context?.isRegistered(server.serverID) == true else { return }
         await unregister(serverID: server.serverID, on: connection)
     }
 
@@ -52,13 +58,16 @@ final class PushRegistrar {
             context.recordUnsupported(serverID: serverID)
             return
         }
-        guard context.wantsNotifications(from: serverID) else {
-            guard context.hasKey(for: serverID) else { return }
-            await unregister(serverID: serverID, on: connection)
+        switch context.pushIntent(for: serverID) {
+        case .undecided:
             return
+        case .unwanted:
+            guard context.isRegistered(serverID) else { return }
+            await unregister(serverID: serverID, on: connection)
+        case .wanted:
+            guard let token = context.deviceToken, token != registeredToken else { return }
+            await register(token, serverID: serverID, on: connection)
         }
-        guard let token = context.deviceToken, token != registeredToken else { return }
-        await register(token, serverID: serverID, on: connection)
     }
 
     private func register(_ token: String, serverID: String, on connection: any ServerConnection) async {

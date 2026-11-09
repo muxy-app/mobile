@@ -100,6 +100,12 @@ final class ServerController {
         ProjectTree.rows(from: projects)
     }
 
+    var requestRetrySchedule: ReconnectSchedule {
+        var retries = schedule
+        retries.reset()
+        return retries
+    }
+
     var isConnectionLost: Bool {
         switch phase {
         case .reconnecting, .failed:

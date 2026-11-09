@@ -9,6 +9,7 @@ import com.muxy.app.features.push.PushNotifications
 import com.muxy.app.features.push.PushState
 import com.muxy.app.features.push.PushStateStore
 import com.muxy.app.features.push.PushTokenSource
+import com.muxy.app.features.server.PushIntent
 import com.muxy.app.features.server.ServerPushContext
 import com.muxy.app.persistence.connections.ConnectionStore
 import kotlinx.coroutines.CoroutineScope
@@ -85,29 +86,34 @@ fun fakePushCenter(
 
 class FakePushContext(
     override var deviceToken: String? = "fcm-token",
-    var wants: Boolean = true,
+    var intent: PushIntent = PushIntent.WANTED,
 ) : ServerPushContext {
-    val keys = mutableMapOf<String, ByteArray>()
+    val registered = mutableSetOf<String>()
     val statuses = mutableMapOf<String, PushStatus>()
     val unsupported = mutableSetOf<String>()
+    val unregistered = mutableListOf<String>()
     val removedSessions = mutableListOf<ULong>()
     var freshTokenRequests = 0
+    var syncs = 0
 
-    override fun wantsNotifications(serverId: String): Boolean = wants
+    override fun pushIntent(serverId: String): PushIntent {
+        syncs += 1
+        return intent
+    }
 
-    override suspend fun hasKey(serverId: String): Boolean = serverId in keys
+    override suspend fun isRegistered(serverId: String): Boolean = serverId in registered
 
     override suspend fun record(
         registration: PushRegistration,
         serverId: String,
     ) {
         statuses[serverId] = registration.status
-        val key = registration.key
-        if (registration.status == PushStatus.DISABLED || key == null) keys.remove(serverId) else keys[serverId] = key
+        registered += serverId
     }
 
     override suspend fun recordUnregistered(serverId: String) {
-        keys.remove(serverId)
+        registered -= serverId
+        unregistered += serverId
     }
 
     override suspend fun recordUnsupported(serverId: String) {
@@ -126,6 +132,6 @@ class FakePushContext(
     }
 
     override suspend fun forget(serverId: String) {
-        keys.remove(serverId)
+        registered -= serverId
     }
 }

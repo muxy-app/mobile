@@ -98,28 +98,32 @@ final class FakeNotificationClient: NotificationClient {
 final class FakePushContext: ServerPushContext {
     var deviceToken: String? = String(repeating: "ab", count: 32)
     var environment: PushEnvironment = .sandbox
-    var wants = true
-    var keys: [String: Data] = [:]
+    var intent: PushIntent = .wanted
+    var registered: Set<String> = []
     private(set) var statuses: [String: PushStatus] = [:]
     private(set) var unsupported: Set<String> = []
+    private(set) var unregistered: [String] = []
     private(set) var freshTokenRequests = 0
     private(set) var removedSessions: [UInt64] = []
+    private(set) var syncs = 0
 
-    func wantsNotifications(from serverID: String) -> Bool {
-        wants
+    func pushIntent(for serverID: String) -> PushIntent {
+        syncs += 1
+        return intent
     }
 
-    func hasKey(for serverID: String) -> Bool {
-        keys[serverID] != nil
+    func isRegistered(_ serverID: String) -> Bool {
+        registered.contains(serverID)
     }
 
     func record(_ registration: PushRegistration, for serverID: String) {
         statuses[serverID] = registration.status
-        keys[serverID] = registration.status == .disabled ? nil : registration.key
+        registered.insert(serverID)
     }
 
     func recordUnregistered(serverID: String) {
-        keys[serverID] = nil
+        registered.remove(serverID)
+        unregistered.append(serverID)
     }
 
     func recordUnsupported(serverID: String) {
@@ -135,7 +139,7 @@ final class FakePushContext: ServerPushContext {
     }
 
     func forget(serverID: String) {
-        keys[serverID] = nil
+        registered.remove(serverID)
     }
 }
 

@@ -67,8 +67,8 @@ struct TabsHomeView: View {
             presenting: removingDevice
         ) { connection in
             Button("Remove device", role: .destructive) { onDelete(connection) }
-        } message: { _ in
-            Text("This removes the saved connection from this app. It doesn't close tabs on the device.")
+        } message: { connection in
+            Text(removalMessage(for: connection))
         }
         .alert("Tab unavailable", isPresented: Binding(get: { viewModel.notice != nil }, set: { if !$0 { viewModel.notice = nil } })) {
             Button("OK") { viewModel.notice = nil }
@@ -90,6 +90,14 @@ struct TabsHomeView: View {
             guard phase != .inactive else { return }
             viewModel.setForeground(phase == .active)
         }
+    }
+
+    private func removalMessage(for connection: Connection) -> String {
+        let removal = "This removes the saved connection from this app. It doesn't close tabs on the device."
+        guard let serverID = connection.serverRouteID, push.isRegistered(serverID), !viewModel.isConnected(connection) else {
+            return removal
+        }
+        return "\(removal) \(connection.name) can't be reached right now, so it may keep sending notifications until you revoke this phone in its Muxy settings."
     }
 
     private var showsNotificationPrompt: Bool {

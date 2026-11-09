@@ -144,6 +144,26 @@ class SessionOpenerTest {
         }
 
     @Test
+    fun aSlowServerIsRetriedOnTheSameConnection() =
+        runTest {
+            val connection = FakeServerConnection(sessions = listOf(session(42u))).apply { findFailures += MobileException.Timeout() }
+            val (controller, connector) = controller(FakePushContext(), listOf(Result.success(connection)))
+
+            assertNull(open(controller))
+            advanceTimeBy(2.seconds)
+            runCurrent()
+
+            assertEquals(
+                "muxy",
+                controller.sessionFocus.value
+                    ?.opening
+                    ?.projectId,
+            )
+            assertEquals(2, connection.findAttempts)
+            assertEquals(1, connector.connectCount)
+        }
+
+    @Test
     fun openingWaitsForTheServerToConnect() =
         runTest {
             val connection = FakeServerConnection(sessions = listOf(session(42u)))
@@ -168,7 +188,7 @@ class SessionOpenerTest {
     fun leavingStopsTheOpen() =
         runTest {
             val connection = FakeServerConnection(sessions = listOf(session(42u)))
-            val (controller, _) =
+            val (controller, connector) =
                 controller(
                     FakePushContext(),
                     listOf(Result.failure(MobileException.Unreachable("asleep")), Result.success(connection)),
@@ -180,6 +200,7 @@ class SessionOpenerTest {
             runCurrent()
 
             assertNull(controller.sessionFocus.value)
-            assertTrue(connection.acknowledged.isEmpty())
+            assertEquals(2, connector.connectCount)
+            assertEquals(0, connection.findAttempts)
         }
 }

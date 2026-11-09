@@ -154,6 +154,6 @@ class ServerDirectoryTest {
             runCurrent()
             assertEquals(1, connection.unregisterCount)
             assertTrue(connection.isDisconnected)
-            assertTrue(context.keys.isEmpty())
+            assertTrue(context.registered.isEmpty())
         }
 }

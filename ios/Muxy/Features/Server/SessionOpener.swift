@@ -26,6 +26,7 @@ final class SessionOpener {
     weak var server: ServerController?
 
     func open(_ target: PushTarget) async -> SessionOpening? {
+        guard var retries = server?.requestRetrySchedule else { return nil }
         var stale: (any ServerConnection)?
         while !Task.isCancelled {
             guard let connection = await nextConnection(after: stale) else { return nil }
@@ -41,7 +42,11 @@ final class SessionOpener {
                 let failure = ServerFailure(error)
                 Log.push.error("Finding a notification's session failed: \(String(describing: failure), privacy: .public)")
                 guard Self.isTransient(failure) else { return .unavailable(projectID: target.projectId) }
-                stale = connection
+                guard failure != .disconnected else {
+                    stale = connection
+                    continue
+                }
+                try? await Task.sleep(for: retries.nextDelay())
             }
         }
         return nil

@@ -48,6 +48,7 @@ fun TabsHomeScreen(
     val creating by viewModel.creating.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
     val showsNotificationPrompt by viewModel.showsNotificationPrompt.collectAsStateWithLifecycle()
+    val notifyingServers by viewModel.notifyingServers.collectAsStateWithLifecycle()
     var showNewTab by rememberSaveable { mutableStateOf(false) }
     var showNotifications by rememberSaveable { mutableStateOf(false) }
     var deletingId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -210,10 +211,11 @@ fun TabsHomeScreen(
             onClose = { showNotifications = false },
         )
     }
-    devices.orEmpty().firstOrNull { it.connection.id.toString() == deletingId }?.connection?.let { connection ->
+    devices.orEmpty().firstOrNull { it.connection.id.toString() == deletingId }?.let { device ->
+        val connection = device.connection
         ThemedAlertDialog(
             title = "Delete device?",
-            message = "Remove ${connection.name} and its saved credentials from this phone?",
+            message = removalMessage(device, notifyingServers),
             onDismissRequest = { deletingId = null },
             confirm =
                 ThemedDialogAction(
@@ -245,6 +247,18 @@ private fun TabsHomeMessage(text: String) {
         color = LocalAppTheme.current.secondaryForeground,
         style = MaterialTheme.typography.bodyMedium,
     )
+}
+
+private fun removalMessage(
+    device: TabsDevice,
+    notifyingServers: Set<String>,
+): String {
+    val connection = device.connection
+    val removal = "Remove ${connection.name} and its saved credentials from this phone?"
+    val serverId = connection.serverId.takeUnless { connection.isRemoteServer } ?: return removal
+    if (serverId !in notifyingServers || device.isOnline) return removal
+    return "$removal ${connection.name} can't be reached right now, so it may keep sending notifications " +
+        "until you revoke this phone in its Muxy settings."
 }
 
 @Composable

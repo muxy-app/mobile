@@ -28,6 +28,7 @@ final class PushCenter {
     private(set) var isPromptDismissed: Bool
 
     @ObservationIgnored var contextDidChange: () -> Void = {}
+    @ObservationIgnored private var hasResolvedAuthorization = false
     @ObservationIgnored private let keyring: PushKeyring
     @ObservationIgnored private let client: NotificationClient
     @ObservationIgnored private let defaults: UserDefaults
@@ -60,7 +61,8 @@ final class PushCenter {
 
     func refreshAuthorization() async {
         let current = await client.authorization()
-        let changed = current != authorization
+        let changed = !hasResolvedAuthorization || current != authorization
+        hasResolvedAuthorization = true
         authorization = current
         if current == .allowed {
             client.registerForRemoteNotifications()
@@ -151,6 +153,10 @@ final class PushCenter {
         return isConnected(target.serverId) ? [] : shown
     }
 
+    func hasKey(for serverID: String) -> Bool {
+        (try? keyring.keys.key(serverId: serverID)) != nil
+    }
+
     private func activeKeys() -> [PushKey] {
         do {
             return try keyring.activeKeys()
@@ -181,22 +187,25 @@ final class PushCenter {
 }
 
 extension PushCenter: ServerPushContext {
-    func wantsNotifications(from serverID: String) -> Bool {
-        authorization == .allowed && isEnabled(serverID)
+    func pushIntent(for serverID: String) -> PushIntent {
+        guard isEnabled(serverID) else { return .unwanted }
+        guard hasResolvedAuthorization else { return .undecided }
+        switch authorization {
+        case .allowed: return .wanted
+        case .denied: return .unwanted
+        case .notDetermined: return .undecided
+        }
     }
 
-    func hasKey(for serverID: String) -> Bool {
-        (try? keyring.keys.key(serverId: serverID)) != nil
+    func isRegistered(_ serverID: String) -> Bool {
+        guard let status = status(for: serverID) else { return false }
+        return status != .unsupported
     }
 
     func record(_ registration: PushRegistration, for serverID: String) {
         guard keyring.servers.server(serverID) != nil else { return }
         update(serverID, status: PushServerStatus(registration.status))
-        guard registration.status != .disabled, let bytes = registration.key,
-              let key = PushKey(serverId: serverID, bytes: bytes) else {
-            deleteKey(for: serverID)
-            return
-        }
+        guard let bytes = registration.key, let key = PushKey(serverId: serverID, bytes: bytes) else { return }
         do {
             try keyring.keys.save(key)
         } catch {
@@ -210,7 +219,7 @@ extension PushCenter: ServerPushContext {
     }
 
     func recordUnsupported(serverID: String) {
-        guard status(for: serverID) != .unsupported else { return }
+        guard keyring.servers.server(serverID) != nil, status(for: serverID) != .unsupported else { return }
         update(serverID, status: .unsupported)
     }
 

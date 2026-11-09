@@ -5,12 +5,12 @@ import Testing
 
 @MainActor
 struct PushRegistrarTests {
-    @Test func connectingRegistersTheTokenAndKeepsTheKey() async {
+    @Test func connectingRegistersTheTokenAndRecordsTheReply() async {
         let context = FakePushContext()
         let connection = FakeServerConnection()
         let (controller, _) = PushTestSupport.controller(connection, context: context)
         controller.setWantsConnection(true)
-        await PushTestSupport.settle { context.keys["server-1"] != nil }
+        await PushTestSupport.settle { context.statuses["server-1"] != nil }
         #expect(connection.registeredTokens == [String(repeating: "ab", count: 32)])
         #expect(context.statuses["server-1"] == .active)
         #expect(controller.supportsPushNotifications)
@@ -28,25 +28,28 @@ struct PushRegistrarTests {
         #expect(second.registeredTokens.count == 1)
     }
 
-    @Test func aDisabledServerDropsTheKey() async {
+    @Test func aPausedServerStaysRegisteredAndIsUnregisteredWhenTurnedOff() async {
         let context = FakePushContext()
-        context.keys["server-1"] = Data(repeating: 1, count: 32)
         let connection = FakeServerConnection()
         connection.setPushRegistration(PushRegistration(status: .disabled, key: nil))
         let (controller, _) = PushTestSupport.controller(connection, context: context)
         controller.setWantsConnection(true)
         await PushTestSupport.settle { context.statuses["server-1"] == .disabled }
-        #expect(context.keys["server-1"] == nil)
+        #expect(context.isRegistered("server-1"))
+        context.intent = .unwanted
+        controller.syncPushRegistration()
+        await PushTestSupport.settle { connection.unregisterCount == 1 }
+        #expect(context.unregistered == ["server-1"])
     }
 
-    @Test func aRefusedTokenKeepsTheKeyAndAsksForAFreshToken() async {
+    @Test func aRefusedTokenAsksForAFreshToken() async {
         let context = FakePushContext()
         let connection = FakeServerConnection()
         connection.setPushRegistration(PushRegistration(status: .refused, key: Data(repeating: 2, count: 32)))
         let (controller, _) = PushTestSupport.controller(connection, context: context)
         controller.setWantsConnection(true)
         await PushTestSupport.settle { context.freshTokenRequests == 1 }
-        #expect(context.keys["server-1"] == Data(repeating: 2, count: 32))
+        #expect(context.freshTokenRequests == 1)
         #expect(context.statuses["server-1"] == .refused)
     }
 
@@ -55,23 +58,36 @@ struct PushRegistrarTests {
         let connection = FakeServerConnection()
         let (controller, _) = PushTestSupport.controller(connection, context: context)
         controller.setWantsConnection(true)
-        await PushTestSupport.settle { context.keys["server-1"] != nil }
-        context.wants = false
+        await PushTestSupport.settle { context.isRegistered("server-1") }
+        context.intent = .unwanted
         controller.syncPushRegistration()
         await PushTestSupport.settle { connection.unregisterCount == 1 }
-        #expect(context.keys["server-1"] == nil)
+        #expect(!context.isRegistered("server-1"))
     }
 
     @Test func turningOffWhileOfflineUnregistersOnTheNextConnect() async {
         let context = FakePushContext()
-        context.wants = false
-        context.keys["server-1"] = Data(repeating: 1, count: 32)
+        context.intent = .unwanted
+        context.registered = ["server-1"]
         let connection = FakeServerConnection()
         let (controller, _) = PushTestSupport.controller(connection, context: context)
         controller.setWantsConnection(true)
         await PushTestSupport.settle { connection.unregisterCount == 1 }
         #expect(connection.registeredTokens.isEmpty)
-        #expect(context.keys["server-1"] == nil)
+        #expect(context.unregistered == ["server-1"])
+    }
+
+    @Test func anUndecidedPermissionNeitherRegistersNorUnregisters() async {
+        let context = FakePushContext()
+        context.intent = .undecided
+        context.registered = ["server-1"]
+        let connection = FakeServerConnection()
+        let (controller, _) = PushTestSupport.controller(connection, context: context)
+        controller.setWantsConnection(true)
+        await PushTestSupport.settle { context.syncs > 0 }
+        #expect(context.syncs > 0)
+        #expect(connection.registeredTokens.isEmpty)
+        #expect(connection.unregisterCount == 0)
     }
 
     @Test func serversWithoutPushAreNeverAsked() async {
@@ -91,8 +107,7 @@ struct PushRegistrarTests {
         let connection = FakeServerConnection()
         let (controller, _) = PushTestSupport.controller(connection, context: context)
         controller.setWantsConnection(true)
-        await PushTestSupport.settle { controller.phase == .connected }
-        try? await Task.sleep(for: .milliseconds(30))
+        await PushTestSupport.settle { context.syncs > 0 }
         #expect(connection.registeredTokens.isEmpty)
         context.deviceToken = "cd"
         controller.syncPushRegistration()

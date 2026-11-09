@@ -85,6 +85,11 @@ final class TabsHomeViewModel {
         updateActivity()
     }
 
+    func isConnected(_ connection: Connection) -> Bool {
+        guard let serverID = connection.serverRouteID else { return false }
+        return servers[serverID]?.phase == .connected
+    }
+
     func connection(_ id: UUID) -> Connection? {
         connections.first { $0.id == id }
     }

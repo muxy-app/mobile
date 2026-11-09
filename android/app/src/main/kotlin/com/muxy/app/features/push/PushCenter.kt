@@ -2,6 +2,7 @@ package com.muxy.app.features.push
 
 import com.muxy.app.core.concurrency.attempt
 import com.muxy.app.core.logging.Log
+import com.muxy.app.features.server.PushIntent
 import com.muxy.app.features.server.ServerPushContext
 import com.muxy.app.models.Connection
 import com.muxy.app.models.ConnectionKind
@@ -22,7 +23,6 @@ import kotlinx.coroutines.flow.getAndUpdate
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import uniffi.muxy_mobile.PushRegistration
-import uniffi.muxy_mobile.PushStatus
 import kotlin.coroutines.CoroutineContext
 
 data class PushServerRow(
@@ -46,6 +46,9 @@ class PushCenter(
     private val mutableOpenRequest = MutableStateFlow<PushOpenRequest?>(null)
     private val mutablePermissionRequests = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     private var hasReplacedRefusedToken = false
+
+    @Volatile
+    private var hasResolvedAuthorization = false
 
     @Volatile
     private var currentToken: String? = null
@@ -91,8 +94,9 @@ class PushCenter(
                     permission.needsRuntimeRequest && !state.permissionRequested -> PushAuthorization.NOT_DETERMINED
                     else -> PushAuthorization.DENIED
                 }
-            val changed = mutableAuthorization.value != current
+            val changed = !hasResolvedAuthorization || mutableAuthorization.value != current
             mutableAuthorization.value = current
+            hasResolvedAuthorization = true
             if (changed) contextDidChange()
             ensureToken()
         }
@@ -163,21 +167,33 @@ class PushCenter(
     override val deviceToken: String?
         get() = currentToken ?: store.state.value?.token
 
-    override fun wantsNotifications(serverId: String): Boolean =
-        mutableAuthorization.value == PushAuthorization.ALLOWED && store.state.value?.isEnabled(serverId) != false
+    override fun pushIntent(serverId: String): PushIntent {
+        if (store.state.value?.isEnabled(serverId) == false) return PushIntent.UNWANTED
+        if (!hasResolvedAuthorization) return PushIntent.UNDECIDED
+        return when (mutableAuthorization.value) {
+            PushAuthorization.ALLOWED -> PushIntent.WANTED
+            PushAuthorization.DENIED -> PushIntent.UNWANTED
+            PushAuthorization.NOT_DETERMINED -> PushIntent.UNDECIDED
+        }
+    }
 
-    override suspend fun hasKey(serverId: String): Boolean = keys.key(serverId) != null
+    override suspend fun isRegistered(serverId: String): Boolean {
+        val status =
+            store.state
+                .filterNotNull()
+                .first()
+                .statuses[serverId] ?: return false
+        return status != PushServerStatus.UNSUPPORTED
+    }
+
+    suspend fun hasKey(serverId: String): Boolean = keys.key(serverId) != null
 
     override suspend fun record(
         registration: PushRegistration,
         serverId: String,
     ) {
         updateStatus(serverId, PushServerStatus.from(registration.status))
-        val key = registration.key?.let { PushKey.of(serverId, it) }
-        if (registration.status == PushStatus.DISABLED || key == null) {
-            keys.delete(serverId)
-            return
-        }
+        val key = registration.key?.let { PushKey.of(serverId, it) } ?: return
         keys.save(key)
     }
 

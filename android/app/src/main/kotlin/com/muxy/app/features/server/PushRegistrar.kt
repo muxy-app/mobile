@@ -8,12 +8,18 @@ import kotlinx.coroutines.CoroutineScope
 import uniffi.muxy_mobile.PushRegistration
 import uniffi.muxy_mobile.PushStatus
 
+enum class PushIntent {
+    UNDECIDED,
+    WANTED,
+    UNWANTED,
+}
+
 interface ServerPushContext {
     val deviceToken: String?
 
-    fun wantsNotifications(serverId: String): Boolean
+    fun pushIntent(serverId: String): PushIntent
 
-    suspend fun hasKey(serverId: String): Boolean
+    suspend fun isRegistered(serverId: String): Boolean
 
     suspend fun record(
         registration: PushRegistration,
@@ -60,7 +66,7 @@ class PushRegistrar(
     suspend fun unregister() {
         val current = server.connection ?: return
         val context = context ?: return
-        if (!current.supportsPushNotifications || !context.hasKey(server.serverId)) return
+        if (!current.supportsPushNotifications || !context.isRegistered(server.serverId)) return
         unregister(current, context)
     }
 
@@ -72,13 +78,20 @@ class PushRegistrar(
             context.recordUnsupported(serverId)
             return
         }
-        if (!context.wantsNotifications(serverId)) {
-            if (context.hasKey(serverId)) unregister(current, context)
-            return
+        when (context.pushIntent(serverId)) {
+            PushIntent.UNDECIDED -> {
+                Unit
+            }
+
+            PushIntent.UNWANTED -> {
+                if (context.isRegistered(serverId)) unregister(current, context)
+            }
+
+            PushIntent.WANTED -> {
+                val token = context.deviceToken ?: return
+                if (token != registeredToken) register(token, current, context)
+            }
         }
-        val token = context.deviceToken ?: return
-        if (token == registeredToken) return
-        register(token, current, context)
     }
 
     private suspend fun register(
