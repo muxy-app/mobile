@@ -26,8 +26,8 @@ extension Fixtures {
         )
     }
 
-    static func session(_ id: UInt64, project: String = "muxy", status: SessionStatus = .live) -> Session {
-        Session(id: id, projectId: project, directory: "/Users/demo/muxy", status: status, owner: .desktop, attached: false)
+    static func session(_ id: UInt64, project: String = "muxy", status: SessionStatus = .live, title: String = "muxy") -> Session {
+        Session(id: id, projectId: project, directory: "/Users/demo/muxy", status: status, owner: .desktop, attached: false, title: title)
     }
 }
 
@@ -40,6 +40,9 @@ final class FakeTerminalChannel: ServerTerminalChannel {
         var screen: Screen
         var sent: [String] = []
         var pastes: [String] = []
+        var uploads: [String] = []
+        var pastedPaths: [[String]] = []
+        var uploadFailure: MobileError?
         var resizes: [TerminalGridSize] = []
         var detachCount = 0
     }
@@ -57,8 +60,20 @@ final class FakeTerminalChannel: ServerTerminalChannel {
         state.withLock { $0.pastes }
     }
 
+    var uploads: [String] {
+        state.withLock { $0.uploads }
+    }
+
+    var pastedPaths: [[String]] {
+        state.withLock { $0.pastedPaths }
+    }
+
     var resizes: [TerminalGridSize] {
         state.withLock { $0.resizes }
+    }
+
+    func failUploads(with error: MobileError) {
+        state.withLock { $0.uploadFailure = error }
     }
 
     var detachCount: Int {
@@ -84,6 +99,18 @@ final class FakeTerminalChannel: ServerTerminalChannel {
 
     func paste(_ text: String) {
         state.withLock { $0.pastes.append(text) }
+    }
+
+    func upload(name: String, bytes: Data) async throws -> String {
+        try state.withLock { state in
+            if let failure = state.uploadFailure { throw failure }
+            state.uploads.append(name)
+            return "/tmp/muxy-uploads/\(sessionId)/\(state.uploads.count)-\(name)"
+        }
+    }
+
+    func pastePaths(_ paths: [String]) {
+        state.withLock { $0.pastedPaths.append(paths) }
     }
 
     func click(button: MouseButton, row: UInt16, column: UInt16, modifiers: Modifiers) {
@@ -123,6 +150,12 @@ final class FakeServerConnection: ServerConnection {
         var files: [String: FakeProjectFiles] = [:]
         var activity = Activity(agents: [], events: [])
         var acknowledged: [UInt64] = []
+        var supportsPush = true
+        var pushRegistration = PushRegistration(status: .active, key: Data(repeating: 7, count: 32))
+        var registeredTokens: [String] = []
+        var unregisterCount = 0
+        var findFailures: [MobileError] = []
+        var findAttempts = 0
     }
 
     init(
@@ -154,6 +187,63 @@ final class FakeServerConnection: ServerConnection {
 
     var acknowledged: [UInt64] {
         state.withLock { $0.acknowledged }
+    }
+
+    var registeredTokens: [String] {
+        state.withLock { $0.registeredTokens }
+    }
+
+    var unregisterCount: Int {
+        state.withLock { $0.unregisterCount }
+    }
+
+    var findAttempts: Int {
+        state.withLock { $0.findAttempts }
+    }
+
+    func setPushSupport(_ supported: Bool) {
+        state.withLock { $0.supportsPush = supported }
+    }
+
+    func setPushRegistration(_ registration: PushRegistration) {
+        state.withLock { $0.pushRegistration = registration }
+    }
+
+    func failNextFind(with error: MobileError) {
+        state.withLock { $0.findFailures.append(error) }
+    }
+
+    func moveSession(_ sessionId: UInt64, to projectId: String) {
+        state.withLock { state in
+            guard let index = state.sessions.firstIndex(where: { $0.id == sessionId }) else { return }
+            state.sessions[index] = Fixtures.session(sessionId, project: projectId, title: state.sessions[index].title)
+        }
+    }
+
+    var supportsPushNotifications: Bool {
+        state.withLock { $0.supportsPush }
+    }
+
+    func findSession(_ sessionId: UInt64) async throws -> Session? {
+        try checkOpen()
+        return try state.withLock { state in
+            state.findAttempts += 1
+            if !state.findFailures.isEmpty { throw state.findFailures.removeFirst() }
+            return state.sessions.first { $0.id == sessionId }
+        }
+    }
+
+    func registerPush(token: String, environment: PushEnvironment) async throws -> PushRegistration {
+        try checkOpen()
+        return state.withLock { state in
+            state.registeredTokens.append(token)
+            return state.pushRegistration
+        }
+    }
+
+    func unregisterPush() async throws {
+        try checkOpen()
+        state.withLock { $0.unregisterCount += 1 }
     }
 
     func setActivity(_ activity: Activity) {

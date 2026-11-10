@@ -99,6 +99,7 @@ class AttachmentCoordinator(
             }
             terminal.didAttach(channel)
             attached = terminal
+            server.terminalDidAttach(terminal)
         }.onFailure { error ->
             if (connection !== server.connection) {
                 terminal.attachWasInterrupted()
@@ -134,7 +135,7 @@ class AttachmentCoordinator(
             endAbandoned(session.id, connection)
             return session.id
         }
-        server.register(terminal, session.id)
+        server.register(terminal, session.id, session.title)
         return session.id
     }
 

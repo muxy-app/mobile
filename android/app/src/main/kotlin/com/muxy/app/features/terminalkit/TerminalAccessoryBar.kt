@@ -43,6 +43,8 @@ interface TerminalAccessoryActions {
 
     fun copy()
 
+    fun attachImages()
+
     fun toggleModifier()
 
     fun selectModifier(modifier: TerminalModifier)
@@ -58,6 +60,7 @@ object TerminalAccessoryBarDefaults {
 fun TerminalAccessoryBar(
     sticky: StickyModifier,
     canCopy: Boolean,
+    canAttachImages: Boolean,
     keyboardVisible: Boolean,
     background: Color,
     foreground: Color,
@@ -80,6 +83,9 @@ fun TerminalAccessoryBar(
             TextKey("tab", foreground) { actions.key(TerminalKey.Tab) }
             IconKey(R.drawable.ic_content_paste, PASTE, foreground, enabled = true, onClick = actions::paste)
             IconKey(R.drawable.ic_content_copy, COPY, foreground, enabled = canCopy, onClick = actions::copy)
+            if (canAttachImages) {
+                IconKey(R.drawable.ic_image, ATTACH_IMAGE, foreground, enabled = true, onClick = actions::attachImages)
+            }
             SYMBOLS.forEach { symbol -> TextKey(symbol, foreground) { actions.text(symbol) } }
         }
         IconKey(
@@ -161,6 +167,7 @@ internal fun keyFontSize(sizeDp: Int = KEY_TEXT_SIZE): TextUnit = with(LocalDens
 
 private const val PASTE = "Paste"
 private const val COPY = "Copy"
+private const val ATTACH_IMAGE = "Attach Image"
 private const val HIDE_KEYBOARD = "Hide Keyboard"
 private const val SHOW_KEYBOARD = "Show Keyboard"
 private const val CONTROL_ALPHA = 0.1f

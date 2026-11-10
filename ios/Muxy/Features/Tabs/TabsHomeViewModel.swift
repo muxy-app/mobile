@@ -49,6 +49,10 @@ final class TabsHomeViewModel {
         }
     }
 
+    var supportsPushNotifications: Bool {
+        servers.values.contains(where: \.supportsPushNotifications)
+    }
+
     func load() {
         let saved = store.load()
         for (id, catalog) in deviceCatalogs where !saved.contains(catalog.connection) {
@@ -79,6 +83,11 @@ final class TabsHomeViewModel {
     func setForeground(_ foreground: Bool) {
         isForeground = foreground
         updateActivity()
+    }
+
+    func isConnected(_ connection: Connection) -> Bool {
+        guard let serverID = connection.serverRouteID else { return false }
+        return servers[serverID]?.phase == .connected
     }
 
     func connection(_ id: UUID) -> Connection? {

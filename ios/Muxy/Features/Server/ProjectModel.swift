@@ -68,6 +68,17 @@ final class ProjectModel {
         }
     }
 
+    func openTab(for session: Session) -> TerminalController? {
+        if let existing = tabs.first(where: { $0.sessionID == session.id }) {
+            select(existing)
+            return existing
+        }
+        endedSessionIDs.remove(session.id)
+        guard let tab = makeTab(for: session) else { return nil }
+        select(tab)
+        return tab
+    }
+
     func sessionDidEnd(_ sessionID: UInt64) {
         endedSessionIDs.insert(sessionID)
         guard let tab = tabs.first(where: { $0.sessionID == sessionID }) else { return }
@@ -111,6 +122,7 @@ final class ProjectModel {
         let liveIDs = Set(sessions.map(\.id))
         endedSessionIDs.formIntersection(liveIDs)
         pruneEnded(knownBeforeRequest.subtracting(liveIDs))
+        retitle(with: sessions)
         appendNew(sessions)
         guard selectedTab == nil, let first = tabs.first else { return }
         select(first)
@@ -124,17 +136,37 @@ final class ProjectModel {
         }
     }
 
+    private func retitle(with sessions: [Session]) {
+        let titles = Dictionary(sessions.map { ($0.id, $0.title) }, uniquingKeysWith: { first, _ in first })
+        for tab in tabs {
+            guard let sessionID = tab.sessionID, let title = titles[sessionID] else { continue }
+            tab.retitle(title)
+        }
+    }
+
     private func appendNew(_ sessions: [Session]) {
-        guard let server else { return }
         let open = Set(tabs.compactMap(\.sessionID))
         let new = sessions
             .filter { !open.contains($0.id) && !endedSessionIDs.contains($0.id) }
             .sorted { $0.id < $1.id }
         for session in new {
-            let tab = TerminalController(projectID: projectID, sessionID: session.id, directory: session.directory, server: server)
-            server.register(tab, sessionID: session.id)
-            tabs.append(tab)
+            makeTab(for: session)
         }
+    }
+
+    @discardableResult
+    private func makeTab(for session: Session) -> TerminalController? {
+        guard let server else { return nil }
+        let tab = TerminalController(
+            projectID: projectID,
+            sessionID: session.id,
+            directory: session.directory,
+            title: session.title,
+            server: server
+        )
+        server.register(tab, sessionID: session.id, title: session.title)
+        tabs.append(tab)
+        return tab
     }
 
     private func remove(_ tab: TerminalController) {

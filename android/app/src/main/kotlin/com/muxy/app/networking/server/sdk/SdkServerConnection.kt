@@ -4,6 +4,8 @@ import com.muxy.app.networking.server.RemoteServerConnection
 import com.muxy.app.networking.server.ServerProject
 import com.muxy.app.networking.server.ServerTerminalChannel
 import uniffi.muxy_mobile.Activity
+import uniffi.muxy_mobile.PushPlatform
+import uniffi.muxy_mobile.PushRegistration
 import uniffi.muxy_mobile.Session
 import uniffi.muxy_mobile.Connection as SdkConnection
 
@@ -15,11 +17,23 @@ class SdkServerConnection(
     override val serverVersion: String
         get() = connection.serverVersion()
 
+    override val supportsPushNotifications: Boolean
+        get() = connection.supportsPushNotifications()
+
     override suspend fun serverId(): String = lanes.request { connection.serverId() }
 
     override suspend fun projects(): List<ServerProject> = lanes.request { connection.projects() }
 
     override suspend fun sessions(projectId: String): List<Session> = lanes.request { connection.sessions(projectId) }
+
+    override suspend fun findSession(sessionId: ULong): Session? = lanes.request { connection.findSession(sessionId) }
+
+    override suspend fun registerPush(token: String): PushRegistration =
+        lanes.pushRequest { connection.registerPush(PushPlatform.FCM, token, null) }
+
+    override suspend fun unregisterPush() {
+        lanes.pushRequest { connection.unregisterPush() }
+    }
 
     override suspend fun createSession(
         projectId: String,

@@ -16,6 +16,7 @@ class SdkLanes(
     private val requests = dispatcher.limitedParallelism(1, "muxy.sdk.requests")
     private val files = dispatcher.limitedParallelism(1, "muxy.sdk.files")
     private val git = dispatcher.limitedParallelism(1, "muxy.sdk.git")
+    private val push = dispatcher.limitedParallelism(1, "muxy.sdk.push")
     private val inputLane = dispatcher.limitedParallelism(1, "muxy.sdk.input")
     private val input = CoroutineScope(SupervisorJob() + inputLane)
     private val closing = CoroutineScope(SupervisorJob() + inputLane)
@@ -25,6 +26,8 @@ class SdkLanes(
     suspend fun <T> fileRequest(work: () -> T): T = withContext(files) { work() }
 
     suspend fun <T> gitRequest(work: () -> T): T = withContext(git) { work() }
+
+    suspend fun <T> pushRequest(work: () -> T): T = withContext(push) { work() }
 
     fun send(work: () -> Unit) {
         input.launch {

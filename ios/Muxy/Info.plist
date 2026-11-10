@@ -42,5 +42,11 @@
 		<string>CaskaydiaMonoNerdFontMono-Italic.ttf</string>
 		<string>CaskaydiaMonoNerdFontMono-BoldItalic.ttf</string>
 	</array>
+	<key>MuxyAPSEnvironment</key>
+	<string>$(MUXY_APS_ENVIRONMENT)</string>
+	<key>MuxyAppGroup</key>
+	<string>$(MUXY_APP_GROUP)</string>
+	<key>MuxyPushKeychainGroup</key>
+	<string>$(MUXY_PUSH_KEYCHAIN_GROUP)</string>
 </dict>
 </plist>

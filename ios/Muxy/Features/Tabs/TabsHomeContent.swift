@@ -3,6 +3,10 @@ import SwiftUI
 struct TabsHomeContent: View {
     let devices: [TabsHomeDevice]
     let isCreating: Bool
+    let resetID: UUID
+    let showsNotificationPrompt: Bool
+    let onEnableNotifications: () -> Void
+    let onDismissNotificationPrompt: () -> Void
     let onOpenTab: (UUID, String, UUID) -> Void
     let onCloseTab: (UUID, String, UUID) -> Void
     let onCreateTab: (UUID, String) -> Void
@@ -24,6 +28,10 @@ struct TabsHomeContent: View {
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
+                if showsNotificationPrompt, query.isEmpty {
+                    TabsHomeNotificationPrompt(onEnable: onEnableNotifications, onDismiss: onDismissNotificationPrompt)
+                        .padding(.top, 12)
+                }
                 ForEach(filteredDevices) { device in
                     TabsHomeDeviceSection(
                         device: device,
@@ -54,6 +62,7 @@ struct TabsHomeContent: View {
         .toolbar { bottomBar }
         .overlay { overlay }
         .disabled(isCreating)
+        .onChange(of: resetID) { isShowingNotifications = false }
         .sheet(isPresented: $isShowingNotifications) {
             TabsHomeNotificationsSheet(items: attention) { item in
                 isShowingNotifications = false

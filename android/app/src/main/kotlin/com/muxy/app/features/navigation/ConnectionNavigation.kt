@@ -3,6 +3,8 @@ package com.muxy.app.features.navigation
 import androidx.navigation3.runtime.NavBackStack
 import com.muxy.app.core.logging.Log
 import com.muxy.app.core.serialization.parseUuid
+import com.muxy.app.features.push.PushOpenRequest
+import com.muxy.app.features.push.PushTarget
 import com.muxy.app.features.tabs.TabsSelection
 import com.muxy.app.models.Connection
 import com.muxy.app.models.ConnectionKind
@@ -53,6 +55,22 @@ internal fun NavBackStack<AppRoute>.openTab(
         }
     show(route, inPane)
 }
+
+internal fun NavBackStack<AppRoute>.openPush(
+    request: PushOpenRequest,
+    connections: List<Connection>,
+) {
+    val target = request.target
+    val connection = target?.let { connections.pushConnection(it) }
+    if (target == null || connection == null) {
+        replaceWith(listOf(AppRoute.Connections))
+        return
+    }
+    replaceWith(listOf(AppRoute.Connections, AppRoute.ServerSession(connection.id, target.serverId, target)))
+}
+
+internal fun List<Connection>.pushConnection(target: PushTarget): Connection? =
+    firstOrNull { it.kind == ConnectionKind.SERVER && !it.isRemoteServer && it.serverId == target.serverId }
 
 private fun NavBackStack<AppRoute>.show(
     route: AppRoute,

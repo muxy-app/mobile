@@ -8,6 +8,7 @@ final class ServerDirectory {
     private let connector: ServerConnector
     private let connections: ConnectionStore?
     private let keychain: KeychainStore
+    private weak var push: (any ServerPushContext)?
     private var controllers: [String: ServerController] = [:]
     private var activeServerID: String?
     private var browsingServerIDs: Set<String> = []
@@ -17,12 +18,14 @@ final class ServerDirectory {
         credentials: CredentialStore,
         connector: ServerConnector,
         connections: ConnectionStore? = nil,
-        keychain: KeychainStore = KeychainTokenStore()
+        keychain: KeychainStore = KeychainTokenStore(),
+        push: (any ServerPushContext)? = nil
     ) {
         self.credentials = credentials
         self.connector = connector
         self.connections = connections
         self.keychain = keychain
+        self.push = push
     }
 
     func controller(for serverID: String) -> ServerController? {
@@ -53,7 +56,24 @@ final class ServerDirectory {
 
     func forget(_ serverID: String) {
         browsingServerIDs.remove(serverID)
-        controllers.removeValue(forKey: serverID)?.setWantsConnection(false)
+        let controller = controllers.removeValue(forKey: serverID)
+        guard let push else {
+            controller?.setWantsConnection(false)
+            return
+        }
+        Task {
+            await controller?.unregisterPush()
+            controller?.setWantsConnection(false)
+            push.forget(serverID: serverID)
+        }
+    }
+
+    func isConnected(_ serverID: String) -> Bool {
+        isForeground && controllers[serverID]?.phase == .connected
+    }
+
+    func pushContextDidChange() {
+        controllers.values.forEach { $0.syncPushRegistration() }
     }
 
     func credentialDidChange(for serverID: String) {
@@ -70,7 +90,8 @@ final class ServerDirectory {
             serverID: serverID,
             serverName: credential.serverName,
             connector: connector,
-            credentialProvider: { Self.credential(for: serverID, in: credentials) }
+            credentialProvider: { Self.credential(for: serverID, in: credentials) },
+            pushContext: push
         )
     }
 

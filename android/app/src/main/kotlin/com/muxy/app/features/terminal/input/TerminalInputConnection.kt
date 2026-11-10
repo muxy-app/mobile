@@ -1,15 +1,18 @@
 package com.muxy.app.features.terminal.input
 
+import android.os.Bundle
 import android.text.InputType
 import android.view.View
 import android.view.inputmethod.BaseInputConnection
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.ExtractedText
 import android.view.inputmethod.ExtractedTextRequest
+import android.view.inputmethod.InputContentInfo
 
 class TerminalInputConnection(
     view: View,
     private val session: TerminalInputSession,
+    private val onImage: ((InputContentInfo, Int) -> Boolean)? = null,
 ) : BaseInputConnection(view, false) {
     private val connection = session.openConnection()
 
@@ -87,6 +90,12 @@ class TerminalInputConnection(
 
     override fun requestCursorUpdates(cursorUpdateMode: Int): Boolean = false
 
+    override fun commitContent(
+        inputContentInfo: InputContentInfo,
+        flags: Int,
+        opts: Bundle?,
+    ): Boolean = onImage?.invoke(inputContentInfo, flags) ?: false
+
     override fun closeConnection() {
         session.close(connection)
         super.closeConnection()
@@ -96,12 +105,14 @@ class TerminalInputConnection(
         fun configure(
             info: EditorInfo,
             state: TerminalTextInputState,
+            imageMimeTypes: Array<String>? = null,
         ) {
             info.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS or InputType.TYPE_TEXT_FLAG_MULTI_LINE
             info.imeOptions = EditorInfo.IME_FLAG_NO_EXTRACT_UI or EditorInfo.IME_FLAG_NO_FULLSCREEN or
                 EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING or EditorInfo.IME_FLAG_NO_ENTER_ACTION or EditorInfo.IME_ACTION_NONE
             info.initialSelStart = state.selection.location
             info.initialSelEnd = state.selection.end
+            info.contentMimeTypes = imageMimeTypes
         }
     }
 }

@@ -184,14 +184,15 @@ struct TerminalAttachmentTests {
         #expect(tab.notice != nil)
     }
 
-    @Test func theTitleFollowsTheProgram() async throws {
+    @Test func theTitleFollowsTheServer() async throws {
         let connection = FakeServerConnection(sessions: [Fixtures.session(1)])
-        let (controller, _) = await connectedController(connection)
+        let (controller, connector) = await connectedController(connection)
         let model = controller.projectModel(for: "muxy")
         let tab = try #require(await visibleTab(in: model, session: 1))
         #expect(tab.title == "muxy")
-        await settle { tab.isLive }
-        #expect(tab.title == "shell 1")
+        connector.emit(.titleChanged(sessionId: 1, title: "lazygit"))
+        await settle { tab.title == "lazygit" }
+        #expect(tab.title == "lazygit")
     }
 
     @Test func tapsAndScrollingReachTheProgram() async throws {
@@ -239,6 +240,7 @@ struct TerminalAttachmentTests {
 
         connection.channel(for: 1)?.update(screen: Fixtures.screen(title: "vim"))
         connector.emit(.metadataChanged(sessionId: 1))
+        connector.emit(.titleChanged(sessionId: 1, title: "vim"))
         await settle { tab.title == "vim" }
 
         #expect(tab.title == "vim")

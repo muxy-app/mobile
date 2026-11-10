@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @Bindable var settings: AppSettings
+    let push: PushCenter
     let onDone: () -> Void
 
     var body: some View {
@@ -18,6 +19,8 @@ struct SettingsView: View {
                     }
                     .buttonStyle(.cardRow)
                 }
+
+                NotificationSettingsSection(push: push)
 
                 CardSection("Terminal") {
                     toggleRow(

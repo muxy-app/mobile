@@ -39,10 +39,6 @@ on:
         required: false
         type: string
         default: auto
-      sdk_version:
-        description: "SDK version resolved by the combined release workflow"
-        required: false
-        type: string
       changes_not_sent_for_review:
         description: "Save changes for manual Play review submission (required after rejection)"
         required: false
@@ -121,14 +117,8 @@ jobs:
 
       - name: Install Muxy SDK
         id: sdk
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SDK_VERSION: ${{ inputs.sdk_version }}
         run: |
-          if [[ -z "$SDK_VERSION" ]]; then
-            SDK_VERSION=$(python3 scripts/lib/sdk_release.py)
-          fi
-          android/scripts/sdk.sh pin "$SDK_VERSION"
+          android/scripts/sdk.sh install
           echo "version=$(cat android/MuxyMobileSDK/Installed/REVISION)" >> "$GITHUB_OUTPUT"
 
       - name: Install NDK

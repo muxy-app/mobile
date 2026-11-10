@@ -35,6 +35,15 @@ class SdkTerminalChannel(
         lanes.send { terminal.paste(text) }
     }
 
+    override suspend fun upload(
+        name: String,
+        bytes: ByteArray,
+    ): String = lanes.fileRequest { terminal.upload(name, bytes) }
+
+    override fun pastePaths(paths: List<String>) {
+        lanes.send { terminal.pastePaths(paths) }
+    }
+
     override fun click(
         button: MouseButton,
         row: Int,

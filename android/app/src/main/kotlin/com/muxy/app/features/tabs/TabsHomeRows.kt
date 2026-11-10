@@ -215,6 +215,38 @@ internal fun EmptyDeviceTabs(
 }
 
 @Composable
+internal fun NotificationPromptCard(
+    onEnable: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val theme = LocalAppTheme.current
+    TabsCard {
+        Column(modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 4.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.Top) {
+                Icon(
+                    painterResource(R.drawable.ic_notifications_unread),
+                    contentDescription = null,
+                    modifier = Modifier.size(24.dp),
+                    tint = theme.foreground,
+                )
+                Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                    Text("Get notified when agents need you", color = theme.foreground, style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "Muxy can tell you when an agent is waiting for you or has finished, even while the app is closed.",
+                        color = theme.secondaryForeground,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+            }
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                TextButton(onClick = onDismiss) { Text("Not now") }
+                TextButton(onClick = onEnable) { Text("Turn on") }
+            }
+        }
+    }
+}
+
+@Composable
 internal fun OpenSshTerminalCard(
     enabled: Boolean,
     onOpen: () -> Unit,

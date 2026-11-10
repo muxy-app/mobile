@@ -49,6 +49,7 @@ final class TerminalController: Identifiable, TabStripItem {
     private(set) var notice: String?
     private(set) var historyReachedStart = false
     private(set) var isAtHistoryTop = false
+    private(set) var sendingImagesNotice: String?
 
     @ObservationIgnored weak var server: ServerController?
     @ObservationIgnored weak var display: (any TerminalDisplay)?
@@ -68,12 +69,12 @@ final class TerminalController: Identifiable, TabStripItem {
     @ObservationIgnored private(set) var isRetired = false
     @ObservationIgnored private var noticeTask: Task<Void, Never>?
 
-    init(projectID: String, sessionID: UInt64?, directory: String = "", server: ServerController) {
+    init(projectID: String, sessionID: UInt64?, directory: String = "", title: String? = nil, server: ServerController) {
         self.projectID = projectID
         self.sessionID = sessionID
         self.directory = directory
         self.server = server
-        title = Self.defaultTitle(for: sessionID, directory: directory)
+        self.title = Self.shownTitle(title, sessionID: sessionID, directory: directory)
     }
 
     var systemImage: String {
@@ -108,7 +109,7 @@ final class TerminalController: Identifiable, TabStripItem {
     func metadataDidChange() {
         guard let channel else { return }
         let screen = channel.screen()
-        updateTitle(from: screen)
+        updateDirectory(from: screen)
         guard mode == .history, screen.readsScrolling else {
             display?.screenNeedsRefresh()
             return
@@ -131,9 +132,13 @@ final class TerminalController: Identifiable, TabStripItem {
         scheduleFit()
     }
 
-    func assign(sessionID: UInt64) {
+    func assign(sessionID: UInt64, title: String) {
         self.sessionID = sessionID
-        title = Self.defaultTitle(for: sessionID, directory: directory)
+        retitle(title)
+    }
+
+    func retitle(_ title: String) {
+        self.title = Self.shownTitle(title, sessionID: sessionID, directory: directory)
     }
 
     func markCreating() {
@@ -149,7 +154,7 @@ final class TerminalController: Identifiable, TabStripItem {
         phase = .live
         let screen = channel.screen()
         cachedScreen = screen
-        updateTitle(from: screen)
+        updateDirectory(from: screen)
         display?.screenNeedsRefresh()
         fitToViewport()
     }
@@ -247,6 +252,23 @@ final class TerminalController: Identifiable, TabStripItem {
         channel.paste(text)
     }
 
+    func sendImages(loadedBy load: @escaping () async -> [TerminalImage]) {
+        guard let channel else { return }
+        guard sendingImagesNotice == nil else {
+            show(notice: Self.busySendingImagesNotice)
+            return
+        }
+        sendingImagesNotice = Self.preparingImagesNotice
+        Task { [weak self] in
+            let images = await load()
+            await self?.upload(images, through: channel)
+        }
+    }
+
+    static func sendingNotice(forImageCount count: Int) -> String {
+        count == 1 ? "Sending image…" : "Sending \(count) images…"
+    }
+
     func scroll(_ direction: ScrollDirection, at cell: TerminalCellPosition) {
         channel?.scroll(direction: direction, row: UInt16(clamping: cell.row), column: UInt16(clamping: cell.column))
     }
@@ -314,6 +336,33 @@ final class TerminalController: Identifiable, TabStripItem {
         setFollowing(true)
         display?.prepareForLiveOutput()
         display?.screenNeedsRefresh()
+    }
+
+    private func upload(_ images: [TerminalImage], through uploadChannel: any ServerTerminalChannel) async {
+        defer { sendingImagesNotice = nil }
+        guard !images.isEmpty else {
+            show(notice: Self.unreadableImageNotice)
+            return
+        }
+        guard images.allSatisfy({ $0.data.count <= TerminalImage.maximumBytes }) else {
+            show(notice: Self.imageTooLargeNotice)
+            return
+        }
+        sendingImagesNotice = Self.sendingNotice(forImageCount: images.count)
+        do {
+            var paths: [String] = []
+            for image in images {
+                paths.append(try await uploadChannel.upload(name: image.fileName, bytes: image.data))
+            }
+            guard channel === uploadChannel else { return }
+            returnToLive()
+            uploadChannel.pastePaths(paths)
+        } catch {
+            let failure = ServerFailure(error)
+            Log.terminal.error("Image upload failed: \(String(describing: failure), privacy: .public)")
+            guard channel === uploadChannel else { return }
+            show(notice: failure.message(context: .request, serverName: server?.serverName ?? "the computer"))
+        }
     }
 
     private func scheduleFit() {
@@ -389,16 +438,14 @@ final class TerminalController: Identifiable, TabStripItem {
         onModifierStateChange?(modifier, armed)
     }
 
-    private func updateTitle(from screen: Screen) {
-        if !screen.directory.isEmpty {
-            directory = screen.directory
-        }
-        let programTitle = TerminalTitle.sanitized(screen.title)
-        if !programTitle.isEmpty {
-            title = programTitle
-            return
-        }
-        title = Self.defaultTitle(for: sessionID, directory: directory)
+    private func updateDirectory(from screen: Screen) {
+        guard !screen.directory.isEmpty else { return }
+        directory = screen.directory
+    }
+
+    private static func shownTitle(_ title: String?, sessionID: UInt64?, directory: String) -> String {
+        guard let title, !title.isEmpty else { return defaultTitle(for: sessionID, directory: directory) }
+        return title
     }
 
     private func show(notice message: String) {
@@ -412,6 +459,10 @@ final class TerminalController: Identifiable, TabStripItem {
     }
 
     private static let noModifiers = Modifiers(shift: false, alt: false, control: false)
+    static let preparingImagesNotice = "Preparing…"
+    static let busySendingImagesNotice = "Still sending the previous images."
+    static let unreadableImageNotice = "That image can't be sent."
+    static let imageTooLargeNotice = "That image is too large to send. The limit is 100 MB."
 
     private static func defaultTitle(for sessionID: UInt64?, directory: String) -> String {
         let folder = DisplayPath.folderName(directory)

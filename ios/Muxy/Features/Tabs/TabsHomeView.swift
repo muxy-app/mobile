@@ -2,6 +2,8 @@ import SwiftUI
 
 struct TabsHomeView: View {
     let viewModel: TabsHomeViewModel
+    let push: PushCenter
+    let resetID: UUID
     let onOpen: (AppRoute) -> Void
     let onOpenDevice: (Connection) -> Void
     let onEdit: (Connection) -> Void
@@ -19,6 +21,10 @@ struct TabsHomeView: View {
         TabsHomeContent(
             devices: viewModel.devices,
             isCreating: viewModel.isCreating,
+            resetID: resetID,
+            showsNotificationPrompt: showsNotificationPrompt,
+            onEnableNotifications: { Task { await push.requestPermission() } },
+            onDismissNotificationPrompt: push.dismissPrompt,
             onOpenTab: openTab,
             onCloseTab: viewModel.closeTab,
             onCreateTab: createTab,
@@ -61,8 +67,8 @@ struct TabsHomeView: View {
             presenting: removingDevice
         ) { connection in
             Button("Remove device", role: .destructive) { onDelete(connection) }
-        } message: { _ in
-            Text("This removes the saved connection from this app. It doesn't close tabs on the device.")
+        } message: { connection in
+            Text(removalMessage(for: connection))
         }
         .alert("Tab unavailable", isPresented: Binding(get: { viewModel.notice != nil }, set: { if !$0 { viewModel.notice = nil } })) {
             Button("OK") { viewModel.notice = nil }
@@ -74,10 +80,28 @@ struct TabsHomeView: View {
             viewModel.setVisible(true)
         }
         .onDisappear { viewModel.setVisible(false) }
+        .onChange(of: resetID) {
+            isChoosingProject = false
+            pendingRoute = nil
+            pendingAddDevice = false
+            removingDevice = nil
+        }
         .onChange(of: scenePhase) { _, phase in
             guard phase != .inactive else { return }
             viewModel.setForeground(phase == .active)
         }
+    }
+
+    private func removalMessage(for connection: Connection) -> String {
+        let removal = "This removes the saved connection from this app. It doesn't close tabs on the device."
+        guard let serverID = connection.serverRouteID, push.isRegistered(serverID), !viewModel.isConnected(connection) else {
+            return removal
+        }
+        return "\(removal) \(connection.name) can't be reached right now, so it may keep sending notifications until you revoke this phone in its Muxy settings."
+    }
+
+    private var showsNotificationPrompt: Bool {
+        push.authorization == .notDetermined && !push.isPromptDismissed && viewModel.supportsPushNotifications
     }
 
     private func openTab(deviceID: UUID, projectID: String, tabID: UUID) {

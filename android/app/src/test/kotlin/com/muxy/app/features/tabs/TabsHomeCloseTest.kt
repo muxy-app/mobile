@@ -9,8 +9,10 @@ import com.muxy.app.testing.FakeServerConnection
 import com.muxy.app.testing.FakeServerConnector
 import com.muxy.app.testing.InMemoryConnectionStore
 import com.muxy.app.testing.InMemoryCredentialStore
+import com.muxy.app.testing.fakePushCenter
 import com.muxy.app.testing.serverCredential
 import com.muxy.app.testing.session
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -77,7 +79,7 @@ class TabsHomeCloseTest {
         catalog.onStart(owner)
         catalog.setVisible(true)
         runCurrent()
-        return TabsHomeViewModel(catalog)
+        return TabsHomeViewModel(catalog, fakePushCenter(backgroundScope), flowOf(false))
     }
 
     private fun tabs(viewModel: TabsHomeViewModel): List<TabsTab> =

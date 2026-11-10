@@ -2,6 +2,9 @@ package com.muxy.app.features.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.muxy.app.features.push.PushAuthorization
+import com.muxy.app.features.push.PushCenter
+import com.muxy.app.features.push.PushServerRow
 import com.muxy.app.persistence.settings.AppSettings
 import com.muxy.app.persistence.settings.SettingsStore
 import kotlinx.coroutines.flow.SharingStarted
@@ -12,7 +15,24 @@ import kotlinx.coroutines.launch
 
 class SettingsViewModel(
     private val settingsStore: SettingsStore,
+    private val push: PushCenter,
 ) : ViewModel() {
+    val notificationAuthorization: StateFlow<PushAuthorization> = push.authorization
+
+    val notificationServers: StateFlow<List<PushServerRow>> =
+        push.servers.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    fun allowNotifications() {
+        push.requestPermission()
+    }
+
+    fun setNotificationsEnabled(
+        serverId: String,
+        enabled: Boolean,
+    ) {
+        push.setEnabled(serverId, enabled)
+    }
+
     val settings: StateFlow<AppSettings> =
         settingsStore.settings
             .filterNotNull()

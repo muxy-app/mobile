@@ -21,4 +21,6 @@ class ReconnectSchedule(
     fun reset() {
         attempt = 0
     }
+
+    fun fresh(): ReconnectSchedule = ReconnectSchedule(initialDelays, steadyDelay, afterRestart)
 }

@@ -19,10 +19,6 @@ on:
       build_number:
         required: false
         type: string
-      sdk_version:
-        description: "SDK version resolved by the combined release workflow"
-        required: false
-        type: string
       skip_release_tag:
         description: "Skip the GitHub Release step (caller will create the tag)"
         required: false
@@ -47,6 +43,8 @@ on:
         required: true
       APP_STORE_PROVISIONING_PROFILE:
         required: true
+      APP_STORE_EXTENSION_PROVISIONING_PROFILE:
+        required: true
       APPLE_TEAM_ID:
         required: true
 
@@ -69,6 +67,7 @@ jobs:
       APP_ARCHIVE_PATH: ios/build/Muxy.xcarchive
       APP_EXPORT_PATH: ios/build/export
       BUNDLE_ID: com.muxy.app
+      EXTENSION_BUNDLE_ID: com.muxy.app.NotificationService
     outputs:
       version: ${{ steps.validate.outputs.version }}
       sdk_version: ${{ steps.sdk.outputs.version }}
@@ -113,14 +112,8 @@ jobs:
 
       - name: Install Muxy SDK
         id: sdk
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SDK_VERSION: ${{ inputs.sdk_version }}
         run: |
-          if [[ -z "$SDK_VERSION" ]]; then
-            SDK_VERSION=$(python3 scripts/lib/sdk_release.py)
-          fi
-          ios/scripts/sdk.sh pin "$SDK_VERSION"
+          ios/scripts/sdk.sh install
           SDK_VERSION=$(cat ios/MuxyMobileSDK/Build/REVISION)
           echo "version=$SDK_VERSION" >> "$GITHUB_OUTPUT"
 
@@ -155,22 +148,12 @@ jobs:
           mkdir -p "$HOME/.appstoreconnect/private_keys"
           printf '%s\n' "$API_KEY" > "$HOME/.appstoreconnect/private_keys/AuthKey_${KEY_ID}.p8"
 
-      - name: Install App Store provisioning profile
+      - name: Install App Store provisioning profiles
         id: profile
         env:
           APP_STORE_PROVISIONING_PROFILE: ${{ secrets.APP_STORE_PROVISIONING_PROFILE }}
+          APP_STORE_EXTENSION_PROVISIONING_PROFILE: ${{ secrets.APP_STORE_EXTENSION_PROVISIONING_PROFILE }}
         run: |
-          PROFILE_SOURCE_PATH="$RUNNER_TEMP/app-store.mobileprovision"
-          PROFILE_PLIST_PATH="$RUNNER_TEMP/app-store-profile.plist"
-
-          printf '%s' "$APP_STORE_PROVISIONING_PROFILE" \
-            | base64 --decode > "$PROFILE_SOURCE_PATH"
-          security cms -D -i "$PROFILE_SOURCE_PATH" > "$PROFILE_PLIST_PATH"
-
-          PROFILE_UUID=$(/usr/libexec/PlistBuddy -c "Print :UUID" "$PROFILE_PLIST_PATH")
-          PROFILE_NAME=$(/usr/libexec/PlistBuddy -c "Print :Name" "$PROFILE_PLIST_PATH")
-          PROFILE_APP_ID=$(/usr/libexec/PlistBuddy -c "Print :Entitlements:application-identifier" "$PROFILE_PLIST_PATH")
-          PROFILE_GET_TASK_ALLOW=$(/usr/libexec/PlistBuddy -c "Print :Entitlements:get-task-allow" "$PROFILE_PLIST_PATH")
           DISTRIBUTION_CERT_SHA1=$(security find-certificate -Z -c "Apple Distribution" -a build.keychain | awk '/SHA-1 hash:/ {print tolower($3); exit}')
 
           if [[ -z "$DISTRIBUTION_CERT_SHA1" ]]; then
@@ -178,17 +161,36 @@ jobs:
             exit 1
           fi
 
-          if [[ "$PROFILE_GET_TASK_ALLOW" == "true" ]]; then
-            echo "Error: provisioning profile '$PROFILE_NAME' is a development profile. Use an App Store profile for $BUNDLE_ID."
-            exit 1
-          fi
+          install_profile() {
+            local encoded="$1" bundle_id="$2" name="$3"
+            local source_path="$RUNNER_TEMP/$name.mobileprovision"
+            local plist_path="$RUNNER_TEMP/$name.plist"
 
-          if [[ "$PROFILE_APP_ID" != *.$BUNDLE_ID ]]; then
-            echo "Error: provisioning profile app id '$PROFILE_APP_ID' does not match $BUNDLE_ID"
-            exit 1
-          fi
+            if [[ -z "$encoded" ]]; then
+              echo "Error: the provisioning profile secret for $bundle_id is empty"
+              exit 1
+            fi
 
-          PROFILE_PLIST_PATH="$PROFILE_PLIST_PATH" DISTRIBUTION_CERT_SHA1="$DISTRIBUTION_CERT_SHA1" python3 - <<'PY'
+            printf '%s' "$encoded" | base64 --decode > "$source_path"
+            security cms -D -i "$source_path" > "$plist_path"
+
+            local uuid profile_name app_id get_task_allow
+            uuid=$(/usr/libexec/PlistBuddy -c "Print :UUID" "$plist_path")
+            profile_name=$(/usr/libexec/PlistBuddy -c "Print :Name" "$plist_path")
+            app_id=$(/usr/libexec/PlistBuddy -c "Print :Entitlements:application-identifier" "$plist_path")
+            get_task_allow=$(/usr/libexec/PlistBuddy -c "Print :Entitlements:get-task-allow" "$plist_path")
+
+            if [[ "$get_task_allow" == "true" ]]; then
+              echo "Error: provisioning profile '$profile_name' is a development profile. Use an App Store profile for $bundle_id."
+              exit 1
+            fi
+
+            if [[ "$app_id" != *.$bundle_id ]]; then
+              echo "Error: provisioning profile app id '$app_id' does not match $bundle_id"
+              exit 1
+            fi
+
+            PROFILE_PLIST_PATH="$plist_path" DISTRIBUTION_CERT_SHA1="$DISTRIBUTION_CERT_SHA1" python3 - <<'PY'
           import hashlib
           import os
           import plistlib
@@ -211,15 +213,21 @@ jobs:
               sys.exit(1)
           PY
 
-          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
-          cp "$PROFILE_SOURCE_PATH" \
-            "$HOME/Library/MobileDevice/Provisioning Profiles/$PROFILE_UUID.mobileprovision"
-          echo "uuid=$PROFILE_UUID" >> "$GITHUB_OUTPUT"
+            mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+            cp "$source_path" "$HOME/Library/MobileDevice/Provisioning Profiles/$uuid.mobileprovision"
+            INSTALLED_UUID="$uuid"
+          }
+
+          install_profile "$APP_STORE_PROVISIONING_PROFILE" "$BUNDLE_ID" app-store
+          echo "uuid=$INSTALLED_UUID" >> "$GITHUB_OUTPUT"
+          install_profile "$APP_STORE_EXTENSION_PROVISIONING_PROFILE" "$EXTENSION_BUNDLE_ID" app-store-extension
+          echo "extension_uuid=$INSTALLED_UUID" >> "$GITHUB_OUTPUT"
 
       - name: Archive app
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           PROFILE_UUID: ${{ steps.profile.outputs.uuid }}
+          EXTENSION_PROFILE_UUID: ${{ steps.profile.outputs.extension_uuid }}
           VERSION: ${{ steps.validate.outputs.version }}
           BUILD_NUMBER: ${{ steps.validate.outputs.build_number }}
         run: |
@@ -232,6 +240,7 @@ jobs:
             -disableAutomaticPackageResolution \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
             MUXY_PROVISIONING_PROFILE_SPECIFIER="$PROFILE_UUID" \
+            MUXY_EXTENSION_PROVISIONING_PROFILE_SPECIFIER="$EXTENSION_PROFILE_UUID" \
             MARKETING_VERSION="$VERSION" \
             CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
             clean archive
@@ -240,6 +249,7 @@ jobs:
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           PROFILE_UUID: ${{ steps.profile.outputs.uuid }}
+          EXTENSION_PROFILE_UUID: ${{ steps.profile.outputs.extension_uuid }}
         run: |
           EXPORT_OPTIONS="$RUNNER_TEMP/ExportOptions.plist"
           cat > "$EXPORT_OPTIONS" <<EOF
@@ -259,6 +269,8 @@ jobs:
             <dict>
               <key>${BUNDLE_ID}</key>
               <string>${PROFILE_UUID}</string>
+              <key>${EXTENSION_BUNDLE_ID}</key>
+              <string>${EXTENSION_PROFILE_UUID}</string>
             </dict>
             <key>manageAppVersionAndBuildNumber</key>
             <false/>

@@ -7,6 +7,7 @@ import androidx.navigation3.runtime.NavKey
 import com.muxy.app.core.serialization.UuidSerializer
 import com.muxy.app.features.projectdetail.ProjectTool
 import com.muxy.app.features.projectdetail.ToolProject
+import com.muxy.app.features.push.PushTarget
 import com.muxy.app.features.server.ServerFocus
 import com.muxy.app.networking.muxy1.ConnectionFocus
 import kotlinx.serialization.Serializable
@@ -68,6 +69,13 @@ sealed interface AppRoute : NavKey {
     ) : Server
 
     @Serializable
+    data class ServerSession(
+        override val connectionId: UUID,
+        override val serverId: String,
+        val target: PushTarget,
+    ) : Server
+
+    @Serializable
     data class ProjectTools(
         val project: ToolProject,
         val tool: ProjectTool,
@@ -121,6 +129,9 @@ fun List<AppRoute>.connectionFocus(): ConnectionFocus =
 
 fun List<AppRoute>.serverFocus(): ServerFocus {
     val server = filterIsInstance<AppRoute.Server>().lastOrNull() ?: return ServerFocus()
-    val visible = lastOrNull { !it.isModal } as? AppRoute.ServerProject
-    return ServerFocus(server.serverId, visible?.takeIf { it.serverId == server.serverId }?.projectId)
+    return when (val visible = lastOrNull { !it.isModal }) {
+        is AppRoute.ServerProject -> ServerFocus(server.serverId, visible.projectId.takeIf { visible.serverId == server.serverId })
+        is AppRoute.ServerSession -> ServerFocus(server.serverId, session = visible.target.takeIf { visible.serverId == server.serverId })
+        else -> ServerFocus(server.serverId)
+    }
 }

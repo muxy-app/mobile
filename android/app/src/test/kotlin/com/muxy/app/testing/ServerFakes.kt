@@ -20,6 +20,8 @@ import uniffi.muxy_mobile.MobileException
 import uniffi.muxy_mobile.Modifiers
 import uniffi.muxy_mobile.MouseButton
 import uniffi.muxy_mobile.PairingLink
+import uniffi.muxy_mobile.PushRegistration
+import uniffi.muxy_mobile.PushStatus
 import uniffi.muxy_mobile.Screen
 import uniffi.muxy_mobile.ScrollDirection
 import uniffi.muxy_mobile.ServerCredential
@@ -74,7 +76,8 @@ fun session(
     id: ULong,
     project: String = "muxy",
     status: SessionStatus = SessionStatus.LIVE,
-): Session = Session(id, project, "/Users/demo/muxy", status, ClientKind.DESKTOP, attached = false)
+    title: String = "muxy",
+): Session = Session(id, project, "/Users/demo/muxy", status, ClientKind.DESKTOP, attached = false, title = title)
 
 fun sdkStyle(
     foreground: TerminalColor = TerminalColor.Default,
@@ -128,6 +131,9 @@ class FakeTerminalChannel(
 ) : ServerTerminalChannel {
     val sent = mutableListOf<String>()
     val pastes = mutableListOf<String>()
+    val uploads = mutableListOf<String>()
+    val pastedPaths = mutableListOf<List<String>>()
+    var uploadFailure: MobileException? = null
     val resizes = mutableListOf<Pair<Int, Int>>()
     val clicks = mutableListOf<String>()
     val scrolls = mutableListOf<String>()
@@ -154,6 +160,19 @@ class FakeTerminalChannel(
 
     override fun paste(text: String) {
         pastes += text
+    }
+
+    override suspend fun upload(
+        name: String,
+        bytes: ByteArray,
+    ): String {
+        uploadFailure?.let { throw it }
+        uploads += name
+        return "/tmp/muxy-uploads/$sessionId/${uploads.size}-$name"
+    }
+
+    override fun pastePaths(paths: List<String>) {
+        pastedPaths += paths
     }
 
     override fun click(
@@ -212,8 +231,44 @@ class FakeServerConnection(
     var failsEnding = false
     var activity = Activity(agents = emptyList(), events = emptyList())
     val acknowledged = mutableListOf<ULong>()
+    var pushSupported = true
+    var pushRegistration = PushRegistration(PushStatus.ACTIVE, ByteArray(32) { 7 })
+    val registeredTokens = mutableListOf<String>()
+    var unregisterCount = 0
+    val findFailures = ArrayDeque<MobileException>()
+    var findAttempts = 0
 
     override val serverVersion: String = "test"
+
+    override val supportsPushNotifications: Boolean
+        get() = pushSupported
+
+    override suspend fun findSession(sessionId: ULong): Session? {
+        checkOpen()
+        findAttempts += 1
+        findFailures.removeFirstOrNull()?.let { throw it }
+        return sessions.firstOrNull { it.id == sessionId }
+    }
+
+    override suspend fun registerPush(token: String): PushRegistration {
+        checkOpen()
+        registeredTokens += token
+        return pushRegistration
+    }
+
+    override suspend fun unregisterPush() {
+        checkOpen()
+        unregisterCount += 1
+    }
+
+    fun moveSession(
+        sessionId: ULong,
+        projectId: String,
+    ) {
+        val index = sessions.indexOfFirst { it.id == sessionId }
+        if (index < 0) return
+        sessions[index] = sessions[index].copy(projectId = projectId)
+    }
 
     override suspend fun activity(): Activity {
         checkOpen()

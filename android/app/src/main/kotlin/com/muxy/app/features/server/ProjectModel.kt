@@ -93,6 +93,17 @@ class ProjectModel(
         }
     }
 
+    fun openTab(session: Session): ServerTerminal {
+        mutableTabs.value.firstOrNull { it.sessionId == session.id && !it.isRetired }?.let { existing ->
+            select(existing)
+            return existing
+        }
+        endedSessionIds -= session.id
+        val tab = makeTab(session)
+        select(tab)
+        return tab
+    }
+
     fun sessionDidEnd(sessionId: ULong) {
         endedSessionIds += sessionId
         val tab = mutableTabs.value.firstOrNull { it.sessionId == sessionId } ?: return
@@ -158,6 +169,7 @@ class ProjectModel(
         val liveIds = sessions.map { it.id }.toSet()
         endedSessionIds.retainAll(liveIds)
         pruneEnded(knownBeforeRequest - liveIds)
+        retitle(sessions)
         appendNew(sessions)
         if (selectedTab != null) return
         mutableTabs.value.firstOrNull()?.let(::select)
@@ -171,16 +183,27 @@ class ProjectModel(
         }
     }
 
+    private fun retitle(sessions: List<Session>) {
+        val titles = sessions.associate { it.id to it.title }
+        mutableTabs.value.forEach { tab ->
+            val title = tab.sessionId?.let(titles::get) ?: return@forEach
+            tab.retitle(title)
+        }
+    }
+
     private fun appendNew(sessions: List<Session>) {
         val open = mutableTabs.value.mapNotNull { it.sessionId }.toSet()
         sessions
             .filter { it.id !in open && it.id !in endedSessionIds }
             .sortedBy { it.id }
-            .forEach { session ->
-                val tab = ServerTerminal(projectId, session.id, server, scope, session.directory)
-                server.register(tab, session.id)
-                mutableTabs.value += tab
-            }
+            .forEach(::makeTab)
+    }
+
+    private fun makeTab(session: Session): ServerTerminal {
+        val tab = ServerTerminal(projectId, session.id, server, scope, session.directory, session.title)
+        server.register(tab, session.id, session.title)
+        mutableTabs.value += tab
+        return tab
     }
 
     private fun remove(tab: ServerTerminal) {

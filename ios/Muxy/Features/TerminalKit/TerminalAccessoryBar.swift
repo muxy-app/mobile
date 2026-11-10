@@ -8,6 +8,7 @@ final class TerminalAccessoryModel: ObservableObject {
     @Published var activeModifier: TerminalModifier = .ctrl
     @Published var keyboardVisible: Bool = true
     @Published var canCopySelection: Bool = false
+    @Published var canAttachImages: Bool = false
 
     var onKey: ((TerminalKey) -> Void)?
     var onText: ((String) -> Void)?
@@ -16,6 +17,7 @@ final class TerminalAccessoryModel: ObservableObject {
     var onKeyboardToggle: (() -> Void)?
     var onPaste: (() -> Void)?
     var onCopy: (() -> Void)?
+    var onAttachImages: (() -> Void)?
 
     func setModifierArmed(_ armed: Bool) {
         guard modifierArmed != armed else { return }
@@ -81,6 +83,11 @@ final class TerminalAccessoryBar: UIInputView {
         set { model.onCopy = newValue }
     }
 
+    var onAttachImages: (() -> Void)? {
+        get { model.onAttachImages }
+        set { model.onAttachImages = newValue }
+    }
+
     var modifierArmed: Bool { model.modifierArmed }
     var activeModifier: TerminalModifier { model.activeModifier }
     var canCopySelection: Bool { model.canCopySelection }
@@ -91,6 +98,10 @@ final class TerminalAccessoryBar: UIInputView {
 
     func setCanCopySelection(_ enabled: Bool) {
         model.canCopySelection = enabled
+    }
+
+    func setCanAttachImages(_ enabled: Bool) {
+        model.canAttachImages = enabled
     }
 
     func syncModifierArmed(_ armed: Bool) {
@@ -190,6 +201,9 @@ struct TerminalAccessoryView: View {
                 key("tab", action: { model.onKey?(.tab) })
                 actionIcon("doc.on.clipboard", label: "Paste", action: { model.onPaste?() })
                 actionIcon("doc.on.doc", label: "Copy", enabled: model.canCopySelection, action: { model.onCopy?() })
+                if model.canAttachImages {
+                    actionIcon("photo", label: "Attach Image", action: { model.onAttachImages?() })
+                }
                 symbol("~")
                 symbol("|")
                 symbol("/")

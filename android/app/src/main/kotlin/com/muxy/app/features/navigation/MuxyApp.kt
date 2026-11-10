@@ -1,5 +1,9 @@
 package com.muxy.app.features.navigation
 
+import android.Manifest
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -34,11 +38,14 @@ import com.muxy.app.features.projectdetail.ToolProject
 import com.muxy.app.features.projects.ProjectsScreen
 import com.muxy.app.features.server.ServerProjectScreen
 import com.muxy.app.features.server.ServerProjectsScreen
+import com.muxy.app.features.server.ServerSessionScreen
 import com.muxy.app.features.settings.SettingsModal
 import com.muxy.app.features.sshterminal.SshTerminalScreen
 import com.muxy.app.features.tabs.TabsHomeScreen
 import com.muxy.app.models.Connection
+import com.muxy.app.models.ConnectionKind
 import com.muxy.app.networking.muxy1.ConnectionFocus
+import kotlinx.coroutines.flow.filterNotNull
 
 @Composable
 fun MuxyApp(
@@ -77,6 +84,7 @@ private fun AppNavigation(
     val sceneStrategies =
         remember(windowWidth, sidebar) { listOf(ModalSceneStrategy(windowWidth), SidebarSceneStrategy(windowWidth, sidebar)) }
     ConnectionFocusBridge(container, backStack, isSidebarShown = windowWidth.isWide && sidebar.isVisible)
+    PushBridge(container, backStack)
     LaunchedEffect(backStack) {
         pendingPairingRequests(
             container.addConnectionRequests.request,
@@ -126,6 +134,9 @@ private fun AppNavigation(
                         onAdded = { connection ->
                             connection.serverRouteId?.let(container.serverDirectory::credentialDidChange)
                             backStack.open(AppRoute.Connections)
+                            if (connection.kind == ConnectionKind.SERVER && !connection.isRemoteServer) {
+                                container.push.requestPermissionIfUndetermined()
+                            }
                         },
                     )
                 }
@@ -186,6 +197,29 @@ private fun AppNavigation(
                         },
                     )
                 }
+                entry<AppRoute.ServerSession>(
+                    clazzContentKey = { it.toString() },
+                    metadata = SidebarSceneStrategy.pane(),
+                ) { route ->
+                    ServerSessionScreen(
+                        target = route.target,
+                        server = container.serverDirectory.controller(route.serverId),
+                    ) { projectId, tabId ->
+                        ServerProjectScreen(
+                            viewModel =
+                                viewModel(key = "server-project:$projectId") {
+                                    container.makeServerProjectViewModel(route.connectionId, route.serverId, projectId, tabId)
+                                },
+                            requestedTabId = tabId,
+                            onBack = { backStack.close(route) },
+                            onTool = { tool ->
+                                backStack.open(
+                                    AppRoute.ProjectTools(ToolProject.Server(route.connectionId, route.serverId, projectId), tool),
+                                )
+                            },
+                        )
+                    }
+                }
                 entry<AppRoute.ProjectTools>(metadata = ModalSceneStrategy.page()) { route ->
                     if (route.tool == ProjectTool.FILES) {
                         FilesModal(
@@ -210,6 +244,26 @@ private fun AppNavigation(
                 }
             },
     )
+}
+
+@Composable
+private fun PushBridge(
+    container: AppContainer,
+    backStack: NavBackStack<AppRoute>,
+) {
+    val permissionLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { container.push.onPermissionResult() }
+    LaunchedEffect(container) {
+        container.push.permissionRequests.collect {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+    LaunchedEffect(backStack) {
+        container.push.openRequest.filterNotNull().collect { request ->
+            container.push.take(request)
+            backStack.openPush(request, container.connectionStore.load())
+        }
+    }
 }
 
 @Composable

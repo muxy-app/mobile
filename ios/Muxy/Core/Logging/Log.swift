@@ -12,4 +12,5 @@ nonisolated enum Log {
     static let terminal = Logger(subsystem: subsystem, category: "terminal")
     static let ssh = Logger(subsystem: subsystem, category: "ssh")
     static let files = Logger(subsystem: subsystem, category: "files")
+    static let push = Logger(subsystem: subsystem, category: "push")
 }

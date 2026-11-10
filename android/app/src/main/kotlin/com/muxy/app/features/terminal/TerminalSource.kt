@@ -1,5 +1,6 @@
 package com.muxy.app.features.terminal
 
+import com.muxy.app.features.terminal.images.TerminalImage
 import com.muxy.app.features.terminalkit.TerminalKeyStroke
 
 interface TerminalSourceListener {
@@ -21,8 +22,17 @@ interface TerminalScrollback : AutoCloseable {
     suspend fun loadOlder(maxRows: Int): List<TerminalLine>
 }
 
+interface TerminalImageTarget {
+    suspend fun send(images: List<TerminalImage>)
+
+    fun failureMessage(error: Throwable): String
+}
+
 interface TerminalSource {
     var listener: TerminalSourceListener?
+
+    val imageTarget: TerminalImageTarget?
+        get() = null
 
     fun frame(): TerminalFrame?
 

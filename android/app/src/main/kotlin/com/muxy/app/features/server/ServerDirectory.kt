@@ -4,14 +4,23 @@ import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import com.muxy.app.core.concurrency.attempt
 import com.muxy.app.core.logging.Log
+import com.muxy.app.features.push.PushTarget
 import com.muxy.app.networking.server.ServerConnector
 import com.muxy.app.persistence.credentials.CredentialStore
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import java.util.UUID
 
 data class ServerFocus(
     val serverId: String? = null,
     val projectId: String? = null,
+    val session: PushTarget? = null,
 )
 
 class ServerDirectory(
@@ -19,22 +28,34 @@ class ServerDirectory(
     private val connector: ServerConnector,
     private val scope: CoroutineScope,
     private val remoteProvider: ((UUID) -> ServerConnectionProvider)? = null,
+    private val push: ServerPushContext? = null,
 ) : DefaultLifecycleObserver {
     private val controllers = mutableMapOf<String, ServerController>()
+    private val pushCapableServers = MutableStateFlow(emptySet<String>())
+    private val pushWatchers = mutableMapOf<String, Job>()
+
+    val supportsPushNotifications: Flow<Boolean> = pushCapableServers.map { it.isNotEmpty() }.distinctUntilChanged()
     private var focus = ServerFocus()
     private var browsingServerIds = emptySet<String>()
     private var isForeground = false
 
     fun controller(serverId: String): ServerController {
         controllers[serverId]?.let { return it }
+        val isRemote = serverId.startsWith("ssh:")
         val provider =
-            if (serverId.startsWith("ssh:")) {
+            if (isRemote) {
                 checkNotNull(remoteProvider)(UUID.fromString(serverId.removePrefix("ssh:")))
             } else {
                 PairedServerConnectionProvider(connector) { credential(serverId) }
             }
-        val controller = ServerController(serverId, provider, scope)
+        val controller = ServerController(serverId, provider, scope, pushContext = push.takeUnless { isRemote })
         controllers[serverId] = controller
+        pushWatchers[serverId] =
+            scope.launch {
+                controller.supportsPushNotifications.collect { supported ->
+                    pushCapableServers.update { if (supported) it + serverId else it - serverId }
+                }
+            }
         update(serverId, controller)
         return controller
     }
@@ -54,11 +75,32 @@ class ServerDirectory(
 
     fun forget(serverId: String) {
         browsingServerIds -= serverId
-        controllers.remove(serverId)?.let { controller ->
-            controller.setBrowsing(false)
-            controller.showProject(null)
-            controller.setWantsConnection(false)
+        val controller = controllers.remove(serverId)
+        pushWatchers.remove(serverId)?.cancel()
+        pushCapableServers.update { it - serverId }
+        val push = push
+        if (push == null) {
+            controller?.let(::retire)
+            return
         }
+        scope.launch {
+            controller?.unregisterPush()
+            controller?.let(::retire)
+            push.forget(serverId)
+        }
+    }
+
+    fun isConnected(serverId: String): Boolean = isForeground && controllers[serverId]?.phase?.value == ServerPhase.Connected
+
+    fun pushContextDidChange() {
+        controllers.values.forEach(ServerController::syncPushRegistration)
+    }
+
+    private fun retire(controller: ServerController) {
+        controller.setBrowsing(false)
+        controller.showSession(null)
+        controller.showProject(null)
+        controller.setWantsConnection(false)
     }
 
     fun credentialDidChange(serverId: String) {
@@ -85,7 +127,9 @@ class ServerDirectory(
     ) {
         val isActive = serverId == focus.serverId
         val isBrowsing = isForeground && serverId in browsingServerIds
-        controller.showProject(focus.projectId.takeIf { isActive })
+        val session = focus.session.takeIf { isActive }
+        controller.showSession(session)
+        if (session == null) controller.showProject(focus.projectId.takeIf { isActive })
         controller.setBrowsing(isBrowsing)
         controller.setWantsConnection(isForeground && (isActive || isBrowsing))
     }
