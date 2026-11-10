@@ -23,9 +23,6 @@ sealed interface AppRoute : NavKey {
     data object Settings : AppRoute
 
     @Serializable
-    data object Paywall : AppRoute
-
-    @Serializable
     data object AddConnection : AppRoute
 
     @Serializable
@@ -85,7 +82,7 @@ sealed interface AppRoute : NavKey {
     ) : AppRoute
 
     val isModal: Boolean
-        get() = this == AddConnection || this is EditConnection || this == Settings || this == Paywall || this is ProjectTools
+        get() = this == AddConnection || this is EditConnection || this == Settings || this is ProjectTools
 
     val destination: AppRoute
         get() =
@@ -118,7 +115,7 @@ fun List<AppRoute>.connectionFocus(): ConnectionFocus =
             ConnectionFocus.None
         }
 
-        AppRoute.AddConnection, AppRoute.Settings, AppRoute.Paywall -> {
+        AppRoute.AddConnection, AppRoute.Settings -> {
             ConnectionFocus.Hold
         }
 

@@ -1,8 +1,6 @@
 package com.muxy.app.features.push
 
 import androidx.navigation3.runtime.NavBackStack
-import com.muxy.app.features.billing.BillingEnforcement
-import com.muxy.app.features.billing.Entitlement
 import com.muxy.app.features.navigation.AppRoute
 import com.muxy.app.features.navigation.openPush
 import com.muxy.app.features.navigation.serverFocus
@@ -22,15 +20,12 @@ class PushRouteTest {
         device(
             name = "Studio over SSH",
         ).copy(kind = ConnectionKind.SERVER, serverId = PushVectors.SERVER_ID, serverTransport = ServerTransport.SSH)
-    private val unlocked = BillingEnforcement(isDebug = true)
 
     private fun open(
         request: PushOpenRequest,
-        enforcement: BillingEnforcement = unlocked,
-        entitlement: Entitlement = Entitlement.Unlocked,
         stack: NavBackStack<AppRoute> = NavBackStack(AppRoute.Connections),
     ): List<AppRoute> {
-        stack.openPush(request, listOf(overSsh, paired), enforcement, entitlement)
+        stack.openPush(request, listOf(overSsh, paired))
         return stack.toList()
     }
 
@@ -60,14 +55,6 @@ class PushRouteTest {
     fun unreadableNotificationsAndUnknownServersOpenHome() {
         assertEquals(listOf(AppRoute.Connections), open(PushOpenRequest(null)))
         assertEquals(listOf(AppRoute.Connections), open(PushOpenRequest(PushVectors.target.copy(serverId = "unknown"))))
-    }
-
-    @Test
-    fun anExpiredTrialAsksToUnlockFirst() {
-        assertEquals(
-            listOf(AppRoute.Connections, AppRoute.Paywall),
-            open(PushOpenRequest(PushVectors.target), BillingEnforcement(isDebug = false), Entitlement.Expired),
-        )
     }
 
     @Test

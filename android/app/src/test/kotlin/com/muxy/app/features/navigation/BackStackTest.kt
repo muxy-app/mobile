@@ -63,7 +63,7 @@ class BackStackTest {
 
     @Test
     fun replaceWithKeepsMatchingRoutesAndSwapsTheRest() {
-        val backStack = NavBackStack(AppRoute.Connections, AppRoute.Settings, AppRoute.Paywall)
+        val backStack = NavBackStack(AppRoute.Connections, AppRoute.Settings, AppRoute.EditConnection(UUID.randomUUID()))
         backStack.replaceWith(listOf(AppRoute.Connections, AppRoute.AddConnection))
         assertEquals(listOf(AppRoute.Connections, AppRoute.AddConnection), backStack.toList())
         backStack.replaceWith(listOf(AppRoute.Connections, AppRoute.AddConnection, AppRoute.Settings))

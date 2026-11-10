@@ -50,29 +50,7 @@ android {
     }
 
     buildTypes {
-        debug {
-            buildConfigField(
-                "boolean",
-                "BILLING_ENFORCED",
-                providers
-                    .gradleProperty("muxyBillingEnforced")
-                    .orNull
-                    .toBoolean()
-                    .toString(),
-            )
-            buildConfigField(
-                "long",
-                "TRIAL_MINUTES",
-                "${providers
-                    .gradleProperty("muxyTrialMinutes")
-                    .orNull
-                    ?.toLongOrNull()
-                    ?.coerceIn(0, 4320) ?: 0}L",
-            )
-        }
         release {
-            buildConfigField("boolean", "BILLING_ENFORCED", "true")
-            buildConfigField("long", "TRIAL_MINUTES", "0L")
             ndk.debugSymbolLevel = "FULL"
             isMinifyEnabled = true
             isShrinkResources = true
@@ -88,7 +66,6 @@ android {
 
     buildFeatures {
         compose = true
-        buildConfig = true
     }
 
     androidResources {
@@ -137,7 +114,6 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.okhttp)
     implementation(libs.play.services.code.scanner)
-    implementation(libs.play.billing)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.messaging)
     implementation(libs.sshj)

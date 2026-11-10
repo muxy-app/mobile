@@ -12,19 +12,18 @@ Muxy ("the app") lets your phone or tablet connect to computers running Muxy 1 o
 - No analytics, advertising, or third-party tracking SDKs are included.
 - Terminal, file, and version-control data travels directly between your device and the computers you connect to, not through a Muxy-operated server.
 - If you turn on notifications, your paired Muxy 2 computers send them through the muxy.app relay to Apple or Google. Their content is end-to-end encrypted, so the relay can't read it.
-- Android purchases use Google Play. Android QR scanning uses Google's code scanner.
+- Android QR scanning uses Google's code scanner.
 
 ## What the app stores on your device
 
 - **Connection credentials.** Pairing identities and tokens, Muxy 2 credentials, SSH passwords or private keys and passphrases, and trusted SSH host-key fingerprints are stored locally. iOS uses Keychain. Android encrypts secrets with AES-256-GCM using an Android Keystore key and stores the encrypted values in the app's private, non-backed-up storage. Credentials authenticate only the connections you configure.
 - **Notification keys and preferences.** When notifications are on, each paired Muxy 2 computer gives the app a key that decrypts its notifications. iOS stores these keys in a Keychain group shared only with the app's notification extension, and stores which computers have notifications on, their names, and their notification status in an app group shared with that extension. Android stores the keys with the other encrypted secrets, and the preferences and push token in private DataStore files.
 - **Saved connections and preferences.** Connection names, addresses, ports, SSH usernames, workspace selections, theme, terminal options, onboarding state, and demo mode are stored in local preferences. Android uses private DataStore files and disables app backups; credentials are stored separately from these preferences.
-- **Trial and purchases (Android only).** The three-day trial starts on the first app launch after installation. Its timestamp is stored with the encrypted secrets. The app queries Google Play for the unlock product and handles purchase tokens to acknowledge completed purchases. Purchase state is held in memory and restored from Play; the app does not receive your payment details, name, or email.
-- **Diagnostics.** The apps write diagnostic events to the platform's logging system for troubleshooting. The Android app logs connection and billing lifecycle events and error types without recording credential contents. There is no automatic upload of diagnostics or crash reports to Muxy.
+- **Diagnostics.** The apps write diagnostic events to the platform's logging system for troubleshooting. The Android app logs connection lifecycle events and error types without recording credential contents. There is no automatic upload of diagnostics or crash reports to Muxy.
 
-On the first Android launch after upgrading from the previous app, a one-time local import attempts to preserve saved Muxy 1 connections, credentials, preferences, workspace selections, and the trial timestamp. Invalid or unreadable records are skipped. The old stores and obsolete encryption keys are then removed. Purchases are restored from Google Play, not imported from local storage.
+On the first Android launch after upgrading from the previous app, a one-time local import attempts to preserve saved Muxy 1 connections, credentials, preferences, and workspace selections. Invalid or unreadable records are skipped. The old stores and obsolete encryption keys are then removed.
 
-Deleting a connection removes its saved credentials. Clearing Android app storage or uninstalling the Android app removes its local data; a Play purchase remains associated with your Google account and can be restored. iOS Keychain items may persist after uninstalling the app.
+Deleting a connection removes its saved credentials. Clearing Android app storage or uninstalling the Android app removes its local data. iOS Keychain items may persist after uninstalling the app.
 
 ## What the app sends over the network
 
@@ -45,19 +44,16 @@ Notifications are optional and can be turned off for each computer in Settings â
 
 Apple and Google handle notification delivery under their own privacy policies ([Apple](https://www.apple.com/legal/privacy/), [Google](https://policies.google.com/privacy)).
 
-On Android, the Google Play Billing Library communicates with Google Play to load product information, check and restore purchases, complete a purchase, and acknowledge it. Purchase checks also happen at startup and when returning to the foreground, not only when you tap Unlock or Restore. Google handles this under its [privacy policy](https://policies.google.com/privacy).
-
 ## QR scanning and permissions
 
-- **Network access.** iOS requests Local Network access. Android declares `INTERNET` and `ACCESS_NETWORK_STATE` to reach your chosen computers and Google Play.
+- **Network access.** iOS requests Local Network access. Android declares `INTERNET` and `ACCESS_NETWORK_STATE` to reach your chosen computers.
 - **Notifications.** The app asks for notification permission after you pair a Muxy 2 computer or when you turn notifications on, not at first launch. Android 13 and newer request `POST_NOTIFICATIONS` at that moment.
 - **QR scanning.** On Android, Google Play services provides the code-scanner interface without the app requesting camera permission. The app receives the scanned pairing code, not camera images; Google processes scanning on-device. iOS requests camera access when you choose to scan a pairing code. The app does not save or upload camera images.
-- **Billing (Android only).** `com.android.vending.BILLING` enables the in-app purchase. It is not a runtime permission.
 - Android does not request camera, microphone, location, contacts, or shared-storage permissions. It also declares an app-specific, signature-protected permission used by AndroidX for internal broadcast receivers.
 
 ## What the app does not collect
 
-Muxy does not collect your terminal content, files, credentials, contacts, location, payment details, usage analytics, advertising identifiers, or crash analytics on its servers. The app does not sell your data. The Google Play purchase and scanner interactions and the optional, end-to-end encrypted push notifications described above are the exceptions to direct communication with your chosen computers.
+Muxy does not collect your terminal content, files, credentials, contacts, location, payment details, usage analytics, advertising identifiers, or crash analytics on its servers. The app does not sell your data. The Google code-scanner interaction and the optional, end-to-end encrypted push notifications described above are the exceptions to direct communication with your chosen computers.
 
 ## Children
 

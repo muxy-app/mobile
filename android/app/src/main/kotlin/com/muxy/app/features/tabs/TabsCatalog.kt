@@ -2,8 +2,6 @@ package com.muxy.app.features.tabs
 
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
-import com.muxy.app.features.billing.BillingRepository
-import com.muxy.app.features.demo.DemoConnection
 import com.muxy.app.features.server.ServerController
 import com.muxy.app.features.server.ServerDirectory
 import com.muxy.app.features.server.ServerPhase
@@ -15,14 +13,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import java.util.UUID
 
 class TabsCatalog(
     private val connections: ConnectionStore,
-    private val billing: BillingRepository,
     private val directory: ServerDirectory,
     private val makeDeviceManager: () -> ConnectionManager,
     private val scope: CoroutineScope,
@@ -38,26 +33,18 @@ class TabsCatalog(
 
     init {
         scope.launch { connections.connections.collect(::connectionsChanged) }
-        scope.launch {
-            billing.state
-                .map { it.trialLoaded to billing.enforcement.gates(it.entitlement) }
-                .distinctUntilChanged()
-                .collect { updateActivity() }
-        }
     }
 
     fun setVisible(visible: Boolean) {
         if (this.visible == visible) return
         this.visible = visible
         activityGeneration += 1
-        if (visible) billing.refreshEntitlement()
         updateActivity()
     }
 
     override fun onStart(owner: LifecycleOwner) {
         foreground = true
         activityGeneration += 1
-        billing.refreshEntitlement()
         updateActivity()
     }
 
@@ -65,12 +52,6 @@ class TabsCatalog(
         foreground = false
         activityGeneration += 1
         updateActivity()
-    }
-
-    fun requiresUnlock(connectionId: UUID): Boolean {
-        val connection = connections.connections.value?.firstOrNull { it.id == connectionId } ?: return false
-        val entitlement = billing.refreshEntitlement()
-        return !isDemo(connection) && billing.enforcement.gates(entitlement)
     }
 
     fun select(
@@ -188,25 +169,11 @@ class TabsCatalog(
     }
 
     private fun canUse(entry: Entry): Boolean =
-        visible && foreground && hasAccess(entry.connection) &&
+        visible && foreground &&
             connections.connections.value?.firstOrNull { it.id == entry.connection.id } == entry.connection
 
-    private fun hasAccess(connection: Connection): Boolean =
-        isDemo(connection) || (billing.state.value.trialLoaded && !billing.enforcement.gates(billing.state.value.entitlement))
-
-    private fun isDemo(connection: Connection): Boolean = connection.id == DemoConnection.id && connection.kind == ConnectionKind.DEVICE
-
     private fun publish() {
-        mutableDevices.value =
-            saved?.map { connection ->
-                val snapshot = entries[connection.id]?.snapshot ?: initialState(connection)
-                if (hasAccess(connection)) return@map snapshot
-                snapshot.copy(
-                    status = TabsDeviceStatus.LOCKED,
-                    isLoading = false,
-                    message = "Unlock Muxy to connect to this device.",
-                )
-            }
+        mutableDevices.value = saved?.map { connection -> entries[connection.id]?.snapshot ?: initialState(connection) }
     }
 
     private fun initialState(connection: Connection): TabsDevice =

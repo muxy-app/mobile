@@ -41,8 +41,6 @@ fun TabsHomeScreen(
     onSettings: () -> Unit,
     onEdit: (Connection) -> Unit,
     onDelete: (Connection) -> Unit,
-    onUnlock: () -> Unit,
-    footer: @Composable () -> Unit = {},
 ) {
     val devices by viewModel.devices.collectAsStateWithLifecycle()
     val creating by viewModel.creating.collectAsStateWithLifecycle()
@@ -58,21 +56,18 @@ fun TabsHomeScreen(
     val scope = rememberCoroutineScope()
     val theme = LocalAppTheme.current
     val idle = creating == null
-    val handle: (TabsHomeAction?) -> Unit = handle@{ action ->
-        if (action == null) return@handle
+    val openTab: (TabsSelection?) -> Unit = openTab@{ selection ->
+        if (selection == null) return@openTab
         showNewTab = false
-        when (action) {
-            is TabsHomeAction.OpenTab -> onSelect(action.selection)
-            TabsHomeAction.Unlock -> onUnlock()
-        }
+        onSelect(selection)
     }
-    val create: (TabsProjectKey) -> Unit = { key -> scope.launch { handle(viewModel.createTab(key)) } }
+    val create: (TabsProjectKey) -> Unit = { key -> scope.launch { openTab(viewModel.createTab(key)) } }
     val loaded = devices
     val searching = query.isNotBlank()
     val shown = loaded.orEmpty().mapNotNull { it.matching(query) }
     val attention = TabsAttention.collect(loaded.orEmpty())
 
-    Scaffold(bottomBar = footer, containerColor = theme.groupedBackground) { padding ->
+    Scaffold(containerColor = theme.groupedBackground) { padding ->
         Box(modifier = Modifier.fillMaxSize()) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
@@ -108,8 +103,7 @@ fun TabsHomeScreen(
                             TabsDeviceMenu(
                                 device = device,
                                 onProjects = { onOpenConnection(connection) },
-                                onRefresh = { handle(viewModel.retry(connection.id)) },
-                                onUnlock = onUnlock,
+                                onRefresh = { viewModel.retry(connection.id) },
                                 onEdit = { onEdit(connection) },
                                 onDelete = { deletingId = deviceKey },
                             )
@@ -138,7 +132,7 @@ fun TabsHomeScreen(
                         item(key = "project:$sectionId") {
                             TabsProjectCard(
                                 project = project,
-                                canCreate = idle && (device.canCreate(project) || device.status == TabsDeviceStatus.LOCKED),
+                                canCreate = idle && device.canCreate(project),
                                 creating = creating == key,
                                 expanded = expanded,
                                 tabsEnabled = idle,
@@ -147,8 +141,8 @@ fun TabsHomeScreen(
                                 onToggle = {
                                     collapsedProjects = if (expanded) collapsedProjects + sectionId else collapsedProjects - sectionId
                                 },
-                                onSelectTab = { tab -> handle(viewModel.select(key, tab.id)) },
-                                onCloseTab = { tab -> handle(viewModel.closeTab(key, tab.id)) },
+                                onSelectTab = { tab -> openTab(viewModel.select(key, tab.id)) },
+                                onCloseTab = { tab -> viewModel.closeTab(key, tab.id) },
                             )
                         }
                     }
@@ -188,8 +182,7 @@ fun TabsHomeScreen(
             devices = devices.orEmpty(),
             creating = creating,
             onCreate = create,
-            onRetry = { handle(viewModel.retry(it)) },
-            onUnlock = { handle(TabsHomeAction.Unlock) },
+            onRetry = viewModel::retry,
             onOpenSsh = {
                 showNewTab = false
                 onOpenConnection(it)
@@ -206,7 +199,7 @@ fun TabsHomeScreen(
             items = attention,
             onOpen = { item ->
                 showNotifications = false
-                handle(viewModel.select(TabsProjectKey(item.device.connection.id, item.project.id), item.tab.id))
+                openTab(viewModel.select(TabsProjectKey(item.device.connection.id, item.project.id), item.tab.id))
             },
             onClose = { showNotifications = false },
         )

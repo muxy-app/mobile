@@ -28,8 +28,6 @@ import com.muxy.app.design.components.currentWindowWidth
 import com.muxy.app.design.components.rememberSidebarState
 import com.muxy.app.features.addconnection.AddConnectionRequest
 import com.muxy.app.features.addconnection.AddConnectionScreen
-import com.muxy.app.features.billing.EntitlementFooter
-import com.muxy.app.features.billing.PaywallScreen
 import com.muxy.app.features.editconnection.EditConnectionScreen
 import com.muxy.app.features.files.FilesModal
 import com.muxy.app.features.git.GitModal
@@ -48,7 +46,6 @@ import com.muxy.app.models.Connection
 import com.muxy.app.models.ConnectionKind
 import com.muxy.app.networking.muxy1.ConnectionFocus
 import kotlinx.coroutines.flow.filterNotNull
-import kotlinx.coroutines.flow.map
 
 @Composable
 fun MuxyApp(
@@ -57,9 +54,7 @@ fun MuxyApp(
     themedWindow: ThemedWindow,
 ) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
-    val billingState by container.billing.state.collectAsStateWithLifecycle()
     val loaded = settings ?: return
-    if (!billingState.trialLoaded) return
     val backStack =
         rememberSerializable(serializer = NavBackStackSerializer(AppRoute.serializer())) {
             NavBackStack<AppRoute>(AppRoute.Connections)
@@ -94,26 +89,15 @@ private fun AppNavigation(
         pendingPairingRequests(
             container.addConnectionRequests.request,
             snapshotFlow { backStack.toList() },
-            container.billing.state.map { it.purchasing },
         ).collect {
             backStack.removeAll { it == AppRoute.Settings }
             backStack.open(AppRoute.AddConnection)
         }
     }
-    val openConnection = { connection: Connection ->
-        backStack.openConnection(
-            connection,
-            container.billing.enforcement,
-            container.billing.refreshEntitlement(),
-            inPane = windowWidth.isWide,
-        )
-    }
+    val openConnection = { connection: Connection -> backStack.openConnection(connection, inPane = windowWidth.isWide) }
     NavDisplay(
         backStack = backStack,
-        onBack = {
-            val purchasing = backStack.lastOrNull() == AppRoute.Paywall && container.billing.state.value.purchasing
-            if (!purchasing) backStack.removeLastOrNull()
-        },
+        onBack = { backStack.removeLastOrNull() },
         entryDecorators =
             listOf(
                 rememberSaveableStateHolderNavEntryDecorator(),
@@ -129,25 +113,13 @@ private fun AppNavigation(
                     val connections = viewModel { container.makeConnectionsListViewModel() }
                     TabsHomeScreen(
                         viewModel = viewModel { container.makeTabsHomeViewModel() },
-                        onSelect = {
-                            backStack.openTab(
-                                it,
-                                container.billing.enforcement,
-                                container.billing.refreshEntitlement(),
-                                inPane = windowWidth.isWide,
-                            )
-                        },
+                        onSelect = { backStack.openTab(it, inPane = windowWidth.isWide) },
                         onOpenConnection = openConnection,
                         onAddDevice = { backStack.open(AppRoute.AddConnection) },
                         onSettings = { backStack.open(AppRoute.Settings) },
                         onEdit = { backStack.open(AppRoute.EditConnection(it.id)) },
                         onDelete = connections::delete,
-                        onUnlock = { backStack.open(AppRoute.Paywall) },
-                        footer = { EntitlementFooter(container.billing) },
                     )
-                }
-                entry<AppRoute.Paywall>(metadata = ModalSceneStrategy.form()) {
-                    PaywallScreen(container.billing, onClose = { backStack.close(AppRoute.Paywall) })
                 }
                 entry<AppRoute.Settings>(metadata = ModalSceneStrategy.form()) {
                     SettingsModal(
@@ -289,12 +261,7 @@ private fun PushBridge(
     LaunchedEffect(backStack) {
         container.push.openRequest.filterNotNull().collect { request ->
             container.push.take(request)
-            backStack.openPush(
-                request,
-                container.connectionStore.load(),
-                container.billing.enforcement,
-                container.billing.refreshEntitlement(),
-            )
+            backStack.openPush(request, container.connectionStore.load())
         }
     }
 }
