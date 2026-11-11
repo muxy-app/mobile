@@ -65,7 +65,7 @@ class SdkTerminalChannel(
         columns: Int,
         rows: Int,
     ) {
-        lanes.request { terminal.resize(columns.toCells(), rows.toCells()) }
+        lanes.inputRequest { terminal.resize(columns.toCells(), rows.toCells()) }
     }
 
     override suspend fun scrollback(maxRows: Int): ScrollbackSnapshot {

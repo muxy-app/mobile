@@ -1,6 +1,7 @@
 package com.muxy.app.features.server.terminal
 
 import com.muxy.app.features.terminal.TerminalController
+import com.muxy.app.features.terminal.TerminalGridSize
 import com.muxy.app.features.terminal.images.TerminalImage
 import com.muxy.app.features.terminal.images.TerminalImageRead
 import com.muxy.app.testing.FakeTerminalChannel
@@ -24,7 +25,7 @@ class SdkTerminalImagesTest {
     private fun TestScope.attached(channel: FakeTerminalChannel): TerminalController {
         val source = SdkTerminalSource(backgroundScope, serverName = { "Studio" }) {}
         val controller = TerminalController(source, backgroundScope)
-        source.attach(channel)
+        source.attach(channel, TerminalGridSize(80, 24))
         return controller
     }
 
@@ -112,7 +113,7 @@ class SdkTerminalImagesTest {
             val channel = FakeTerminalChannel(1u)
             val source = SdkTerminalSource(backgroundScope, serverName = { "Studio" }) {}
             val controller = TerminalController(source, backgroundScope)
-            source.attach(channel)
+            source.attach(channel, TerminalGridSize(80, 24))
             source.release()
             controller.sendImages { loaded(png) }
             runCurrent()

@@ -35,6 +35,11 @@ struct TerminalScreenView: View {
         }
         .overlay(alignment: .top) {
             VStack(spacing: 8) {
+                if controller.canFitToPhone, !isDisconnected {
+                    FitToPhoneButton(action: controller.fitToPhone)
+                        .padding(.top, 12)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
                 if controller.showsHistoryStart {
                     noticeView("Start of history")
                 }
@@ -45,7 +50,6 @@ struct TerminalScreenView: View {
                     noticeView(notice)
                 }
             }
-            .allowsHitTesting(false)
         }
         .keyboardIsland(bottomInset: keyboardOffset, background: ThemeColor(rgb: theme.terminalPalette.background).color)
         .photosPicker(
@@ -107,6 +111,7 @@ struct TerminalScreenView: View {
     private func noticeView(_ text: String) -> some View {
         TerminalNotice(text: text)
             .padding(.top, 12)
+            .allowsHitTesting(false)
             .transition(.move(edge: .top).combined(with: .opacity))
     }
 }

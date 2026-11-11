@@ -25,13 +25,22 @@ class SdkTerminalSourceTest {
     private val size = TerminalGridSize(columns = 50, rows = 20)
     private var viewportChanges = 0
 
-    private fun TestScope.attached(channel: FakeTerminalChannel = FakeTerminalChannel(1u)): Pair<SdkTerminalSource, TerminalController> {
+    private val phoneShown = TerminalGridSize(columns = 80, rows = 24)
+
+    private fun TestScope.attached(
+        channel: FakeTerminalChannel = FakeTerminalChannel(1u),
+        askedFor: TerminalGridSize = phoneShown,
+        viewport: TerminalGridSize? = null,
+    ): Pair<SdkTerminalSource, TerminalController> {
         val source = SdkTerminalSource(backgroundScope, serverName = { "Studio" }) { viewportChanges += 1 }
         val controller = TerminalController(source, backgroundScope)
-        source.attach(channel)
+        viewport?.let(controller::viewportDidChange)
+        source.attach(channel, askedFor)
         controller.currentFrame()
         return source to controller
     }
+
+    private fun desktopSized() = FakeTerminalChannel(1u, sdkScreen(columns = 120, rows = 40))
 
     private fun history(snapshot: StubScrollbackSnapshot) =
         FakeTerminalChannel(1u, sdkScreen(historyRows = 3, rows = 1, lines = listOf(sdkLine("s1"))), ArrayDeque(listOf(snapshot)))
@@ -56,7 +65,7 @@ class SdkTerminalSourceTest {
         }
 
     @Test
-    fun aNewViewportIsFittedAfterADebounce() =
+    fun aFittedTerminalFollowsANewViewportAfterADebounce() =
         runTest {
             val channel = FakeTerminalChannel(1u)
             val (_, controller) = attached(channel)
@@ -73,7 +82,7 @@ class SdkTerminalSourceTest {
     fun aViewportThatMatchesTheScreenIsNotResized() =
         runTest {
             val channel = FakeTerminalChannel(1u, sdkScreen(columns = 50, rows = 20))
-            val (_, controller) = attached(channel)
+            val (_, controller) = attached(channel, askedFor = size)
             controller.viewportDidChange(size)
             advanceTimeBy(200.milliseconds)
             assertTrue(channel.resizes.isEmpty())
@@ -103,6 +112,94 @@ class SdkTerminalSourceTest {
             controller.viewportDidChange(size)
             advanceTimeBy(200.milliseconds)
             assertEquals(listOf(50 to 20, 50 to 20), channel.resizes)
+        }
+
+    @Test
+    fun attachingToADesktopSizedSessionKeepsItsSize() =
+        runTest {
+            val channel = desktopSized()
+            val (source, controller) = attached(channel, askedFor = size, viewport = size)
+            controller.viewportDidChange(TerminalGridSize(60, 20))
+            advanceTimeBy(200.milliseconds)
+            assertTrue(channel.resizes.isEmpty())
+            assertFalse(source.isFitted)
+            assertTrue(controller.canFitToPhone.value)
+        }
+
+    @Test
+    fun attachingAtThePhoneSizeCountsAsFitted() =
+        runTest {
+            val channel = FakeTerminalChannel(1u, sdkScreen(columns = 50, rows = 20))
+            val (source, controller) = attached(channel, askedFor = size, viewport = size)
+            assertTrue(source.isFitted)
+            assertFalse(controller.canFitToPhone.value)
+        }
+
+    @Test
+    fun fittingToThePhoneResizesAndFollowsTheViewport() =
+        runTest {
+            val channel = desktopSized()
+            val (source, controller) = attached(channel, askedFor = size, viewport = size)
+            controller.fitToPhone()
+            runCurrent()
+            assertEquals(listOf(50 to 20), channel.resizes)
+            assertTrue(source.isFitted)
+            assertFalse(controller.canFitToPhone.value)
+            controller.viewportDidChange(TerminalGridSize(60, 20))
+            advanceTimeBy(200.milliseconds)
+            assertEquals(listOf(50 to 20, 60 to 20), channel.resizes)
+        }
+
+    @Test
+    fun aFailedFitShowsANoticeAndCanBeTriedAgain() =
+        runTest {
+            val channel = desktopSized().apply { failingResizes = 1 }
+            val (source, controller) = attached(channel, askedFor = size, viewport = size)
+            controller.fitToPhone()
+            runCurrent()
+            assertEquals(TerminalController.FIT_FAILED, controller.notice.value)
+            assertFalse(source.isFitted)
+            assertTrue(controller.canFitToPhone.value)
+            controller.fitToPhone()
+            runCurrent()
+            assertEquals(listOf(50 to 20, 50 to 20), channel.resizes)
+            assertTrue(source.isFitted)
+        }
+
+    @Test
+    fun theDesktopTakingTheSizeBackKeepsTheFitButtonHidden() =
+        runTest {
+            val channel = desktopSized()
+            val (source, controller) = attached(channel, askedFor = size, viewport = size)
+            controller.fitToPhone()
+            runCurrent()
+            channel.currentScreen = sdkScreen(columns = 120, rows = 40)
+            source.frame()
+            assertFalse(controller.canFitToPhone.value)
+            assertEquals(listOf(50 to 20), channel.resizes)
+        }
+
+    @Test
+    fun aFittedTerminalIsFittedAgainWhenReattached() =
+        runTest {
+            val first = desktopSized()
+            val (source, controller) = attached(first, askedFor = size, viewport = size)
+            controller.fitToPhone()
+            runCurrent()
+            source.release()
+            val second = desktopSized()
+            source.attach(second, size)
+            runCurrent()
+            assertEquals(listOf(50 to 20), second.resizes)
+            assertFalse(controller.canFitToPhone.value)
+        }
+
+    @Test
+    fun aReleasedTerminalCannotBeFitted() =
+        runTest {
+            val (source, controller) = attached(desktopSized(), askedFor = size, viewport = size)
+            source.release()
+            assertFalse(controller.canFitToPhone.value)
         }
 
     @Test

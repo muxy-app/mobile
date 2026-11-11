@@ -50,6 +50,8 @@ class TerminalController(
     val acceptsImages: Boolean
         get() = source.imageTarget != null
 
+    val canFitToPhone: StateFlow<Boolean> = source.fitTarget?.canFit ?: MutableStateFlow(false)
+
     private var history: HistoryDocument? = null
     private var historyPrefetch: ScrollbackRequest? = null
     private var historyPrefetchRevision = 0L
@@ -139,6 +141,17 @@ class TerminalController(
                 }
             }
         return true
+    }
+
+    fun fitToPhone() {
+        val target = source.fitTarget ?: return
+        scope.launch {
+            attempt { target.fit() }
+                .onFailure { error ->
+                    Log.terminal.error("Fit to phone failed", error)
+                    show(FIT_FAILED)
+                }
+        }
     }
 
     fun scroll(
@@ -322,6 +335,7 @@ class TerminalController(
         const val PREPARING_IMAGES = "Preparing…"
         const val IMAGES_BUSY = "Still sending the previous images."
         const val IMAGE_TOO_LARGE = "That image is too large to send. The limit is 100 MB."
+        const val FIT_FAILED = "Couldn't fit the terminal to this phone."
         private val NOTICE_DURATION = 4.seconds
 
         fun sendingNotice(count: Int): String = if (count == 1) "Sending image…" else "Sending $count images…"

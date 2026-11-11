@@ -44,6 +44,7 @@ final class FakeTerminalChannel: ServerTerminalChannel {
         var pastedPaths: [[String]] = []
         var uploadFailure: MobileError?
         var resizes: [TerminalGridSize] = []
+        var failingResizes = 0
         var detachCount = 0
     }
 
@@ -70,6 +71,10 @@ final class FakeTerminalChannel: ServerTerminalChannel {
 
     var resizes: [TerminalGridSize] {
         state.withLock { $0.resizes }
+    }
+
+    func failNextResize() {
+        state.withLock { $0.failingResizes += 1 }
     }
 
     func failUploads(with error: MobileError) {
@@ -122,7 +127,12 @@ final class FakeTerminalChannel: ServerTerminalChannel {
     }
 
     func resize(to size: TerminalGridSize) async throws {
-        state.withLock { $0.resizes.append(size) }
+        try state.withLock { state in
+            state.resizes.append(size)
+            guard state.failingResizes > 0 else { return }
+            state.failingResizes -= 1
+            throw MobileError.Timeout
+        }
     }
 
     func scrollback(maxRows: UInt16) async throws -> any ScrollbackSnapshot {

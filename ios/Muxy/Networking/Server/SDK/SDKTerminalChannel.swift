@@ -61,7 +61,7 @@ nonisolated final class SDKTerminalChannel: ServerTerminalChannel {
     }
 
     func resize(to size: TerminalGridSize) async throws {
-        try await lanes.request { [terminal] in
+        try await lanes.inputRequest { [terminal] in
             try terminal.resize(columns: size.columns, rows: size.rows)
         }
     }

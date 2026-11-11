@@ -93,7 +93,7 @@ build_source() {
   [ -f "$checkout/scripts/build-mobile-sdk.sh" ] || fail "$checkout has no scripts/build-mobile-sdk.sh. Use a Muxy 2 checkout."
   revision=$(git -C "$checkout" describe --always --dirty)
   prepare_work_dir
-  bash "$checkout/scripts/build-mobile-sdk.sh" "$WORK/source"
+  env -u RUSTUP_TOOLCHAIN bash "$checkout/scripts/build-mobile-sdk.sh" "$WORK/source"
   activate "$WORK/source/MuxyMobile.xcframework" "$WORK/source/swift/muxy_mobile.swift" "$revision"
 }
 

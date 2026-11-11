@@ -23,6 +23,8 @@ class SdkLanes(
 
     suspend fun <T> request(work: () -> T): T = withContext(requests) { work() }
 
+    suspend fun <T> inputRequest(work: () -> T): T = withContext(inputLane) { work() }
+
     suspend fun <T> fileRequest(work: () -> T): T = withContext(files) { work() }
 
     suspend fun <T> gitRequest(work: () -> T): T = withContext(git) { work() }

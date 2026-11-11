@@ -76,6 +76,7 @@ fun TerminalScreen(
     val notice by controller.notice.collectAsStateWithLifecycle()
     val historyStart by controller.showsHistoryStart.collectAsStateWithLifecycle()
     val sendingImages by controller.sendingImagesNotice.collectAsStateWithLifecycle()
+    val canFitToPhone by controller.canFitToPhone.collectAsStateWithLifecycle()
     val imagePicker =
         rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(PICKER_SELECTION_LIMIT)) { uris ->
             if (uris.isNotEmpty()) handle.sendImages(uris)
@@ -140,6 +141,8 @@ fun TerminalScreen(
             )
         }
         TerminalNotices(
+            canFitToPhone = canFitToPhone,
+            onFitToPhone = controller::fitToPhone,
             historyStart = historyStart,
             notices = listOfNotNull(sendingImages, notice),
             modifier = Modifier.align(Alignment.TopCenter).padding(top = TerminalIsland.margin),
@@ -198,6 +201,8 @@ private fun BackToLiveButton(
 
 @Composable
 private fun TerminalNotices(
+    canFitToPhone: Boolean,
+    onFitToPhone: () -> Unit,
     historyStart: Boolean,
     notices: List<String>,
     modifier: Modifier,
@@ -207,6 +212,7 @@ private fun TerminalNotices(
         verticalArrangement = Arrangement.spacedBy(8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
+        if (canFitToPhone) FitToPhoneButton(onFitToPhone)
         if (historyStart) NoticeCapsule(START_OF_HISTORY)
         notices.forEach { NoticeCapsule(it) }
     }
@@ -226,7 +232,28 @@ private fun NoticeCapsule(text: String) {
     }
 }
 
+@Composable
+private fun FitToPhoneButton(onClick: () -> Unit) {
+    val theme = LocalAppTheme.current
+    Surface(
+        onClick = onClick,
+        shape = CircleShape,
+        color = theme.secondaryGroupedBackground,
+        border = BorderStroke(1.dp, theme.foreground.copy(alpha = BORDER_ALPHA)),
+        shadowElevation = 2.dp,
+    ) {
+        Text(
+            text = FIT_TO_PHONE,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.SemiBold,
+            color = theme.foreground,
+        )
+    }
+}
+
 private const val BACK_TO_LIVE = "Back to Live Output"
+private const val FIT_TO_PHONE = "Fit to Phone"
 private const val START_OF_HISTORY = "Start of history"
 private const val BORDER_ALPHA = 0.18f
 private val BUTTON_SIZE = 48.dp

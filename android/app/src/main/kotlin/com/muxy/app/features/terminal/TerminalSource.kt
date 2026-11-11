@@ -2,6 +2,7 @@ package com.muxy.app.features.terminal
 
 import com.muxy.app.features.terminal.images.TerminalImage
 import com.muxy.app.features.terminalkit.TerminalKeyStroke
+import kotlinx.coroutines.flow.StateFlow
 
 interface TerminalSourceListener {
     fun screenDidChange()
@@ -28,10 +29,19 @@ interface TerminalImageTarget {
     fun failureMessage(error: Throwable): String
 }
 
+interface TerminalFitTarget {
+    val canFit: StateFlow<Boolean>
+
+    suspend fun fit()
+}
+
 interface TerminalSource {
     var listener: TerminalSourceListener?
 
     val imageTarget: TerminalImageTarget?
+        get() = null
+
+    val fitTarget: TerminalFitTarget?
         get() = null
 
     fun frame(): TerminalFrame?
