@@ -3,6 +3,7 @@ package com.muxy.app.features.server.terminal
 import com.muxy.app.core.concurrency.attempt
 import com.muxy.app.core.logging.Log
 import com.muxy.app.features.terminal.TerminalCellPosition
+import com.muxy.app.features.terminal.TerminalFitTarget
 import com.muxy.app.features.terminal.TerminalFrame
 import com.muxy.app.features.terminal.TerminalGridSize
 import com.muxy.app.features.terminal.TerminalImageTarget
@@ -20,6 +21,9 @@ import com.muxy.app.networking.server.ServerTerminalChannel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import uniffi.muxy_mobile.MouseButton
 import uniffi.muxy_mobile.Screen
@@ -30,11 +34,21 @@ class SdkTerminalSource(
     private val serverName: () -> String,
     private val onViewportChange: () -> Unit,
 ) : TerminalSource,
-    TerminalImageTarget {
+    TerminalImageTarget,
+    TerminalFitTarget {
     override var listener: TerminalSourceListener? = null
 
     override val imageTarget: TerminalImageTarget
         get() = this
+
+    override val fitTarget: TerminalFitTarget
+        get() = this
+
+    private val mutableCanFit = MutableStateFlow(false)
+    override val canFit: StateFlow<Boolean> = mutableCanFit.asStateFlow()
+
+    var isFitted = false
+        private set
 
     var viewportSize: TerminalGridSize? = null
         private set
@@ -47,9 +61,13 @@ class SdkTerminalSource(
     private var requestedSize: TerminalGridSize? = null
     private var resizeJob: Job? = null
 
-    fun attach(channel: ServerTerminalChannel) {
+    fun attach(
+        channel: ServerTerminalChannel,
+        size: TerminalGridSize,
+    ) {
         this.channel = channel
-        readScreen(channel)
+        if (readScreen(channel).gridSize() == size) isFitted = true
+        updateFitAvailability()
         listener?.screenDidChange()
         fitToViewport()
     }
@@ -58,6 +76,7 @@ class SdkTerminalSource(
         val released = channel
         channel = null
         cancelFit()
+        updateFitAvailability()
         return released
     }
 
@@ -108,7 +127,21 @@ class SdkTerminalSource(
         if (viewportSize == size) return
         viewportSize = size
         onViewportChange()
+        updateFitAvailability()
         scheduleFit()
+    }
+
+    override suspend fun fit() {
+        val current = channel ?: return
+        val size = viewportSize ?: return
+        resizeJob?.cancel()
+        requestedSize = size
+        attempt { current.resize(size.columns, size.rows) }
+            .onFailure { if (channel === current) requestedSize = null }
+            .getOrThrow()
+        if (channel !== current) return
+        isFitted = true
+        updateFitAvailability()
     }
 
     override fun scroll(
@@ -133,11 +166,17 @@ class SdkTerminalSource(
         val latest = channel.screen()
         screen = latest
         cachedFrame = SdkFrameMapper.frame(latest)
+        updateFitAvailability()
         return latest
     }
 
+    private fun updateFitAvailability() {
+        val viewport = viewportSize
+        mutableCanFit.value = channel != null && !isFitted && viewport != null && screen?.gridSize() != viewport
+    }
+
     private fun scheduleFit() {
-        if (channel == null) return
+        if (channel == null || !isFitted) return
         resizeJob?.cancel()
         resizeJob =
             scope.launch {
@@ -147,12 +186,12 @@ class SdkTerminalSource(
     }
 
     private fun fitToViewport() {
+        if (!isFitted) return
         val current = channel ?: return
         val size = viewportSize ?: return
         if (size == requestedSize) return
         requestedSize = size
-        val shown = screen
-        if (shown != null && shown.columns.toInt() == size.columns && shown.rows.toInt() == size.rows) return
+        if (screen?.gridSize() == size) return
         scope.launch {
             attempt { current.resize(size.columns, size.rows) }
                 .onFailure { error ->
@@ -184,5 +223,7 @@ class SdkTerminalSource(
 
     private companion object {
         val RESIZE_DEBOUNCE = 120.milliseconds
+
+        fun Screen.gridSize(): TerminalGridSize = TerminalGridSize(columns.toInt(), rows.toInt())
     }
 }

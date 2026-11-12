@@ -33,3 +33,23 @@ struct TerminalNotice: View {
             .glassEffect(.regular, in: Capsule())
     }
 }
+
+struct FitToPhoneButton: View {
+    let action: () -> Void
+
+    @Environment(\.appTheme) private var theme
+
+    var body: some View {
+        Button(action: action) {
+            Label("Fit to Phone", systemImage: "arrow.down.right.and.arrow.up.left")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(theme.foreground)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .glassEffect(.regular.interactive(), in: Capsule())
+        .accessibilityHint("Resizes the terminal on your computer to fit this phone")
+    }
+}

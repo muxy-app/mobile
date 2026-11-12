@@ -50,6 +50,7 @@ final class TerminalController: Identifiable, TabStripItem {
     private(set) var historyReachedStart = false
     private(set) var isAtHistoryTop = false
     private(set) var sendingImagesNotice: String?
+    private(set) var canFitToPhone = false
 
     @ObservationIgnored weak var server: ServerController?
     @ObservationIgnored weak var display: (any TerminalDisplay)?
@@ -58,6 +59,7 @@ final class TerminalController: Identifiable, TabStripItem {
     @ObservationIgnored private(set) var cachedScreen: Screen?
     @ObservationIgnored private(set) var viewportSize: TerminalGridSize?
     @ObservationIgnored private var requestedSize: TerminalGridSize?
+    @ObservationIgnored private(set) var isFitted = false
     @ObservationIgnored private var resizeTask: Task<Void, Never>?
     @ObservationIgnored private(set) var history: HistoryDocument?
     @ObservationIgnored private var historyPrefetch: ScrollbackRequest?
@@ -121,6 +123,7 @@ final class TerminalController: Identifiable, TabStripItem {
         guard let channel else { return cachedScreen }
         let screen = channel.screen()
         cachedScreen = screen
+        updateFitAvailability()
         return screen
     }
 
@@ -129,7 +132,23 @@ final class TerminalController: Identifiable, TabStripItem {
         guard viewportSize != size else { return }
         viewportSize = size
         server?.viewportDidChange(of: self)
+        updateFitAvailability()
         scheduleFit()
+    }
+
+    func fitToPhone() {
+        guard let channel, let size = viewportSize else { return }
+        resizeTask?.cancel()
+        requestedSize = size
+        Task { [weak self] in
+            do {
+                try await channel.resize(to: size)
+                self?.didFit(on: channel)
+            } catch {
+                Log.terminal.error("Fit to phone failed: \(String(describing: ServerFailure(error)), privacy: .public)")
+                self?.fitDidFail(on: channel)
+            }
+        }
     }
 
     func assign(sessionID: UInt64, title: String) {
@@ -149,13 +168,17 @@ final class TerminalController: Identifiable, TabStripItem {
         phase = .attaching
     }
 
-    func didAttach(_ channel: any ServerTerminalChannel) {
+    func didAttach(_ channel: any ServerTerminalChannel, size: TerminalGridSize) {
         self.channel = channel
         phase = .live
         let screen = channel.screen()
         cachedScreen = screen
+        if screen.gridSize == size {
+            isFitted = true
+        }
         updateDirectory(from: screen)
         display?.screenNeedsRefresh()
+        updateFitAvailability()
         fitToViewport()
     }
 
@@ -366,7 +389,7 @@ final class TerminalController: Identifiable, TabStripItem {
     }
 
     private func scheduleFit() {
-        guard channel != nil else { return }
+        guard channel != nil, isFitted else { return }
         resizeTask?.cancel()
         resizeTask = Task { [weak self] in
             try? await Task.sleep(for: Self.resizeDebounce)
@@ -376,9 +399,9 @@ final class TerminalController: Identifiable, TabStripItem {
     }
 
     private func fitToViewport() {
-        guard let channel, let size = viewportSize, size != requestedSize else { return }
+        guard isFitted, let channel, let size = viewportSize, size != requestedSize else { return }
         requestedSize = size
-        if let screen = cachedScreen, screen.columns == size.columns, screen.rows == size.rows { return }
+        if cachedScreen?.gridSize == size { return }
         Task { [weak self] in
             do {
                 try await channel.resize(to: size)
@@ -394,10 +417,29 @@ final class TerminalController: Identifiable, TabStripItem {
         requestedSize = nil
     }
 
+    private func didFit(on fittedChannel: any ServerTerminalChannel) {
+        guard channel === fittedChannel else { return }
+        isFitted = true
+        updateFitAvailability()
+    }
+
+    private func fitDidFail(on failedChannel: any ServerTerminalChannel) {
+        guard channel === failedChannel else { return }
+        requestedSize = nil
+        show(notice: Self.fitFailedNotice)
+    }
+
+    private func updateFitAvailability() {
+        let available = channel != nil && !isFitted && viewportSize != nil && cachedScreen?.gridSize != viewportSize
+        guard canFitToPhone != available else { return }
+        canFitToPhone = available
+    }
+
     private func cancelFit() {
         resizeTask?.cancel()
         resizeTask = nil
         requestedSize = nil
+        updateFitAvailability()
     }
 
     private func openHistory(with snapshot: any ScrollbackSnapshot) -> HistoryDocument {
@@ -463,6 +505,7 @@ final class TerminalController: Identifiable, TabStripItem {
     static let busySendingImagesNotice = "Still sending the previous images."
     static let unreadableImageNotice = "That image can't be sent."
     static let imageTooLargeNotice = "That image is too large to send. The limit is 100 MB."
+    static let fitFailedNotice = "Couldn't fit the terminal to this phone."
 
     private static func defaultTitle(for sessionID: UInt64?, directory: String) -> String {
         let folder = DisplayPath.folderName(directory)
@@ -478,6 +521,10 @@ final class TerminalController: Identifiable, TabStripItem {
 extension Screen {
     var readsScrolling: Bool {
         mouseTracking || alternateScroll
+    }
+
+    var gridSize: TerminalGridSize {
+        TerminalGridSize(columns: columns, rows: rows)
     }
 }
 

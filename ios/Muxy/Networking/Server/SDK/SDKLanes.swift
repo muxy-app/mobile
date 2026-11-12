@@ -20,6 +20,10 @@ nonisolated final class SDKLanes: Sendable {
         try await perform(work, on: requests)
     }
 
+    func inputRequest<Value: Sendable>(_ work: @escaping @Sendable () throws -> Value) async throws -> Value {
+        try await perform(work, on: input)
+    }
+
     func fileRequest<Value: Sendable>(_ work: @escaping @Sendable () throws -> Value) async throws -> Value {
         try await perform(work, on: files)
     }

@@ -67,7 +67,7 @@ struct TerminalSurfaceViewportTests {
 
     private func expectViewportPreparation(_ action: (TerminalController) -> Void) {
         let controller = TerminalController(projectID: "muxy", sessionID: 1, server: server)
-        controller.didAttach(FakeTerminalChannel(sessionId: 1, screen: Fixtures.screen()))
+        controller.didAttach(FakeTerminalChannel(sessionId: 1, screen: Fixtures.screen()), size: TerminalGridSize(columns: 80, rows: 24))
         let display = ViewportDisplayRecorder()
         controller.display = display
         controller.setFollowing(false)

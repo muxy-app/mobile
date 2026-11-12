@@ -92,9 +92,12 @@ class ServerTerminal(
         mutablePhase.value = ServerTerminalPhase.Attaching
     }
 
-    fun didAttach(channel: ServerTerminalChannel) {
+    fun didAttach(
+        channel: ServerTerminalChannel,
+        size: TerminalGridSize,
+    ) {
         mutablePhase.value = ServerTerminalPhase.Live
-        source.attach(channel)
+        source.attach(channel, size)
         mutableHasScreen.value = true
         updateDirectory()
     }

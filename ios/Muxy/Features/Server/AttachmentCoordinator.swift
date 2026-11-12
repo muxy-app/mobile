@@ -84,7 +84,7 @@ final class AttachmentCoordinator {
                 terminal.attachWasInterrupted()
                 return
             }
-            terminal.didAttach(channel)
+            terminal.didAttach(channel, size: size)
             attached = terminal
             server?.terminalDidAttach(terminal)
         } catch {
