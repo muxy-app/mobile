@@ -11,11 +11,15 @@ class TerminalViewportState {
         private set
 
     private var followsCursor = false
+    private var needsBottomPlacement = false
 
     val needsCursorPlacement: Boolean
         get() = followsCursor && keyboardOffset > 0f
 
-    fun updateKeyboardOffset(offset: Float) {
+    fun updateKeyboardOffset(
+        offset: Float,
+        isAtBottom: Boolean = false,
+    ) {
         val previousKeyboardOffset = keyboardOffset
         val wasAboveKeyboard = previousKeyboardOffset > 0f && abs(viewportOffset - previousKeyboardOffset) <= HALF_PIXEL
         keyboardOffset = maxOf(0f, offset)
@@ -25,7 +29,8 @@ class TerminalViewportState {
             return
         }
         if (previousKeyboardOffset == 0f) followCursor()
-        val raisedOffset = if (wasAboveKeyboard && !followsCursor) keyboardOffset else viewportOffset
+        needsBottomPlacement = isAtBottom && followsCursor
+        val raisedOffset = if (wasAboveKeyboard && (isAtBottom || !followsCursor)) keyboardOffset else viewportOffset
         viewportOffset = minOf(raisedOffset, keyboardOffset)
     }
 
@@ -36,7 +41,14 @@ class TerminalViewportState {
         if (!needsCursorPlacement || frame == null || viewportHeight <= 0f) return
         viewportOffset = minOf(viewportOffset, keyboardOffset)
         if (frame.bottom <= 0f || frame.top >= viewportHeight) return
-        viewportOffset = revealingOffset(frame, viewportOffset, viewportHeight - keyboardOffset, keyboardOffset)
+        val nextOffset = revealingOffset(frame, viewportOffset, viewportHeight - keyboardOffset, keyboardOffset)
+        viewportOffset =
+            if (needsBottomPlacement && nextOffset > viewportOffset) {
+                frame.top.coerceIn(0f, keyboardOffset)
+            } else {
+                nextOffset
+            }
+        needsBottomPlacement = false
     }
 
     fun followCursor() {
@@ -45,6 +57,7 @@ class TerminalViewportState {
 
     fun stopFollowingCursor() {
         followsCursor = false
+        needsBottomPlacement = false
     }
 
     fun consume(delta: Float): Float {

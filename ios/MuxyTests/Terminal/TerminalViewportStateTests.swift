@@ -173,4 +173,79 @@ struct TerminalViewportStateTests {
         state.updateKeyboardOffset(100)
         #expect(state.viewportOffset == 100)
     }
+
+    @Test(arguments: [CGFloat(8), 20, 60])
+    func openingTheKeyboardPreservesBottomBelowTheCursor(gap: CGFloat) {
+        var state = TerminalViewportState()
+        state.updateKeyboardOffset(300, isAtBottom: true)
+        state.placeCursor(in: bottomCursor.offsetBy(dx: 0, dy: -gap), viewportHeight: 600)
+        #expect(state.viewportOffset == 300)
+    }
+
+    @Test func followingAtBottomTracksKeyboardHeightChanges() {
+        var state = TerminalViewportState()
+        let cursor = bottomCursor.offsetBy(dx: 0, dy: -20)
+        for height: CGFloat in [100, 240, 300, 310, 320, 350, 280] {
+            state.updateKeyboardOffset(height, isAtBottom: true)
+            state.placeCursor(in: cursor, viewportHeight: 600)
+            #expect(state.viewportOffset == height)
+        }
+    }
+
+    @Test func keyboardHeightChangesPreserveAManuallyDetachedViewportAtLiveBottom() {
+        var state = TerminalViewportState()
+        state.updateKeyboardOffset(300, isAtBottom: true)
+        state.placeCursor(in: bottomCursor, viewportHeight: 600)
+        _ = state.consume(-80)
+        state.updateKeyboardOffset(350, isAtBottom: true)
+        state.placeCursor(in: bottomCursor, viewportHeight: 600)
+        #expect(state.viewportOffset == 220)
+        #expect(!state.needsCursorPlacement)
+    }
+
+    @Test func reopeningTheKeyboardRestoresBottomAnchoring() {
+        var state = TerminalViewportState()
+        let cursor = bottomCursor.offsetBy(dx: 0, dy: -20)
+        for height: CGFloat in [300, 0, 300] {
+            state.updateKeyboardOffset(height, isAtBottom: true)
+            state.placeCursor(in: cursor, viewportHeight: 600)
+            #expect(state.viewportOffset == height)
+        }
+    }
+
+    @Test func aCursorMovingAboveTheRaisedViewportRemainsVisible() {
+        var state = TerminalViewportState()
+        state.updateKeyboardOffset(300, isAtBottom: true)
+        state.placeCursor(in: bottomCursor, viewportHeight: 600)
+        state.placeCursor(in: CGRect(x: 0, y: 100, width: 10, height: 20), viewportHeight: 600)
+        #expect(state.viewportOffset == 100)
+    }
+
+    @Test(arguments: [CGFloat(0), 100, 280])
+    func openingTheKeyboardAtBottomDoesNotMoveAnAlreadyVisibleCursor(y: CGFloat) {
+        var state = TerminalViewportState()
+        state.updateKeyboardOffset(300, isAtBottom: true)
+        state.placeCursor(in: CGRect(x: 0, y: y, width: 10, height: 20), viewportHeight: 600)
+        #expect(state.viewportOffset == 0)
+    }
+
+    @Test func animatedKeyboardOpeningPreservesBottomOnceTheCursorIsCovered() {
+        var state = TerminalViewportState()
+        let cursor = bottomCursor.offsetBy(dx: 0, dy: -20)
+        for height: CGFloat in [5, 10, 20, 30, 100, 300, 310, 320] {
+            state.updateKeyboardOffset(height, isAtBottom: true)
+            state.placeCursor(in: cursor, viewportHeight: 600)
+            #expect(state.viewportOffset == (height <= 20 ? 0 : height))
+        }
+    }
+
+    @Test func cursorMovementAfterKeyboardOpeningOnlyScrollsEnoughToStayVisible() {
+        var state = TerminalViewportState()
+        state.updateKeyboardOffset(300, isAtBottom: true)
+        state.placeCursor(in: CGRect(x: 0, y: 100, width: 10, height: 20), viewportHeight: 600)
+        state.placeCursor(in: CGRect(x: 0, y: 320, width: 10, height: 20), viewportHeight: 600)
+        #expect(state.viewportOffset == 40)
+        state.placeCursor(in: CGRect(x: 0, y: 340, width: 10, height: 20), viewportHeight: 600)
+        #expect(state.viewportOffset == 60)
+    }
 }

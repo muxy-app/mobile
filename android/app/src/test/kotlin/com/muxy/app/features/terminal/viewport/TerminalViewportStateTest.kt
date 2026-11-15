@@ -184,4 +184,86 @@ class TerminalViewportStateTest {
         state.updateKeyboardOffset(100f)
         assertEquals(100f, state.viewportOffset)
     }
+
+    @Test
+    fun openingTheKeyboardPreservesBottomBelowTheCursor() {
+        listOf(8f, 20f, 60f).forEach { gap ->
+            val state = TerminalViewportState()
+            state.updateKeyboardOffset(300f, isAtBottom = true)
+            state.placeCursor(cursorAt(580f - gap), 600f)
+            assertEquals(300f, state.viewportOffset)
+        }
+    }
+
+    @Test
+    fun followingAtBottomTracksKeyboardHeightChanges() {
+        val state = TerminalViewportState()
+        listOf(100f, 240f, 300f, 310f, 320f, 350f, 280f).forEach { height ->
+            state.updateKeyboardOffset(height, isAtBottom = true)
+            state.placeCursor(cursorAt(560f), 600f)
+            assertEquals(height, state.viewportOffset)
+        }
+    }
+
+    @Test
+    fun keyboardHeightChangesPreserveAManuallyDetachedViewportAtLiveBottom() {
+        val state = TerminalViewportState()
+        state.updateKeyboardOffset(300f, isAtBottom = true)
+        state.placeCursor(bottomCursor, 600f)
+        state.consume(-80f)
+        state.updateKeyboardOffset(350f, isAtBottom = true)
+        state.placeCursor(bottomCursor, 600f)
+        assertEquals(220f, state.viewportOffset)
+        assertFalse(state.needsCursorPlacement)
+    }
+
+    @Test
+    fun reopeningTheKeyboardRestoresBottomAnchoring() {
+        val state = TerminalViewportState()
+        listOf(300f, 0f, 300f).forEach { height ->
+            state.updateKeyboardOffset(height, isAtBottom = true)
+            state.placeCursor(cursorAt(560f), 600f)
+            assertEquals(height, state.viewportOffset)
+        }
+    }
+
+    @Test
+    fun aCursorMovingAboveTheRaisedViewportRemainsVisible() {
+        val state = TerminalViewportState()
+        state.updateKeyboardOffset(300f, isAtBottom = true)
+        state.placeCursor(bottomCursor, 600f)
+        state.placeCursor(cursorAt(100f), 600f)
+        assertEquals(100f, state.viewportOffset)
+    }
+
+    @Test
+    fun openingTheKeyboardAtBottomDoesNotMoveAnAlreadyVisibleCursor() {
+        listOf(0f, 100f, 280f).forEach { y ->
+            val state = TerminalViewportState()
+            state.updateKeyboardOffset(300f, isAtBottom = true)
+            state.placeCursor(cursorAt(y), 600f)
+            assertEquals(0f, state.viewportOffset)
+        }
+    }
+
+    @Test
+    fun animatedKeyboardOpeningPreservesBottomOnceTheCursorIsCovered() {
+        val state = TerminalViewportState()
+        listOf(5f, 10f, 20f, 30f, 100f, 300f, 310f, 320f).forEach { height ->
+            state.updateKeyboardOffset(height, isAtBottom = true)
+            state.placeCursor(cursorAt(560f), 600f)
+            assertEquals(if (height <= 20f) 0f else height, state.viewportOffset)
+        }
+    }
+
+    @Test
+    fun cursorMovementAfterKeyboardOpeningOnlyScrollsEnoughToStayVisible() {
+        val state = TerminalViewportState()
+        state.updateKeyboardOffset(300f, isAtBottom = true)
+        state.placeCursor(cursorAt(100f), 600f)
+        state.placeCursor(cursorAt(320f), 600f)
+        assertEquals(40f, state.viewportOffset)
+        state.placeCursor(cursorAt(340f), 600f)
+        assertEquals(60f, state.viewportOffset)
+    }
 }

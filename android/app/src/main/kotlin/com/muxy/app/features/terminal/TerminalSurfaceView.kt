@@ -25,6 +25,7 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.unit.IntSize
 import androidx.core.graphics.withClip
+import com.muxy.app.core.logging.Log
 import com.muxy.app.core.text.Graphemes
 import com.muxy.app.design.ThemeCatalog
 import com.muxy.app.design.ThemePalette
@@ -150,8 +151,10 @@ class TerminalSurfaceView(
         if (abs(next - viewport.keyboardOffset) <= HALF_PIXEL) return
         stopMomentum()
         historyPullDistance = 0f
-        viewport.updateKeyboardOffset(next)
+        val isAtBottom = isScrolledToBottom()
+        viewport.updateKeyboardOffset(next, isAtBottom = isAtBottom)
         placeCursorAboveKeyboard()
+        Log.terminal.debug("keyboard overlap=$next viewport offset=${viewport.viewportOffset} at bottom=$isAtBottom")
         invalidate()
     }
 

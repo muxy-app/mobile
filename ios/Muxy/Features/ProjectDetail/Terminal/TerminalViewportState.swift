@@ -5,6 +5,7 @@ struct TerminalViewportState {
     private(set) var viewportOffset: CGFloat = 0
 
     private var followsCursor = false
+    private var needsBottomPlacement = false
 
     var needsCursorPlacement: Bool {
         followsCursor && keyboardOffset > 0
@@ -22,7 +23,7 @@ struct TerminalViewportState {
         return min(bounds.height, overlap + keyboardSpacing)
     }
 
-    mutating func updateKeyboardOffset(_ offset: CGFloat) {
+    mutating func updateKeyboardOffset(_ offset: CGFloat, isAtBottom: Bool = false) {
         let previousKeyboardOffset = keyboardOffset
         let wasAboveKeyboard = previousKeyboardOffset > 0
             && abs(viewportOffset - previousKeyboardOffset) <= 0.5
@@ -35,7 +36,8 @@ struct TerminalViewportState {
         if previousKeyboardOffset == 0 {
             followCursor()
         }
-        let raisedOffset = wasAboveKeyboard && !followsCursor ? keyboardOffset : viewportOffset
+        needsBottomPlacement = isAtBottom && followsCursor
+        let raisedOffset = wasAboveKeyboard && (isAtBottom || !followsCursor) ? keyboardOffset : viewportOffset
         viewportOffset = min(raisedOffset, keyboardOffset)
     }
 
@@ -43,12 +45,16 @@ struct TerminalViewportState {
         guard needsCursorPlacement, let frame, viewportHeight > 0 else { return }
         viewportOffset = min(viewportOffset, keyboardOffset)
         guard frame.maxY > 0, frame.minY < viewportHeight else { return }
-        viewportOffset = Self.revealingOffset(
+        let nextOffset = Self.revealingOffset(
             for: frame,
             current: viewportOffset,
             visibleHeight: viewportHeight - keyboardOffset,
             limit: keyboardOffset
         )
+        viewportOffset = needsBottomPlacement && nextOffset > viewportOffset
+            ? min(keyboardOffset, max(0, frame.minY))
+            : nextOffset
+        needsBottomPlacement = false
     }
 
     static func revealingOffset(for frame: CGRect, current: CGFloat, visibleHeight: CGFloat, limit: CGFloat) -> CGFloat {
@@ -63,6 +69,7 @@ struct TerminalViewportState {
 
     mutating func stopFollowingCursor() {
         followsCursor = false
+        needsBottomPlacement = false
     }
 
     mutating func captureRenderedOffset(_ offset: CGFloat) {
