@@ -184,7 +184,7 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate, UIGestureRecogniz
         stopMomentum()
         historyPullDistance = 0
         scrollView.setContentOffset(scrollView.contentOffset, animated: false)
-        viewportState.updateKeyboardOffset(nextOffset)
+        viewportState.updateKeyboardOffset(nextOffset, isAtBottom: isScrolledToBottom)
         reportKeyboardOffset(nextOffset)
         Log.terminal.debug("keyboard overlap=\(nextOffset, privacy: .public)")
     }

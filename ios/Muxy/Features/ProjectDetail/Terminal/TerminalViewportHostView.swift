@@ -180,7 +180,7 @@ final class TerminalViewportHostView: UIView, UIGestureRecognizerDelegate {
         let nextOffset = TerminalViewportState.keyboardOverlap(in: bounds, keyboardFrame: keyboardLayoutGuide.layoutFrame)
         if abs(nextOffset - viewportState.keyboardOffset) > 0.5 {
             stopMomentum()
-            viewportState.updateKeyboardOffset(nextOffset)
+            viewportState.updateKeyboardOffset(nextOffset, isAtBottom: TerminalScrollOffset.isAtBottom(terminalView))
             reportKeyboardOffset(nextOffset)
             Log.terminal.debug("keyboard overlap=\(nextOffset, privacy: .public)")
         }
