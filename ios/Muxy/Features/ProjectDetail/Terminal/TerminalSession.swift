@@ -65,11 +65,6 @@ final class TerminalSession: TerminalIO, TerminalScrollForwarding {
         reportResize(cols: cols, rows: rows)
     }
 
-    @discardableResult
-    func dismissKeyboard() -> Bool {
-        view?.resignFirstResponder() ?? false
-    }
-
     var canCopySelection: Bool {
         guard let selection = view?.getSelection() else { return false }
         return !selection.isEmpty

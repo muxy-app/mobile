@@ -130,6 +130,7 @@ private struct TerminalSurfaceRepresentable: UIViewRepresentable {
         view.onKeyboardOffsetChange = onKeyboardOffsetChange
         view.onPickImages = onPickImages
         view.update(theme: palette, useNerdFont: useNerdFont, autoFocus: autoFocus, isActive: isActive)
+        view.alignAccessory(toPager: context.environment.tabPagerFrame)
         return view
     }
 
@@ -137,6 +138,7 @@ private struct TerminalSurfaceRepresentable: UIViewRepresentable {
         view.onKeyboardOffsetChange = onKeyboardOffsetChange
         view.onPickImages = onPickImages
         view.update(theme: palette, useNerdFont: useNerdFont, autoFocus: autoFocus, isActive: isActive)
+        view.alignAccessory(toPager: context.environment.tabPagerFrame)
     }
 
     static func dismantleUIView(_ view: TerminalSurfaceView, coordinator: ()) {

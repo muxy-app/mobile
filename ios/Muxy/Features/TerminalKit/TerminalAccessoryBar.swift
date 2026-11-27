@@ -112,11 +112,10 @@ final class TerminalAccessoryBar: UIInputView {
         model.syncActiveModifier(modifier)
     }
 
-    func alignContent(toPageOf view: UIView) {
-        guard let space = view.window?.windowScene?.screen.coordinateSpace else { return }
-        let page = view.convert(view.bounds, to: space).insetBy(dx: -TerminalViewportState.pageOutset, dy: 0)
-        guard page != alignedPage else { return }
-        alignedPage = page
+    func alignContent(toPage page: CGRect?, in window: UIWindow?) {
+        let screenPage = Self.screenRect(of: page, in: window)
+        guard screenPage != alignedPage else { return }
+        alignedPage = screenPage
         setNeedsLayout()
     }
 
@@ -168,10 +167,29 @@ final class TerminalAccessoryBar: UIInputView {
     }
 
     private func applyContentInsets() {
-        guard let page = alignedPage, let space = window?.windowScene?.screen.coordinateSpace else { return }
-        let frame = convert(bounds, to: space)
-        contentLeading.constant = max(0, page.minX - frame.minX)
-        contentTrailing.constant = -max(0, frame.maxX - page.maxX)
+        let insets = TerminalAccessoryInsets(page: alignedPage, bar: Self.screenRect(of: bounds, in: self))
+        contentLeading.constant = insets.leading
+        contentTrailing.constant = -insets.trailing
+    }
+
+    private static func screenRect(of rect: CGRect?, in view: UIView?) -> CGRect? {
+        guard let rect, let view, let space = view.window?.windowScene?.screen.coordinateSpace else { return nil }
+        return view.convert(rect, to: space)
+    }
+}
+
+nonisolated struct TerminalAccessoryInsets: Equatable {
+    let leading: CGFloat
+    let trailing: CGFloat
+
+    init(page: CGRect?, bar: CGRect?) {
+        guard let page, let bar else {
+            leading = 0
+            trailing = 0
+            return
+        }
+        leading = max(0, page.minX - bar.minX)
+        trailing = max(0, bar.maxX - page.maxX)
     }
 }
 

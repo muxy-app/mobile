@@ -23,8 +23,6 @@ protocol TerminalIO: AnyObject {
     func setTitle(_ title: String)
     func userScrolled(toPosition position: Double)
     func requestJumpToBottom()
-    @discardableResult
-    func dismissKeyboard() -> Bool
 }
 
 @MainActor

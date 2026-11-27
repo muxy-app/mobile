@@ -16,7 +16,6 @@ struct TerminalTabView: View {
             .onChange(of: appTheme) { _, newValue in
                 session.useClientTheme(ClientTerminalTheme(palette: newValue.terminalPalette))
             }
-            .onDisappear { session.dismissKeyboard() }
     }
 
     private var terminalSurface: some View {

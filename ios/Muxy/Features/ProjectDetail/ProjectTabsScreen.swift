@@ -72,6 +72,7 @@ struct ProjectTabsScreen<Item: TabStripItem, Page: View>: View where Item.ID == 
             }
         }
         .tabViewStyle(.page(indexDisplayMode: .never))
+        .tabPager()
     }
 
     @ViewBuilder

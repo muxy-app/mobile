@@ -19,6 +19,7 @@ nonisolated enum PageMargin {
 
 extension EnvironmentValues {
     @Entry var isActiveTabPage = true
+    @Entry var tabPagerFrame: CGRect?
 }
 
 extension View {
@@ -26,6 +27,10 @@ extension View {
         padding(.horizontal, PageMargin.horizontal)
             .padding(.top, 8)
             .environment(\.isActiveTabPage, isActive)
+    }
+
+    func tabPager() -> some View {
+        modifier(TabPagerFrameReader())
     }
 
     func keyboardIsland(bottomInset: CGFloat, background: Color) -> some View {
@@ -45,6 +50,16 @@ extension View {
         background(theme.groupedBackground.ignoresSafeArea())
             .toolbarBackground(theme.groupedBackground, for: .navigationBar)
             .toolbarBackgroundVisibility(.visible, for: .navigationBar)
+    }
+}
+
+private struct TabPagerFrameReader: ViewModifier {
+    @State private var frame: CGRect?
+
+    func body(content: Content) -> some View {
+        content
+            .environment(\.tabPagerFrame, frame)
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame = $0 }
     }
 }
 

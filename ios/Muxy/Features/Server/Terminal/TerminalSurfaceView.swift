@@ -57,6 +57,7 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate, UIGestureRecogniz
 
     private var autoFocus = false
     private var isActive = false
+    private var pagerFrame: CGRect?
 
     init(controller: TerminalController, theme: ThemePalette, useNerdFont: Bool) {
         self.controller = controller
@@ -89,6 +90,11 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate, UIGestureRecogniz
         applyTheme()
     }
 
+    func alignAccessory(toPager frame: CGRect?) {
+        pagerFrame = frame
+        accessoryBar.alignContent(toPage: frame, in: window)
+    }
+
     func detachFromController() {
         guard controller.display === self else { return }
         controller.display = nil
@@ -102,9 +108,11 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate, UIGestureRecogniz
             historyPullDistance = 0
             displayLink?.stop()
             displayLink = nil
+            Log.terminal.debug("focus: surface left window, active=\(self.isActive, privacy: .public)")
             input.resignFirstResponder()
             return
         }
+        accessoryBar.alignContent(toPage: pagerFrame, in: window)
         let link = DisplayLinkDriver { [weak self] in self?.renderFrame() }
         link.start()
         displayLink = link
@@ -116,7 +124,7 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate, UIGestureRecogniz
 
     private func syncFocus() {
         guard window != nil, isActive else {
-            if input.isFirstResponder { input.resignFirstResponder() }
+            releaseFocusUnlessTakenOver()
             return
         }
         guard !input.isFirstResponder else { return }
@@ -124,13 +132,23 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate, UIGestureRecogniz
             transition.animate(alongsideTransition: nil) { [weak self] _ in self?.syncFocus() }
             return
         }
+        Log.terminal.debug("focus: surface became active, taking first responder")
         input.becomeFirstResponder()
+    }
+
+    private func releaseFocusUnlessTakenOver() {
+        guard input.isFirstResponder else { return }
+        DispatchQueue.main.async { [weak self] in
+            guard let self, !self.isActive, self.input.isFirstResponder else { return }
+            Log.terminal.debug("focus: no terminal took over, surface resigning first responder")
+            self.input.resignFirstResponder()
+        }
     }
 
     override func layoutSubviews() {
         super.layoutSubviews()
         guard bounds.width > 0, bounds.height > 0 else { return }
-        accessoryBar.alignContent(toPageOf: self)
+        accessoryBar.alignContent(toPage: pagerFrame, in: window)
         syncKeyboardOffset()
         positionKeyboardOcclusion()
         guard lockTerminalSizeIfStable() else { return }
