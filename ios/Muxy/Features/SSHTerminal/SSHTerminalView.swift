@@ -44,6 +44,7 @@ struct SSHTerminalView: View {
             }
         }
         .tabViewStyle(.page(indexDisplayMode: .never))
+        .tabPager()
     }
 
     private var emptyState: some View {

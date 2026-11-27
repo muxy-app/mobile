@@ -21,6 +21,7 @@ struct TerminalViewContainer: UIViewRepresentable {
         host.onKeyboardOffsetChange = onKeyboardOffsetChange
         view.autoFocusTerminal = autoFocusTerminal
         view.isActiveTab = isActive
+        view.alignAccessory(toPager: context.environment.tabPagerFrame)
         view.onUserScroll = { [weak coordinator = context.coordinator] position in
             coordinator?.userScrolled(toPosition: position)
         }
@@ -41,6 +42,7 @@ struct TerminalViewContainer: UIViewRepresentable {
         session.terminalDidLayout()
         view.autoFocusTerminal = autoFocusTerminal
         view.isActiveTab = isActive
+        view.alignAccessory(toPager: context.environment.tabPagerFrame)
         if context.coordinator.appliedTheme != theme {
             apply(theme: theme, to: view)
             host.applyBackgroundColor(theme.background)
@@ -120,6 +122,7 @@ final class FollowAwareTerminalView: TerminalView {
     weak var viewportHost: TerminalViewportHostView?
 
     private let accessoryBar = TerminalAccessoryBar()
+    private var pagerFrame: CGRect?
     private var keyboardHidden = false
     private var protectedContentOffset: CGPoint?
     private var contentOffsetProtectionDepth = 0
@@ -204,13 +207,22 @@ final class FollowAwareTerminalView: TerminalView {
         }
     }
 
+    func alignAccessory(toPager frame: CGRect?) {
+        guard frame != pagerFrame else { return }
+        pagerFrame = frame
+        accessoryBar.alignContent(toPage: frame, in: window)
+    }
+
     func refreshCopyAvailability() {
         accessoryBar.setCanCopySelection(session?.canCopySelection ?? false)
     }
 
     override func didMoveToWindow() {
         super.didMoveToWindow()
-        guard window != nil else { return }
+        guard window != nil else {
+            Log.terminal.debug("focus: tab left window, active=\(self.isActiveTab, privacy: .public)")
+            return
+        }
         keyboardHidden = !autoFocusTerminal
         accessoryBar.setKeyboardVisible(!keyboardHidden)
         inputView = keyboardHidden ? hiddenKeyboardPlaceholder : nil
@@ -219,7 +231,7 @@ final class FollowAwareTerminalView: TerminalView {
 
     private func syncFocus() {
         guard window != nil, isActiveTab else {
-            if isFirstResponder { _ = resignFirstResponder() }
+            releaseFocusUnlessTakenOver()
             return
         }
         guard !isFirstResponder else { return }
@@ -227,12 +239,22 @@ final class FollowAwareTerminalView: TerminalView {
             transition.animate(alongsideTransition: nil) { [weak self] _ in self?.syncFocus() }
             return
         }
+        Log.terminal.debug("focus: tab became active, taking first responder")
         _ = becomeFirstResponder()
+    }
+
+    private func releaseFocusUnlessTakenOver() {
+        guard isFirstResponder else { return }
+        DispatchQueue.main.async { [weak self] in
+            guard let self, !self.isActiveTab, self.isFirstResponder else { return }
+            Log.terminal.debug("focus: no terminal took over, tab resigning first responder")
+            _ = self.resignFirstResponder()
+        }
     }
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        accessoryBar.alignContent(toPageOf: self)
+        accessoryBar.alignContent(toPage: pagerFrame, in: window)
         session?.terminalDidLayout()
     }
 
