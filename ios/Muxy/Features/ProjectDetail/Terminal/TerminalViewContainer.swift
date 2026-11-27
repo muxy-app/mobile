@@ -208,7 +208,6 @@ final class FollowAwareTerminalView: TerminalView {
     }
 
     func alignAccessory(toPager frame: CGRect?) {
-        guard frame != pagerFrame else { return }
         pagerFrame = frame
         accessoryBar.alignContent(toPage: frame, in: window)
     }
@@ -223,6 +222,7 @@ final class FollowAwareTerminalView: TerminalView {
             Log.terminal.debug("focus: tab left window, active=\(self.isActiveTab, privacy: .public)")
             return
         }
+        accessoryBar.alignContent(toPage: pagerFrame, in: window)
         keyboardHidden = !autoFocusTerminal
         accessoryBar.setKeyboardVisible(!keyboardHidden)
         inputView = keyboardHidden ? hiddenKeyboardPlaceholder : nil

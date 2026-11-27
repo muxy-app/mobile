@@ -91,7 +91,6 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate, UIGestureRecogniz
     }
 
     func alignAccessory(toPager frame: CGRect?) {
-        guard frame != pagerFrame else { return }
         pagerFrame = frame
         accessoryBar.alignContent(toPage: frame, in: window)
     }
@@ -113,6 +112,7 @@ final class TerminalSurfaceView: UIView, UIScrollViewDelegate, UIGestureRecogniz
             input.resignFirstResponder()
             return
         }
+        accessoryBar.alignContent(toPage: pagerFrame, in: window)
         let link = DisplayLinkDriver { [weak self] in self?.renderFrame() }
         link.start()
         displayLink = link

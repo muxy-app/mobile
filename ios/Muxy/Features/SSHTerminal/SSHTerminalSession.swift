@@ -80,11 +80,6 @@ final class SSHTerminalSession: TerminalIO {
         return !selection.isEmpty
     }
 
-    @discardableResult
-    func dismissKeyboard() -> Bool {
-        view?.resignFirstResponder() ?? false
-    }
-
     func sendBytes(_ slice: ArraySlice<UInt8>) {
         guard modifierArmed,
               let text = String(bytes: slice, encoding: .utf8),
